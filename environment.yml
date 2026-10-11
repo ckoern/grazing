@@ -1,0 +1,15 @@
+name: xstack
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy
+  - scipy
+  - lmfit
+  - xraylib
+  - pyside6
+  - pyqtgraph
+  - matplotlib
+  - pip
+  - pip:
+      - -e .[dev]

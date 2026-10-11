@@ -28,7 +28,7 @@ It comes from the atomic scattering factors f = f1 + i·f2 of the constituent at
 |---|---|---|
 | Henke / CXRO (`*.nff`) | 10 eV – 30 keV | Standard for soft and tender X-rays. Freely available, so it can be bundled. |
 | Chantler / NIST FFAST | 1 eV – 433 keV | Needed for hard X-ray MLs (e.g. W/Si, Pt/C up to 100+ keV) |
-| xraylib | broad | Python bindings. Optional dependency. |
+| xraylib | broad | **Used by xstack for E > 30 keV** (required dependency) |
 | User-tabulated n, k | any | For measured or ellipsometry data, or reactive or interdiffused compounds |
 
 - Interpolate f1, f2 on a log-log scale (or linearly in log E) between table points. Absorption edges need dense sampling.

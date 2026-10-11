@@ -130,8 +130,8 @@ class OpticalConstantsProvider(Protocol):
     def delta_beta(self, material: Material, energy_ev: np.ndarray) -> np.ndarray: ...  # complex δ+iβ
 ```
 
-Implementations: `HenkeProvider` (bundled, 10 eV–30 keV), `ChantlerProvider` / `XraylibProvider`
-(optional, hard X-ray), and `TabulatedProvider` (user n,k file). An `"auto"` provider picks one by
+Implementations: `HenkeProvider` (bundled, 10 eV–30 keV), `XraylibProvider`
+(E > 30 keV, required dependency), and `TabulatedProvider` (user n,k file). An `"auto"` provider picks one by
 energy range. A `MaterialLibrary` holds presets and user materials and memoizes (material, energy grid) → n.
 
 ### 3.3 Stack: the physical description
@@ -447,5 +447,4 @@ xs.io.export_recipe(result.best.stack, process, "recipe.csv")
 7. GUI (see `gui_design.md`)
 
 Tooling: `pyproject.toml` (src layout, hatchling), ruff, mypy (strict for core), pytest,
-hypothesis, pytest-benchmark. Optional extras: `xstack[gui]` (PySide6, pyqtgraph) and
-`xstack[hard]` (xraylib).
+hypothesis, pytest-benchmark. xraylib is a core dependency. Optional extra: `xstack[gui]` (PySide6, pyqtgraph).

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.benchmarks/
+.venv/
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.xstack.autosave

@@ -6,6 +6,9 @@ import math
 import numpy as np
 import pytest
 
+from xstack import materials
+from xstack.physics.models import ParrattModel
+from xstack.structure import Stack
 from xstack.targets import AngleScan, EnergyScan, Profile, TargetSet
 from xstack.units import deg, kev
 
@@ -278,3 +281,22 @@ class TestTargetSet:
         same = TargetSet([energy_scan(), energy_scan(weight=2.0)])
         assert hash(ts) == hash(same)
         assert ts == same
+
+
+class TestReflections:
+    def test_default_is_one(self) -> None:
+        assert energy_scan().reflections == 1
+        assert angle_scan().reflections == 1
+
+    @pytest.mark.parametrize("make", [energy_scan, angle_scan])
+    def test_zero_raises(self, make: object) -> None:
+        with pytest.raises(ValueError):
+            make(reflections=0)  # type: ignore[operator]
+
+    def test_two_reflections_squares_reflectivity(self) -> None:
+        si = materials.get("Si")
+        stack = Stack([], si)
+        model = ParrattModel()
+        one = model.evaluate(stack, angle_scan(points=7, reflections=1))
+        two = model.evaluate(stack, angle_scan(points=7, reflections=2))
+        np.testing.assert_allclose(two.reflectivity, one.reflectivity**2, rtol=1e-12)

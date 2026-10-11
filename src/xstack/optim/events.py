@@ -15,10 +15,12 @@ class ProgressEvent:
         task: Name of the running task, e.g. the stage name or the optimizer method.
         evaluations: Number of objective evaluations so far.
         total: Expected total number of evaluations, if known.
-        best_objective: Best objective value so far.
-        current_objective: Objective value of the latest evaluation.
+        best_objective: Best objective so far: the figure of merit plus constraint penalties.
+        current_objective: Objective of the latest evaluation.
         best_values: Parameter values of the best design so far.
         elapsed: Elapsed time in s.
+        best_merit: Figure of merit (without penalties) of the best design so far; ``nan`` if
+            that design could not be built.
     """
 
     task: str
@@ -28,6 +30,7 @@ class ProgressEvent:
     current_objective: float
     best_values: Mapping[str, float]
     elapsed: float
+    best_merit: float = float("nan")
 
 
 type EventSink = Callable[[ProgressEvent], None]

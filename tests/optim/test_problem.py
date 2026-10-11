@@ -211,9 +211,9 @@ class TestUnbuildable:
             N=10,
             d=free(4.0, 0.5, 5.0),
             gamma=0.4,
-            interlayers={"HonL": get("C"), "LonH": get("C")},
-            t_HonL=1.0,
-            t_LonH=1.0,
+            interlayers={"interlayer_H_on_L": get("C"), "interlayer_L_on_H": get("C")},
+            t_interlayer_H_on_L=1.0,
+            t_interlayer_L_on_H=1.0,
         )
         problem = DesignProblem(
             Mirror(coating, SI), make_problem().targets, MeanReflectivity(), hard_penalty=3.0

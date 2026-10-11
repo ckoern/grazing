@@ -123,6 +123,7 @@ class Tracker:
                     evaluation.objective,
                     dict(self.best.values),
                     now,
+                    self.best.merit,
                 )
             )
 

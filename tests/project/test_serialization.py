@@ -196,9 +196,9 @@ class TestCoatings:
             d=free(4.0, 3.0, 6.0),
             gamma=0.4,
             sigma_H=0.3,
-            interlayers={"HonL": B4C, "LonH": C},
-            t_HonL=0.5,
-            t_LonH=0.4,
+            interlayers={"interlayer_H_on_L": B4C, "interlayer_L_on_H": C},
+            t_interlayer_H_on_L=0.5,
+            t_interlayer_L_on_H=0.4,
             top="L",
         )
         result = roundtrip(c)

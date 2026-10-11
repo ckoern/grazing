@@ -101,6 +101,8 @@ class Target(ABC):
             efficiency). ``None`` means uniform weighting.
         resolution: Standard deviation of a Gaussian instrumental resolution in the units of
             the scan variable (eV or rad). Zero disables the convolution.
+        reflections: Number of reflections n. The reflectivity of the target is Rⁿ, e.g. 2 for
+            a double-reflection telescope; it is used by the figures of merit and in plots.
         name: Optional label.
     """
 
@@ -110,6 +112,7 @@ class Target(ABC):
     profile: Profile | None = None
     spectrum: Profile | None = None
     resolution: float = 0.0
+    reflections: int = 1
     name: str = ""
 
     def __post_init__(self) -> None:
@@ -121,6 +124,8 @@ class Target(ABC):
             raise ValueError(f"unknown polarization {self.polarization!r}")
         if self.resolution < 0:
             raise ValueError("resolution must not be negative")
+        if self.reflections < 1:
+            raise ValueError("the number of reflections must be at least 1")
 
     @property
     @abstractmethod

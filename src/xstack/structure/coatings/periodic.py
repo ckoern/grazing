@@ -9,6 +9,8 @@ from xstack.structure.coating import Coating, CoatingBuildError, register_coatin
 from xstack.structure.coatings.bilayer import (
     BILAYER_ROLES,
     INTERLAYER_ROLES,
+    MAX_BILAYERS,
+    MAX_THICKNESS,
     TopMaterial,
     bilayer_layers,
     bilayer_parameters,
@@ -24,10 +26,12 @@ class Periodic(Coating):
     """A periodic multilayer of N identical bilayers.
 
     Material roles ``"H"`` (absorber), ``"L"`` (spacer) and optionally the interlayers
-    ``"HonL"`` and ``"LonH"`` (see `xstack.structure.coatings.bilayer`).
+    ``"interlayer_H_on_L"`` and ``"interlayer_L_on_H"`` (see
+    `xstack.structure.coatings.bilayer`).
 
     Parameters: ``N`` (number of bilayers), ``d`` (period, nm), ``gamma`` (Γ = t_H / d) and the
-    shared bilayer parameters ``sigma_H``, ``sigma_L``, ``t_HonL``, ``t_LonH``.
+    shared bilayer parameters ``sigma_H``, ``sigma_L``, ``t_interlayer_H_on_L`` and
+    ``t_interlayer_L_on_H``.
 
     Attributes:
         top: Material of the bilayer facing the ambient medium.
@@ -50,8 +54,8 @@ class Periodic(Coating):
         sigma_H: ParameterValue = 0.0,
         sigma_L: ParameterValue = 0.0,
         interlayers: dict[str, Material] | None = None,
-        t_HonL: ParameterValue = 0.0,
-        t_LonH: ParameterValue = 0.0,
+        t_interlayer_H_on_L: ParameterValue = 0.0,
+        t_interlayer_L_on_H: ParameterValue = 0.0,
         top: TopMaterial = "H",
         name: str = "periodic",
     ) -> "Periodic":
@@ -65,9 +69,10 @@ class Periodic(Coating):
             gamma: Absorber fraction Γ = t_H / d.
             sigma_H: Roughness at the top of the H layers in nm.
             sigma_L: Roughness at the top of the L layers in nm.
-            interlayers: Interlayer materials by role (``"HonL"``, ``"LonH"``).
-            t_HonL: Thickness of the HonL interlayers in nm.
-            t_LonH: Thickness of the LonH interlayers in nm.
+            interlayers: Interlayer materials by role (``"interlayer_H_on_L"``,
+                ``"interlayer_L_on_H"``).
+            t_interlayer_H_on_L: Thickness of the interlayer where H is deposited on L, in nm.
+            t_interlayer_L_on_H: Thickness of the interlayer where L is deposited on H, in nm.
             top: Material of the bilayer facing the ambient medium.
             name: Coating name.
 
@@ -80,12 +85,14 @@ class Periodic(Coating):
             "gamma": gamma,
             "sigma_H": sigma_H,
             "sigma_L": sigma_L,
-            "t_HonL": t_HonL,
-            "t_LonH": t_LonH,
+            "t_interlayer_H_on_L": t_interlayer_H_on_L,
+            "t_interlayer_L_on_H": t_interlayer_L_on_H,
         }
         templates = [
-            Parameter("N", 30, min=1, integer=True, description="Number of bilayers"),
-            Parameter("d", 4.0, min=0.0, unit="nm", description="Period"),
+            Parameter(
+                "N", 30, min=1, max=MAX_BILAYERS, integer=True, description="Number of bilayers"
+            ),
+            Parameter("d", 4.0, min=0.0, max=MAX_THICKNESS, unit="nm", description="Period"),
             Parameter("gamma", 0.4, min=0.0, max=1.0, description="Absorber fraction t_H/d"),
             *bilayer_parameters(),
         ]

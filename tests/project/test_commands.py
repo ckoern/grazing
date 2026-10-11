@@ -296,16 +296,16 @@ class TestRunPipeline:
 
         assert len(result.stages) == 1
         assert result.final.objective <= project.state.problem().evaluate().objective
-        assert project.state.mirror is not None
-        assert project.state.mirror.parameters.value_dict() == result.parameters.value_dict()
-        assert project.state.mirror.parameters != (initial.mirror or make_mirror()).parameters
+        # The input design is not changed; the result is stored as selected candidate.
+        assert project.state.mirror == initial.mirror
 
         (candidate,) = project.state.candidates
         assert candidate.name == "optimized"
         assert candidate.source == "pipeline"
-        assert candidate.mirror == project.state.mirror
+        assert candidate.mirror.parameters.value_dict() == result.parameters.value_dict()
         assert candidate.objective == result.final.objective
         assert candidate.merit == result.final.merit
+        assert project.state.selected == "optimized"
 
     def test_journal(self) -> None:
         project = make_project()

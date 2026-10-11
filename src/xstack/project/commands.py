@@ -14,6 +14,8 @@ Examples:
     True
 """
 
+from collections.abc import Sequence
+from dataclasses import replace
 from typing import Any
 
 from xstack.manufacturing.constraints import Constraint
@@ -33,13 +35,16 @@ __all__ = [
     "add_candidate",
     "add_constraint",
     "apply_result",
+    "evaluate_stages",
     "promote_candidate",
     "record_run",
     "remove_candidate",
     "remove_constraint",
+    "rename_candidate",
     "rename_project",
     "replace_constraint",
     "run_pipeline",
+    "select_candidate",
     "set_coating",
     "set_merit",
     "set_mirror",
@@ -50,6 +55,8 @@ __all__ = [
     "set_pipeline",
     "set_process",
     "set_targets",
+    "store_pipeline_result",
+    "store_results",
 ]
 
 
@@ -294,7 +301,7 @@ def add_candidate(candidate: Candidate) -> Command:
 
 
 def remove_candidate(name: str) -> Command:
-    """Delete a stored candidate.
+    """Delete a stored candidate (and clear the selection if it was selected).
 
     Args:
         name: Candidate name.
@@ -305,13 +312,64 @@ def remove_candidate(name: str) -> Command:
 
     def transform(state: ProjectState) -> ProjectState:
         state.candidate(name)
-        return state.evolve(candidates=tuple(c for c in state.candidates if c.name != name))
+        return state.evolve(
+            candidates=tuple(c for c in state.candidates if c.name != name),
+            selected=None if state.selected == name else state.selected,
+        )
 
     return Command(f"Delete candidate {name!r}", transform)
 
 
+def rename_candidate(name: str, new_name: str) -> Command:
+    """Rename a stored candidate.
+
+    Args:
+        name: Current name.
+        new_name: New, unique name.
+
+    Returns:
+        The command.
+
+    Raises:
+        ValueError: When executed, if the new name is empty or already used.
+    """
+
+    def transform(state: ProjectState) -> ProjectState:
+        candidate = state.candidate(name)
+        if not new_name.strip():
+            raise ValueError("candidate names must not be empty")
+        if new_name != name and any(c.name == new_name for c in state.candidates):
+            raise ValueError(f"a candidate named {new_name!r} already exists")
+        renamed = replace(candidate, name=new_name)
+        return state.evolve(
+            candidates=tuple(renamed if c.name == name else c for c in state.candidates),
+            selected=new_name if state.selected == name else state.selected,
+        )
+
+    return Command(f"Rename candidate {name!r} to {new_name!r}", transform)
+
+
+def select_candidate(name: str | None) -> Command:
+    """Select a candidate to show and analyze next to the input design.
+
+    Args:
+        name: Candidate name, or ``None`` to clear the selection.
+
+    Returns:
+        The command.
+    """
+
+    def transform(state: ProjectState) -> ProjectState:
+        if name is not None:
+            state.candidate(name)
+        return state.evolve(selected=name)
+
+    text = "Clear candidate selection" if name is None else f"Select candidate {name!r}"
+    return Command(text, transform, merge_key="select_candidate")
+
+
 def promote_candidate(name: str) -> Command:
-    """Make a stored candidate the current design.
+    """Use a stored candidate as the input (start) design.
 
     Args:
         name: Candidate name.
@@ -320,7 +378,7 @@ def promote_candidate(name: str) -> Command:
         The command.
     """
     return Command(
-        f"Use candidate {name!r} as current design",
+        f"Use candidate {name!r} as start design",
         lambda s: s.evolve(mirror=s.candidate(name).mirror),
     )
 
@@ -361,7 +419,9 @@ def apply_result(
     candidate_name: str,
     source: str,
 ) -> Command:
-    """Make an optimized design the current design and store it as a candidate.
+    """Store an optimized design as a candidate and select it.
+
+    The input design is not changed.
 
     Args:
         problem: The design problem that was optimized.
@@ -373,14 +433,99 @@ def apply_result(
     Returns:
         The command.
     """
-    mirror = problem.with_parameters(parameters).mirror
-    candidate = Candidate.from_evaluation(candidate_name, mirror, evaluation, source)
+    return store_results(problem, [(candidate_name, parameters, evaluation, source)])
+
+
+def store_results(
+    problem: DesignProblem,
+    results: Sequence[tuple[str, ParameterSet, Evaluation, str]],
+) -> Command:
+    """Store several optimized designs as candidates and select the last one.
+
+    The input design is not changed.
+
+    Args:
+        problem: The design problem that was optimized.
+        results: (candidate name, parameters, evaluation, source) per design; names are made
+            unique if necessary.
+
+    Returns:
+        The command.
+    """
+    candidates = [
+        Candidate.from_evaluation(name, problem.with_parameters(params).mirror, ev, source)
+        for name, params, ev, source in results
+    ]
 
     def transform(s: ProjectState) -> ProjectState:
-        stored = Candidate(**{**candidate.__dict__, "name": _unique_name(s, candidate.name)})
-        return s.evolve(mirror=mirror, candidates=(*s.candidates, stored))
+        stored = list(s.candidates)
+        last = s.selected
+        for candidate in candidates:
+            interim = s.evolve(candidates=tuple(stored))
+            unique = _unique_name(interim, candidate.name)
+            stored.append(replace(candidate, name=unique))
+            last = unique
+        return s.evolve(candidates=tuple(stored), selected=last)
 
-    return Command(f"Apply result {candidate_name!r}", transform)
+    names = ", ".join(repr(c.name) for c in candidates)
+    return Command(f"Store result {names}", transform)
+
+
+def evaluate_stages(problem: DesignProblem, result: PipelineResult) -> tuple[Evaluation, ...]:
+    """Evaluate the design found by each stage of a pipeline run with the full problem.
+
+    Stages may use coarse grids or other figures of merit; this makes their results comparable.
+
+    Args:
+        problem: The design problem of the run.
+        result: The pipeline result.
+
+    Returns:
+        One evaluation per stage that was run.
+    """
+    initial = problem.parameters
+    evaluations = []
+    for stage in result.stages:
+        values = {
+            n: v for n, v in stage.result.parameters.value_dict().items() if initial[n].expr is None
+        }
+        clipped = {n: min(max(v, initial[n].min), initial[n].max) for n, v in values.items()}
+        evaluations.append(problem.with_parameters(initial.with_values(clipped)).evaluate())
+    return tuple(evaluations)
+
+
+def store_pipeline_result(
+    problem: DesignProblem,
+    result: PipelineResult,
+    name: str,
+    stage_evaluations: Sequence[Evaluation] | None = None,
+) -> Command:
+    """Store the result of a pipeline run as candidates and select the final design.
+
+    Args:
+        problem: The design problem of the run.
+        result: The pipeline result.
+        name: Name of the final candidate; stage candidates are named ``"<name> · <stage>"``.
+        stage_evaluations: Evaluations of the stage results from `evaluate_stages`; if given,
+            every stage result is stored as a candidate as well.
+
+    Returns:
+        The command.
+    """
+    entries: list[tuple[str, ParameterSet, Evaluation, str]] = []
+    if stage_evaluations is not None:
+        initial = problem.parameters
+        for stage, evaluation in zip(result.stages, stage_evaluations, strict=True):
+            params = initial.with_values(
+                {
+                    n: v
+                    for n, v in evaluation.values.items()
+                    if n in initial and initial[n].expr is None
+                }
+            )
+            entries.append((f"{name} · {stage.stage.name}", params, evaluation, stage.stage.name))
+    entries.append((name, result.parameters, result.final, "pipeline"))
+    return store_results(problem, entries)
 
 
 def run_pipeline(
@@ -392,8 +537,8 @@ def run_pipeline(
 ) -> PipelineResult:
     """Run a pipeline on the project and store the result.
 
-    The final design becomes the current design and is stored as a candidate (one undoable
-    step); the run is recorded in the journal.
+    The final design is stored as a candidate and selected (one undoable step); the input
+    design is not changed. The run is recorded in the journal.
 
     Args:
         project: The project.
@@ -412,7 +557,5 @@ def run_pipeline(
     chosen = pipeline or project.state.pipeline or Pipeline.default(problem)
     result = chosen.run(problem, events=events, cancel=cancel)
     record_run(project.journal, result)
-    project.execute(
-        apply_result(problem, result.parameters, result.final, candidate_name, "pipeline")
-    )
+    project.execute(store_pipeline_result(problem, result, candidate_name))
     return result

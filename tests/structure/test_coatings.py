@@ -197,34 +197,48 @@ class TestPeriodicBasics:
         assert c.parameters.free_names() == ("N", "d")
 
     def test_interlayer_thickness_ignored_without_material(self) -> None:
-        c = Periodic.create(W, SI, N=2, d=5.0, gamma=0.4, t_HonL=1.0, t_LonH=1.0)
+        c = Periodic.create(
+            W, SI, N=2, d=5.0, gamma=0.4, t_interlayer_H_on_L=1.0, t_interlayer_L_on_H=1.0
+        )
         assert len(c.layers()) == 4
         assert thicknesses(c.layers()[:2]) == pytest.approx([2.0, 3.0])
 
 
 class TestPeriodicInterlayers:
     def make(self, top: str = "H", n: int = 3, **overrides: float) -> Periodic:
-        kwargs: dict[str, object] = {"t_HonL": 0.3, "t_LonH": 0.2, **overrides}
+        kwargs: dict[str, object] = {
+            "t_interlayer_H_on_L": 0.3,
+            "t_interlayer_L_on_H": 0.2,
+            **overrides,
+        }
         return Periodic.create(
             W,
             SI,
             N=n,
             d=5.0,
             gamma=0.4,
-            interlayers={"HonL": B4C, "LonH": MOSI2},
+            interlayers={"interlayer_H_on_L": B4C, "interlayer_L_on_H": MOSI2},
             top=top,  # type: ignore[arg-type]
             **kwargs,  # type: ignore[arg-type]
         )
 
     def test_top_h_sequence(self) -> None:
         layers = self.make("H").layers()
-        assert suffixes(layers) == ["H", "HonL", "L", "LonH"] * 2 + ["H", "HonL", "L"]
+        assert suffixes(layers) == ["H", "interlayer_H_on_L", "L", "interlayer_L_on_H"] * 2 + [
+            "H",
+            "interlayer_H_on_L",
+            "L",
+        ]
         assert thicknesses(layers[:4]) == pytest.approx([2.0, 0.3, 2.5, 0.2])
         assert [layer.material for layer in layers[:4]] == [W, B4C, SI, MOSI2]
 
     def test_top_l_sequence(self) -> None:
         layers = self.make("L").layers()
-        assert suffixes(layers) == ["L", "LonH", "H", "HonL"] * 2 + ["L", "LonH", "H"]
+        assert suffixes(layers) == ["L", "interlayer_L_on_H", "H", "interlayer_H_on_L"] * 2 + [
+            "L",
+            "interlayer_L_on_H",
+            "H",
+        ]
         assert thicknesses(layers[:4]) == pytest.approx([2.5, 0.2, 2.0, 0.3])
         assert [layer.material for layer in layers[:4]] == [SI, MOSI2, W, B4C]
 
@@ -240,50 +254,83 @@ class TestPeriodicInterlayers:
 
     def test_bottom_trailing_interlayer_omitted(self) -> None:
         h = self.make("H", n=1).layers()
-        assert suffixes(h) == ["H", "HonL", "L"]
+        assert suffixes(h) == ["H", "interlayer_H_on_L", "L"]
         ll = self.make("L", n=1).layers()
-        assert suffixes(ll) == ["L", "LonH", "H"]
+        assert suffixes(ll) == ["L", "interlayer_L_on_H", "H"]
 
     def test_interlayer_roughness(self) -> None:
         layers = self.make("H", sigma_H=0.7, sigma_L=0.9).layers()
         by_suffix = {layer.tag.rsplit(".", 1)[-1]: layer.roughness for layer in layers}
-        assert by_suffix == {"H": 0.7, "HonL": 0.9, "L": 0.9, "LonH": 0.7}
+        assert by_suffix == {"H": 0.7, "interlayer_H_on_L": 0.9, "L": 0.9, "interlayer_L_on_H": 0.7}
 
     def test_only_honl_top_h(self) -> None:
-        c = Periodic.create(W, SI, N=3, d=5.0, interlayers={"HonL": B4C}, t_HonL=0.5)
+        c = Periodic.create(
+            W, SI, N=3, d=5.0, interlayers={"interlayer_H_on_L": B4C}, t_interlayer_H_on_L=0.5
+        )
         layers = c.layers()
-        assert suffixes(layers) == ["H", "HonL", "L"] * 3
+        assert suffixes(layers) == ["H", "interlayer_H_on_L", "L"] * 3
         assert sum(thicknesses(layers)) == pytest.approx(15.0)
 
     def test_only_honl_top_l(self) -> None:
-        c = Periodic.create(W, SI, N=3, d=5.0, interlayers={"HonL": B4C}, t_HonL=0.5, top="L")
-        assert suffixes(c.layers()) == ["L", "H", "HonL"] * 2 + ["L", "H"]
+        c = Periodic.create(
+            W,
+            SI,
+            N=3,
+            d=5.0,
+            interlayers={"interlayer_H_on_L": B4C},
+            t_interlayer_H_on_L=0.5,
+            top="L",
+        )
+        assert suffixes(c.layers()) == ["L", "H", "interlayer_H_on_L"] * 2 + ["L", "H"]
 
     def test_only_lonh_top_h(self) -> None:
-        c = Periodic.create(W, SI, N=3, d=5.0, interlayers={"LonH": MOSI2}, t_LonH=0.5)
-        assert suffixes(c.layers()) == ["H", "L", "LonH"] * 2 + ["H", "L"]
+        c = Periodic.create(
+            W, SI, N=3, d=5.0, interlayers={"interlayer_L_on_H": MOSI2}, t_interlayer_L_on_H=0.5
+        )
+        assert suffixes(c.layers()) == ["H", "L", "interlayer_L_on_H"] * 2 + ["H", "L"]
 
     def test_only_lonh_top_l(self) -> None:
-        c = Periodic.create(W, SI, N=3, d=5.0, interlayers={"LonH": MOSI2}, t_LonH=0.5, top="L")
-        assert suffixes(c.layers()) == ["L", "LonH", "H"] * 3
+        c = Periodic.create(
+            W,
+            SI,
+            N=3,
+            d=5.0,
+            interlayers={"interlayer_L_on_H": MOSI2},
+            t_interlayer_L_on_H=0.5,
+            top="L",
+        )
+        assert suffixes(c.layers()) == ["L", "interlayer_L_on_H", "H"] * 3
 
     def test_zero_thickness_omitted(self) -> None:
-        c = Periodic.create(W, SI, N=3, d=5.0, gamma=0.4, interlayers={"HonL": B4C, "LonH": WSI2})
+        c = Periodic.create(
+            W,
+            SI,
+            N=3,
+            d=5.0,
+            gamma=0.4,
+            interlayers={"interlayer_H_on_L": B4C, "interlayer_L_on_H": WSI2},
+        )
         layers = c.layers()
         assert suffixes(layers) == ["H", "L"] * 3
         assert thicknesses(layers[:2]) == pytest.approx([2.0, 3.0])
 
     def test_zero_thickness_omitted_for_one_role(self) -> None:
-        c = self.make("H", t_HonL=0.0)
-        assert suffixes(c.layers()[:3]) == ["H", "L", "LonH"]
+        c = self.make("H", t_interlayer_H_on_L=0.0)
+        assert suffixes(c.layers()[:3]) == ["H", "L", "interlayer_L_on_H"]
 
     def test_thickness_via_values(self) -> None:
         c = Periodic.create(
-            W, SI, N=2, d=5.0, gamma=0.4, interlayers={"HonL": B4C}, t_HonL=free(0.0, 0.0, 1.0)
+            W,
+            SI,
+            N=2,
+            d=5.0,
+            gamma=0.4,
+            interlayers={"interlayer_H_on_L": B4C},
+            t_interlayer_H_on_L=free(0.0, 0.0, 1.0),
         )
         assert suffixes(c.layers()) == ["H", "L", "H", "L"]
-        layers = c.layers({"t_HonL": 0.5})
-        assert suffixes(layers) == ["H", "HonL", "L", "H", "HonL", "L"]
+        layers = c.layers({"t_interlayer_H_on_L": 0.5})
+        assert suffixes(layers) == ["H", "interlayer_H_on_L", "L", "H", "interlayer_H_on_L", "L"]
         assert thicknesses(layers[:3]) == pytest.approx([2.0, 0.5, 2.5])
 
 
@@ -295,15 +342,15 @@ class TestPeriodicBuildErrors:
             N=3,
             d=5.0,
             gamma=0.5,
-            interlayers={"HonL": B4C, "LonH": MOSI2},
-            t_HonL=free(0.5, 0.0, 5.0),
-            t_LonH=0.5,
+            interlayers={"interlayer_H_on_L": B4C, "interlayer_L_on_H": MOSI2},
+            t_interlayer_H_on_L=free(0.5, 0.0, 5.0),
+            t_interlayer_L_on_H=0.5,
         )
         assert len(c.layers()) > 0
         with pytest.raises(CoatingBuildError):
-            c.with_values(t_HonL=2.5).layers()
+            c.with_values(t_interlayer_H_on_L=2.5).layers()
         with pytest.raises(CoatingBuildError):
-            c.layers({"t_HonL": 2.5})
+            c.layers({"t_interlayer_H_on_L": 2.5})
 
     def test_negative_period(self) -> None:
         c = Periodic.create(W, SI, N=2, d=Parameter("d", -1.0, min=-5.0), gamma=0.5)
@@ -526,12 +573,19 @@ class TestDepthGradedCap:
             cap=True,
             cap_d=10.0,
             cap_gamma=0.4,
-            interlayers={"HonL": B4C},
-            t_HonL=0.5,
+            interlayers={"interlayer_H_on_L": B4C},
+            t_interlayer_H_on_L=0.5,
             d_min=5.0,
             d_max=5.0,
         )
-        assert suffixes(c.layers()) == ["H", "HonL", "L", "H", "HonL", "L"]
+        assert suffixes(c.layers()) == [
+            "H",
+            "interlayer_H_on_L",
+            "L",
+            "H",
+            "interlayer_H_on_L",
+            "L",
+        ]
 
     def test_layer_count_without_cap(self) -> None:
         assert len(graded(N=9).layers()) == 18
@@ -553,8 +607,8 @@ class TestComposite:
             "ml.gamma",
             "ml.sigma_H",
             "ml.sigma_L",
-            "ml.t_HonL",
-            "ml.t_LonH",
+            "ml.t_interlayer_H_on_L",
+            "ml.t_interlayer_L_on_H",
         ]
         assert c.parameters["ml.N"].integer
         assert c.parameters.free_names() == ("ml.N",)
@@ -694,9 +748,13 @@ class TestCoatingCommon:
         assert new.layers()[1].material is B4C
 
     def test_with_material_adds_optional_role(self) -> None:
-        c = self.make().with_material("HonL", B4C).with_parameter("t_HonL", value=0.5)
-        assert "HonL" in c.materials
-        assert "HonL" in suffixes(c.layers())
+        c = (
+            self.make()
+            .with_material("interlayer_H_on_L", B4C)
+            .with_parameter("t_interlayer_H_on_L", value=0.5)
+        )
+        assert "interlayer_H_on_L" in c.materials
+        assert "interlayer_H_on_L" in suffixes(c.layers())
 
     def test_with_material_replacing_keeps_roles(self) -> None:
         new = self.make().with_material("H", WSI2)
@@ -754,7 +812,7 @@ class TestCoatingCommon:
         assert c.materials == {"H": W, "L": SI}
         assert c.material("H") is W
         with pytest.raises(KeyError):
-            c.material("HonL")
+            c.material("interlayer_H_on_L")
 
     def test_hashable_and_equal(self) -> None:
         a, b = self.make(), self.make()

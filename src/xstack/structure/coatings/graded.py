@@ -13,6 +13,8 @@ from xstack.structure.coating import Coating, CoatingBuildError, register_coatin
 from xstack.structure.coatings.bilayer import (
     BILAYER_ROLES,
     INTERLAYER_ROLES,
+    MAX_BILAYERS,
+    MAX_THICKNESS,
     TopMaterial,
     bilayer_layers,
     bilayer_parameters,
@@ -70,8 +72,22 @@ class PowerLaw:
     def parameters(self) -> list[Parameter]:
         """Return the templates of the parameters of the law."""
         return [
-            Parameter("d_min", 3.0, min=0.0, unit="nm", description="Period of bottom bilayer"),
-            Parameter("d_max", 10.0, min=0.0, unit="nm", description="Period of top bilayer"),
+            Parameter(
+                "d_min",
+                3.0,
+                min=0.0,
+                max=MAX_THICKNESS,
+                unit="nm",
+                description="Period of the bottom bilayer",
+            ),
+            Parameter(
+                "d_max",
+                10.0,
+                min=0.0,
+                max=MAX_THICKNESS,
+                unit="nm",
+                description="Period of the top bilayer",
+            ),
             Parameter("c", 0.25, min=1e-3, max=10.0, description="Power-law exponent"),
         ]
 
@@ -112,8 +128,22 @@ class LinearLaw:
     def parameters(self) -> list[Parameter]:
         """Return the templates of the parameters of the law."""
         return [
-            Parameter("d_min", 3.0, min=0.0, unit="nm", description="Period of bottom bilayer"),
-            Parameter("d_max", 10.0, min=0.0, unit="nm", description="Period of top bilayer"),
+            Parameter(
+                "d_min",
+                3.0,
+                min=0.0,
+                max=MAX_THICKNESS,
+                unit="nm",
+                description="Period of the bottom bilayer",
+            ),
+            Parameter(
+                "d_max",
+                10.0,
+                min=0.0,
+                max=MAX_THICKNESS,
+                unit="nm",
+                description="Period of the top bilayer",
+            ),
         ]
 
     def periods(self, count: int, values: dict[str, float]) -> NDArray[np.float64]:
@@ -147,7 +177,8 @@ class DepthGraded(Coating):
     """A depth-graded multilayer (supermirror) with an optional cap bilayer.
 
     Material roles ``"H"`` (absorber), ``"L"`` (spacer) and optionally the interlayers
-    ``"HonL"`` and ``"LonH"`` (see `xstack.structure.coatings.bilayer`).
+    ``"interlayer_H_on_L"`` and ``"interlayer_L_on_H"`` (see
+    `xstack.structure.coatings.bilayer`).
 
     Parameters:
 
@@ -156,7 +187,8 @@ class DepthGraded(Coating):
     * ``gamma_top``, ``gamma_bottom``: Γ of the top and bottom graded bilayer, linearly
       interpolated in between (constant Γ if equal),
     * ``cap_d``, ``cap_gamma``: period and Γ of the cap bilayer, present only if `cap` is set,
-    * the shared bilayer parameters ``sigma_H``, ``sigma_L``, ``t_HonL``, ``t_LonH``.
+    * the shared bilayer parameters ``sigma_H``, ``sigma_L``, ``t_interlayer_H_on_L`` and
+      ``t_interlayer_L_on_H``.
 
     Attributes:
         law: Name of the grading law in `grading_laws`.
@@ -187,8 +219,8 @@ class DepthGraded(Coating):
         sigma_H: ParameterValue = 0.0,
         sigma_L: ParameterValue = 0.0,
         interlayers: dict[str, Material] | None = None,
-        t_HonL: ParameterValue = 0.0,
-        t_LonH: ParameterValue = 0.0,
+        t_interlayer_H_on_L: ParameterValue = 0.0,
+        t_interlayer_L_on_H: ParameterValue = 0.0,
         top: TopMaterial = "H",
         name: str = "graded",
         **law_parameters: ParameterValue,
@@ -208,9 +240,10 @@ class DepthGraded(Coating):
             cap_gamma: Γ of the cap bilayer.
             sigma_H: Roughness at the top of the H layers in nm.
             sigma_L: Roughness at the top of the L layers in nm.
-            interlayers: Interlayer materials by role (``"HonL"``, ``"LonH"``).
-            t_HonL: Thickness of the HonL interlayers in nm.
-            t_LonH: Thickness of the LonH interlayers in nm.
+            interlayers: Interlayer materials by role (``"interlayer_H_on_L"``,
+                ``"interlayer_L_on_H"``).
+            t_interlayer_H_on_L: Thickness of the interlayer where H is deposited on L, in nm.
+            t_interlayer_L_on_H: Thickness of the interlayer where L is deposited on H, in nm.
             top: Material of each bilayer facing the ambient medium.
             name: Coating name.
             **law_parameters: Parameters of the grading law, e.g. ``d_min``, ``d_max``, ``c``.
@@ -235,19 +268,33 @@ class DepthGraded(Coating):
             "cap_gamma": cap_gamma,
             "sigma_H": sigma_H,
             "sigma_L": sigma_L,
-            "t_HonL": t_HonL,
-            "t_LonH": t_LonH,
+            "t_interlayer_H_on_L": t_interlayer_H_on_L,
+            "t_interlayer_L_on_H": t_interlayer_L_on_H,
             **law_parameters,
         }
         templates = [
-            Parameter("N", 100, min=1, integer=True, description="Number of graded bilayers"),
+            Parameter(
+                "N",
+                100,
+                min=1,
+                max=MAX_BILAYERS,
+                integer=True,
+                description="Number of graded bilayers",
+            ),
             *law_templates,
             Parameter("gamma_top", 0.4, min=0.0, max=1.0, description="Gamma of top bilayer"),
             Parameter("gamma_bottom", 0.4, min=0.0, max=1.0, description="Gamma of bottom bilayer"),
         ]
         if cap:
             templates += [
-                Parameter("cap_d", 15.0, min=0.0, unit="nm", description="Cap bilayer period"),
+                Parameter(
+                    "cap_d",
+                    15.0,
+                    min=0.0,
+                    max=MAX_THICKNESS,
+                    unit="nm",
+                    description="Cap bilayer period",
+                ),
                 Parameter("cap_gamma", 0.4, min=0.0, max=1.0, description="Cap bilayer gamma"),
             ]
         templates += bilayer_parameters()

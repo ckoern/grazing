@@ -1,6 +1,7 @@
 """Tests for the lmfit optimizer."""
 
 import itertools
+import math
 
 import pytest
 
@@ -252,3 +253,11 @@ class TestExpressions:
         assert result.parameters["gamma"].expr == "d * 0.06"
         assert result.best.error is None
         assert result.history[-1] <= problem.evaluate().objective
+
+
+class TestEventMerit:
+    def test_best_merit_finite_for_buildable_design(self) -> None:
+        events: list[ProgressEvent] = []
+        LmfitOptimizer("nelder", max_evaluations=20).run(make_problem(), events=events.append)
+        assert events
+        assert all(math.isfinite(e.best_merit) for e in events)

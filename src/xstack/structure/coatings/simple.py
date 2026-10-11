@@ -7,6 +7,7 @@ from typing import ClassVar
 from xstack.materials import Material
 from xstack.parameters import Parameter, ParameterSet, ParameterValue, resolve
 from xstack.structure.coating import Coating, register_coating
+from xstack.structure.coatings.bilayer import MAX_ROUGHNESS, MAX_THICKNESS
 from xstack.structure.stack import Layer
 
 __all__ = ["NLayer", "SingleLayer"]
@@ -45,7 +46,12 @@ class SingleLayer(Coating):
         """
         params = ParameterSet(
             [
-                resolve(Parameter("t", 30.0, min=0.0, unit="nm", description="Thickness"), t),
+                resolve(
+                    Parameter(
+                        "t", 30.0, min=0.0, max=MAX_THICKNESS, unit="nm", description="Thickness"
+                    ),
+                    t,
+                ),
                 resolve(
                     Parameter("sigma", 0.0, min=0.0, unit="nm", description="Roughness"), sigma
                 ),
@@ -109,8 +115,32 @@ class NLayer(Coating):
             raise ValueError("materials, thicknesses and roughnesses must have equal length")
         params: list[Parameter] = []
         for i, (t, s) in enumerate(zip(thicknesses, rough, strict=True), start=1):
-            params.append(resolve(Parameter(f"t{i}", 1.0, min=0.0, unit="nm"), t))
-            params.append(resolve(Parameter(f"sigma{i}", 0.0, min=0.0, unit="nm"), s))
+            params.append(
+                resolve(
+                    Parameter(
+                        f"t{i}",
+                        1.0,
+                        min=0.0,
+                        max=MAX_THICKNESS,
+                        unit="nm",
+                        description=f"Thickness of layer {i} (from the top)",
+                    ),
+                    t,
+                )
+            )
+            params.append(
+                resolve(
+                    Parameter(
+                        f"sigma{i}",
+                        0.0,
+                        min=0.0,
+                        max=MAX_ROUGHNESS,
+                        unit="nm",
+                        description=f"Roughness at the top of layer {i}",
+                    ),
+                    s,
+                )
+            )
         roles = tuple((f"M{i}", m) for i, m in enumerate(materials, start=1))
         return cls(name, roles, ParameterSet(params))
 

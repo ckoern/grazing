@@ -80,14 +80,18 @@ class ProjectState:
 
     Attributes:
         name: Project name.
-        mirror: The current design.
+        mirror: The input design: the coating as defined by the user and the start point of
+            optimizations. Optimization results never change it; they are stored as
+            candidates.
         targets: The targets, or ``None`` if not yet defined.
         merit: The figure of merit, or ``None`` if not yet defined.
         constraints: Manufacturing constraints.
         process: Deposition process, or ``None``.
         model: Reflectivity model used for evaluations.
         pipeline: Stages to run, or ``None`` for the default pipeline.
-        candidates: Stored designs.
+        candidates: Stored designs, e.g. optimization results.
+        selected: Name of the selected candidate, shown and analyzed next to the input design,
+            or ``None``.
         notes: Free-form notes.
     """
 
@@ -100,6 +104,7 @@ class ProjectState:
     model: ReflectivityModel = field(default_factory=ParrattModel)
     pipeline: Pipeline | None = None
     candidates: tuple[Candidate, ...] = ()
+    selected: str | None = None
     notes: str = ""
 
     def evolve(self, **changes: Any) -> "ProjectState":
@@ -127,6 +132,15 @@ class ProjectState:
             missing = [n for n in ("mirror", "targets", "merit") if getattr(self, n) is None]
             raise ValueError(f"the project does not define {', '.join(missing)}")
         return DesignProblem(mirror, targets, merit, self.constraints, self.process, self.model)
+
+    def selected_candidate(self) -> Candidate | None:
+        """Return the selected candidate, if any."""
+        if self.selected is None:
+            return None
+        try:
+            return self.candidate(self.selected)
+        except KeyError:
+            return None
 
     def candidate(self, name: str) -> Candidate:
         """Return a candidate by name.

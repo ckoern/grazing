@@ -51,7 +51,8 @@ class ReflectivityResult:
         x: Values of the scanned variable (eV or rad), shape (P,).
         energy: Photon energies in eV, shape (P,).
         theta: Grazing angles in rad, shape (P,).
-        reflectivity: Reflectance, shape (P,).
+        reflectivity: Reflectance after the target's number of reflections n, i.e. Rⁿ,
+            shape (P,).
     """
 
     target: Target
@@ -108,7 +109,9 @@ def evaluate_on_target(
     points: int | None,
     library: MaterialLibrary | None,
 ) -> ReflectivityResult:
-    """Evaluate a point-wise reflectance function on a target grid, including resolution.
+    """Evaluate a point-wise reflectance function on a target grid.
+
+    The result includes the target's number of reflections (Rⁿ) and its resolution.
 
     Args:
         model: Object providing ``_reflectance(stack, energy, theta, polarization, library)``.
@@ -131,11 +134,13 @@ def evaluate_on_target(
             keep = th_fine <= np.pi / 2
             fine, e_fine, th_fine = fine[keep], e_fine[keep], th_fine[keep]
         r_fine = model._reflectance(stack, e_fine, th_fine, target.polarization, library)
+        r_fine = r_fine**target.reflections
         smeared = gaussian_smear(r_fine, float(fine[1] - fine[0]), target.resolution)
         r = np.interp(x, fine, smeared)
     else:
         energy, theta = target.grid_at(x)
         r = model._reflectance(stack, energy, theta, target.polarization, library)
+        r = r**target.reflections
     energy, theta = target.grid_at(x)
     return ReflectivityResult(target, x, energy, theta, np.asarray(r, dtype=np.float64))
 

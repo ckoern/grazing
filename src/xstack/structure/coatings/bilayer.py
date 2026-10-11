@@ -3,15 +3,19 @@
 A bilayer of period d consists of an absorber layer (role ``"H"``, high Z) of thickness Γ·d,
 a spacer layer (role ``"L"``, low Z) and optional interlayers that form at the interfaces:
 
-* role ``"HonL"``: interlayer between an H layer and the L layer below it,
-* role ``"LonH"``: interlayer between an L layer and the H layer below it.
+* role ``"interlayer_H_on_L"``: interlayer that forms where H is deposited on L, i.e. between
+  an H layer and the L layer below it (thickness parameter ``t_interlayer_H_on_L``),
+* role ``"interlayer_L_on_H"``: interlayer that forms where L is deposited on H, i.e. between
+  an L layer and the H layer below it (thickness parameter ``t_interlayer_L_on_H``).
 
-Interlayers count towards the period: d = t_H + t_L + t_HonL + t_LonH, with t_H = Γ·d. The
-interlayer below the lowest bilayer, which would face the substrate, is omitted.
+Interlayers count towards the period: d = t_H + t_L + t_interlayer_H_on_L + t_interlayer_L_on_H,
+with t_H = Γ·d. The interlayer below the lowest bilayer, which would face the substrate, is
+omitted.
 
 Roughness parameters refer to the interface at the top of a layer: ``sigma_H`` for the top of
 every H layer, ``sigma_L`` for the top of every L layer. Interlayers inherit the roughness of
-the interface they replace (``sigma_L`` for ``HonL``, ``sigma_H`` for ``LonH``).
+the interface they replace (``sigma_L`` for ``interlayer_H_on_L``, ``sigma_H`` for
+``interlayer_L_on_H``).
 """
 
 from collections.abc import Mapping
@@ -25,13 +29,25 @@ from xstack.structure.stack import Layer
 __all__ = [
     "BILAYER_ROLES",
     "INTERLAYER_ROLES",
+    "MAX_BILAYERS",
+    "MAX_ROUGHNESS",
+    "MAX_THICKNESS",
     "TopMaterial",
     "bilayer_layers",
     "bilayer_parameters",
 ]
 
+MAX_THICKNESS = 100.0
+"""Default upper bound of thickness and period parameters in nm."""
+
+MAX_ROUGHNESS = 5.0
+"""Default upper bound of roughness parameters in nm."""
+
+MAX_BILAYERS = 1000
+"""Default upper bound of the number of bilayers."""
+
 BILAYER_ROLES = ("H", "L")
-INTERLAYER_ROLES = ("HonL", "LonH")
+INTERLAYER_ROLES = ("interlayer_H_on_L", "interlayer_L_on_H")
 
 type TopMaterial = Literal["H", "L"]
 """Which material of a bilayer faces the ambient medium."""
@@ -40,10 +56,38 @@ type TopMaterial = Literal["H", "L"]
 def bilayer_parameters() -> list[Parameter]:
     """Return the templates of the roughness and interlayer parameters shared by bilayers."""
     return [
-        Parameter("sigma_H", 0.0, min=0.0, unit="nm", description="Roughness at top of H layers"),
-        Parameter("sigma_L", 0.0, min=0.0, unit="nm", description="Roughness at top of L layers"),
-        Parameter("t_HonL", 0.0, min=0.0, unit="nm", description="Thickness of HonL interlayers"),
-        Parameter("t_LonH", 0.0, min=0.0, unit="nm", description="Thickness of LonH interlayers"),
+        Parameter(
+            "sigma_H",
+            0.0,
+            min=0.0,
+            max=MAX_ROUGHNESS,
+            unit="nm",
+            description="Roughness (interface width) at the top of every H layer",
+        ),
+        Parameter(
+            "sigma_L",
+            0.0,
+            min=0.0,
+            max=MAX_ROUGHNESS,
+            unit="nm",
+            description="Roughness (interface width) at the top of every L layer",
+        ),
+        Parameter(
+            "t_interlayer_H_on_L",
+            0.0,
+            min=0.0,
+            max=MAX_THICKNESS,
+            unit="nm",
+            description="Thickness of the interlayer where H is deposited on L",
+        ),
+        Parameter(
+            "t_interlayer_L_on_H",
+            0.0,
+            min=0.0,
+            max=MAX_THICKNESS,
+            unit="nm",
+            description="Thickness of the interlayer where L is deposited on H",
+        ),
     ]
 
 
@@ -61,8 +105,8 @@ def bilayer_layers(
     Args:
         period: Period d in nm.
         gamma: Absorber fraction Γ = t_H / d.
-        values: Evaluated parameters containing ``sigma_H``, ``sigma_L``, ``t_HonL`` and
-            ``t_LonH``.
+        values: Evaluated parameters containing ``sigma_H``, ``sigma_L``,
+            ``t_interlayer_H_on_L`` and ``t_interlayer_L_on_H``.
         materials: Materials by role; interlayer roles are optional.
         top: Material facing the ambient medium.
         tag: Prefix for the layer tags, e.g. ``"graded[3]"``.
@@ -75,8 +119,8 @@ def bilayer_layers(
     Raises:
         CoatingBuildError: If the thicknesses would be negative.
     """
-    t_honl = values["t_HonL"] if "HonL" in materials else 0.0
-    t_lonh = values["t_LonH"] if "LonH" in materials else 0.0
+    t_honl = values["t_interlayer_H_on_L"] if "interlayer_H_on_L" in materials else 0.0
+    t_lonh = values["t_interlayer_L_on_H"] if "interlayer_L_on_H" in materials else 0.0
     t_h = gamma * period
     t_l = period - t_h - t_honl - t_lonh
     if not 0.0 <= gamma <= 1.0:
@@ -87,9 +131,17 @@ def bilayer_layers(
         )
     h = Layer(materials["H"], t_h, values["sigma_H"], f"{tag}.H")
     low = Layer(materials["L"], t_l, values["sigma_L"], f"{tag}.L")
-    honl = Layer(materials["HonL"], t_honl, values["sigma_L"], f"{tag}.HonL") if t_honl else None
-    lonh = Layer(materials["LonH"], t_lonh, values["sigma_H"], f"{tag}.LonH") if t_lonh else None
-    # H above L needs the HonL interlayer between them; L above H needs LonH.
+    honl = (
+        Layer(materials["interlayer_H_on_L"], t_honl, values["sigma_L"], f"{tag}.interlayer_H_on_L")
+        if t_honl
+        else None
+    )
+    lonh = (
+        Layer(materials["interlayer_L_on_H"], t_lonh, values["sigma_H"], f"{tag}.interlayer_L_on_H")
+        if t_lonh
+        else None
+    )
+    # H above L needs the H-on-L interlayer between them; L above H needs the L-on-H one.
     sequence = [h, honl, low, lonh] if top == "H" else [low, lonh, h, honl]
     if bottom:
         sequence = sequence[:-1]

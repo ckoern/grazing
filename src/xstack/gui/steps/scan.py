@@ -94,10 +94,7 @@ class ScanPage(StepPage):
         layout.addWidget(self.summary)
         self.confirmation = QLabel()
         self.confirmation.setWordWrap(True)
-        self.confirmation.setStyleSheet(
-            "background-color: #e3f4e6; border: 1px solid #9fd3a8; border-radius: 6px; "
-            "padding: 6px 8px; color: #1d4d27;"
-        )
+        self.confirmation.setObjectName("confirmation")
         self.confirmation.setVisible(False)
         layout.addWidget(self.confirmation)
         layout.addWidget(QLabel("Click a cell of the design map to use its parameter values."))

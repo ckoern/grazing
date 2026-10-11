@@ -5,13 +5,14 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShowEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDockWidget,
     QFileDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -25,6 +26,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSplitter,
     QTabWidget,
+    QToolButton,
     QUndoView,
     QVBoxLayout,
     QWidget,
@@ -52,7 +54,7 @@ from xstack.gui.steps import (
     ScanPage,
     StepPage,
 )
-from xstack.gui.style import HELP_STYLE
+from xstack.gui.style import COLORS, HELP_STYLE, icon, set_variant
 from xstack.gui.widgets import JournalView
 from xstack.gui.widgets.design_comparison import DesignComparisonView
 from xstack.gui.workers import Job, JobRunner, LatestRunner
@@ -171,6 +173,7 @@ class MainWindow(QMainWindow):
 
     def _build_central(self) -> None:
         self.plot_tabs = QTabWidget()
+        self.plot_tabs.setObjectName("plot_tabs")
         self.plot_tabs.setDocumentMode(True)
         self.reflectivity_plot = ReflectivityPlot()
         self.layer_plot = LayerProfilePlot()
@@ -193,7 +196,7 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.plot_tabs)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([560, 900])
+        splitter.setSizes([640, 860])
         self.setCentralWidget(splitter)
         self.job_runner = JobRunner(parent=self)
         self.overlays: list[str] = []
@@ -247,8 +250,24 @@ class MainWindow(QMainWindow):
             self.step_tabs.setTabToolTip(index, f"Step {index + 1}: {step}")
         self.step_tabs.setCurrentIndex(WORKFLOW_STEPS.index("Coating"))
         layout.addWidget(self.step_tabs, 1)
+        self._step_panel_widget = panel
         self.parameter_table = self.coating_page.parameter_table
+        for button in (
+            self.estimate_page.estimate_button,
+            self.scan_page.run_button,
+            self.optimize_page.run_button,
+            self.analyze_page.run_button,
+        ):
+            set_variant(button, "primary")
         return panel
+
+    def showEvent(self, event: QShowEvent) -> None:
+        """Size the workflow panel so that all step tabs are visible once styles apply."""
+        super().showEvent(event)
+        panel = self._step_panel_widget
+        margins = panel.layout().contentsMargins()
+        width = self.step_tabs.tabBar().sizeHint().width() + margins.left() + margins.right()
+        panel.setMinimumWidth(width + 8)
 
     def _layer_tab(self) -> QWidget:
         tab = QWidget()
@@ -355,7 +374,7 @@ class MainWindow(QMainWindow):
         candidate_layout = QVBoxLayout(candidates)
         candidate_layout.setContentsMargins(0, 0, 0, 0)
         candidate_layout.addWidget(self.candidate_list)
-        buttons = QHBoxLayout()
+        buttons = QGridLayout()
         self.store_button = QPushButton("Store input…")
         self.store_button.setToolTip("Store the input design (Coating step) as a named candidate")
         self.use_button = QPushButton("Use as start")
@@ -364,11 +383,13 @@ class MainWindow(QMainWindow):
         )
         self.delete_button = QPushButton("Delete")
         self.delete_button.setToolTip("Delete the selected candidate")
-        for button in (self.store_button, self.use_button, self.delete_button):
-            buttons.addWidget(button)
+        buttons.addWidget(self.store_button, 0, 0, 1, 2)
+        buttons.addWidget(self.use_button, 1, 0)
+        buttons.addWidget(self.delete_button, 1, 1)
         candidate_layout.addLayout(buttons)
         self.candidate_details = QLabel("No candidate selected.")
         self.candidate_details.setWordWrap(True)
+        self.candidate_details.setContentsMargins(6, 4, 6, 6)
         candidate_layout.addWidget(self.candidate_details)
         self.candidates_dock = self._dock(
             "Candidates", candidates, Qt.DockWidgetArea.LeftDockWidgetArea
@@ -385,7 +406,7 @@ class MainWindow(QMainWindow):
         )
         self.tabifyDockWidget(self.journal_dock, self.history_dock)
         self.journal_dock.raise_()
-        self.resizeDocks([self.candidates_dock], [240], Qt.Orientation.Horizontal)
+        self.resizeDocks([self.candidates_dock], [200], Qt.Orientation.Horizontal)
         self.resizeDocks([self.journal_dock], [130], Qt.Orientation.Vertical)
 
     def _step_container(self, index: int, page: QWidget) -> QWidget:
@@ -420,6 +441,7 @@ class MainWindow(QMainWindow):
         if index < len(WORKFLOW_STEPS) - 1:
             forward = QPushButton(f"Next: {WORKFLOW_STEPS[index + 1]} →")
             forward.setObjectName(f"next_{WORKFLOW_STEPS[index].lower()}")
+            set_variant(forward, "primary")
             forward.clicked.connect(self.next_step)
             navigation.addWidget(forward)
         layout.addLayout(navigation)
@@ -496,6 +518,18 @@ class MainWindow(QMainWindow):
             view_menu.addAction(dock.toggleViewAction())
         toolbar = self.addToolBar("Main")
         toolbar.setObjectName("toolbar_main")
+        toolbar.setMovable(False)
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        for action, name in (
+            (self.new_action, "new"),
+            (self.open_action, "open"),
+            (self.save_action, "save"),
+            (self.undo_action, "undo"),
+            (self.redo_action, "redo"),
+            (self.stop_action, "stop"),
+        ):
+            action.setIcon(icon(name))
+        self.run_action.setIcon(icon("run", "#ffffff"))
         toolbar.addAction(self.new_action)
         toolbar.addAction(self.open_action)
         toolbar.addAction(self.save_action)
@@ -505,6 +539,13 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         toolbar.addAction(self.run_action)
         toolbar.addAction(self.stop_action)
+        for action in (self.undo_action, self.redo_action):
+            button = toolbar.widgetForAction(action)
+            if isinstance(button, QToolButton):
+                button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        run_button = toolbar.widgetForAction(self.run_action)
+        if run_button is not None:
+            run_button.setObjectName("primary_tool")
         self._update_recent_menu()
 
     def _connect(self) -> None:
@@ -544,9 +585,12 @@ class MainWindow(QMainWindow):
             self.parameter_table.setEnabled(False)
         else:
             coating = state.mirror.coating
-            materials = ", ".join(f"{r}: {m.name}" for r, m in coating.materials.items())
+            materials = " · ".join(f"{r}: {m.name}" for r, m in coating.materials.items())
             self.design_label.setText(
-                f"<b>{type(coating).__name__}</b> ({materials}) on {state.mirror.substrate.name}"
+                f"<span style='font-size:13pt; font-weight:600'>{state.name}</span><br>"
+                f"<span style='color:{COLORS['text_muted']}'>Input design: "
+                f"<b>{type(coating).__name__}</b> · {materials} · substrate "
+                f"{state.mirror.substrate.name}</span>"
             )
             self.parameter_table.setEnabled(True)
         for page in self.step_pages():

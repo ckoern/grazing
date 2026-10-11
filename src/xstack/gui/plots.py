@@ -10,6 +10,7 @@ import pyqtgraph as pg
 from numpy.typing import NDArray
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
+from xstack.gui.style import COLORS, PLOT_PALETTE
 from xstack.physics.models import ReflectivityResult
 from xstack.structure.stack import Stack
 from xstack.targets import Target
@@ -25,18 +26,10 @@ __all__ = [
     "scan_axis",
 ]
 
-PALETTE = (
-    "#1f77b4",
-    "#d62728",
-    "#2ca02c",
-    "#9467bd",
-    "#ff7f0e",
-    "#17becf",
-    "#8c564b",
-    "#e377c2",
-)
+PALETTE = PLOT_PALETTE
+"""Colors of plot curves (the categorical palette of the design language)."""
 
-pg.setConfigOptions(antialias=True, background="w", foreground="k")
+pg.setConfigOptions(antialias=True, background=COLORS["surface"], foreground=COLORS["text_muted"])
 
 
 def scan_axis(target: Target) -> tuple[str, float]:
@@ -108,7 +101,7 @@ class ReflectivityPlot(QWidget):
         axes = sorted({c.result.target.axis for c in curves} | {t.axis for t in targets})
         for row, axis in enumerate(axes):
             plot = self.graphics.addPlot(row=row, col=0)
-            plot.showGrid(x=True, y=True, alpha=0.3)
+            plot.showGrid(x=True, y=True, alpha=0.15)
             plot.addLegend(offset=(-10, 10))
             counts = {
                 t.reflections
@@ -125,7 +118,10 @@ class ReflectivityPlot(QWidget):
             plot.setLabel("bottom", label)
             lo, hi = target.scan_range
             region = pg.LinearRegionItem(
-                (lo * factor, hi * factor), movable=False, brush=(200, 200, 255, 40)
+                (lo * factor, hi * factor),
+                movable=False,
+                brush=(79, 70, 229, 22),
+                pen=pg.mkPen(None),
             )
             region.setZValue(-10)
             plot.addItem(region)
@@ -278,7 +274,7 @@ class ConvergencePlot(QWidget):
         for plot in (self.objective_plot, self.merit_plot):
             plot.setLabel("bottom", "Evaluations")
             plot.getAxis("left").enableAutoSIPrefix(False)
-            plot.showGrid(x=True, y=True, alpha=0.3)
+            plot.showGrid(x=True, y=True, alpha=0.15)
         self.objective_plot.addLegend(offset=(-10, 10))
         self._data: dict[str, tuple[list[float], list[float], list[float]]] = {}
         self._curves: dict[str, tuple[pg.PlotDataItem, pg.PlotDataItem]] = {}

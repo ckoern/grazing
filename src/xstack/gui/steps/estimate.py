@@ -100,7 +100,9 @@ class EstimatePage(StepPage):
         self.table.setFrameShape(QTableWidget.Shape.NoFrame)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setStretchLastSection(True)
         self.table.setVisible(False)
         layout.addWidget(self.table)
 
@@ -146,10 +148,7 @@ class EstimatePage(StepPage):
 
         self.confirmation = QLabel()
         self.confirmation.setWordWrap(True)
-        self.confirmation.setStyleSheet(
-            "background-color: #e3f4e6; border: 1px solid #9fd3a8; border-radius: 6px; "
-            "padding: 6px 8px; color: #1d4d27;"
-        )
+        self.confirmation.setObjectName("confirmation")
         self.confirmation.setVisible(False)
         layout.addWidget(self.confirmation)
         layout.addStretch()

@@ -71,20 +71,17 @@ class Curve:
         label: Legend label.
         result: The reflectivity result.
         dashed: Draw with a dashed line (used for overlays).
-        group: Curves with the same group (e.g. the same design) share a color; defaults to
-            the label.
     """
 
     label: str
     result: ReflectivityResult
     dashed: bool = False
-    group: str = ""
 
 
 class ReflectivityPlot(QWidget):
     """Reflectivity versus energy or angle, with shaded target ranges.
 
-    Energy and angle scans are shown in separate panels.
+    Energy and angle scans are shown in separate panels; every curve gets its own color.
 
     Args:
         parent: Parent widget.
@@ -132,11 +129,9 @@ class ReflectivityPlot(QWidget):
             )
             region.setZValue(-10)
             plot.addItem(region)
-        colors: dict[str, str] = {}
-        for curve in curves:
+        for index, curve in enumerate(curves):
             label, factor = scan_axis(curve.result.target)
-            key = curve.group or curve.label
-            color = colors.setdefault(key, PALETTE[len(colors) % len(PALETTE)])
+            color = PALETTE[index % len(PALETTE)]
             style = (
                 pg.QtCore.Qt.PenStyle.DashLine if curve.dashed else pg.QtCore.Qt.PenStyle.SolidLine
             )

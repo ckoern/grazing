@@ -21,16 +21,16 @@ def wait_for_preview(qtbot: QtBot, window: MainWindow, previous: object = None) 
 
 
 def test_pages_in_workflow_order(window: MainWindow) -> None:
-    assert window.page_stack.count() == len(WORKFLOW_STEPS)
+    assert window.step_tabs.count() == len(WORKFLOW_STEPS)
     for index, step in enumerate(WORKFLOW_STEPS):
-        assert window.page_stack.widget(index).isAncestorOf(window.pages[step])
+        assert window.step_tabs.widget(index).isAncestorOf(window.pages[step])
 
 
 def test_selecting_workflow_row_switches_page(window: MainWindow) -> None:
     for index, step in enumerate(WORKFLOW_STEPS):
-        window.workflow_list.setCurrentRow(index)
-        assert window.page_stack.currentIndex() == index
-        assert window.page_stack.currentWidget().isAncestorOf(window.pages[step])
+        window.step_tabs.setCurrentIndex(index)
+        assert window.step_tabs.currentIndex() == index
+        assert window.step_tabs.currentWidget().isAncestorOf(window.pages[step])
 
 
 def test_initial_preview(qtbot: QtBot, window: MainWindow) -> None:

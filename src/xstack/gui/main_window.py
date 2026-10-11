@@ -8,6 +8,7 @@ from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDockWidget,
     QFileDialog,
     QFrame,
@@ -23,7 +24,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSplitter,
-    QStackedWidget,
     QTabWidget,
     QUndoView,
     QVBoxLayout,
@@ -44,6 +44,7 @@ from xstack.gui.steps import (
     AnalyzePage,
     CoatingPage,
     ConstraintsPage,
+    EstimatePage,
     GoalPage,
     MaterialsPage,
     OptimizePage,
@@ -53,6 +54,7 @@ from xstack.gui.steps import (
 )
 from xstack.gui.style import HELP_STYLE
 from xstack.gui.widgets import JournalView
+from xstack.gui.widgets.design_comparison import DesignComparisonView
 from xstack.gui.workers import Job, JobRunner, LatestRunner
 from xstack.manufacturing.tolerance import ToleranceResult
 from xstack.optim.events import ProgressEvent
@@ -78,13 +80,14 @@ WORKFLOW_STEPS = (
     "Goal",
     "Materials",
     "Coating",
+    "Estimate",
     "Constraints",
     "Process",
     "Scan",
     "Optimize",
     "Analyze",
 )
-"""Steps of the design workflow shown in the workflow list."""
+"""Steps of the design workflow, shown as tabs in this order."""
 
 PROJECT_FILTER = "xstack projects (*.xstack);;All files (*)"
 _MAX_RECENT = 8
@@ -125,17 +128,6 @@ def _candidate_details(state: ProjectState) -> str:
     if candidate.created:
         parts.append(f"created {candidate.created.replace('T', ' ')[:19]}")
     return "<br>".join(parts)
-
-
-def _titled(title: str, widget: QWidget) -> QWidget:
-    """Return a widget with a bold title label above `widget`."""
-    container = QWidget()
-    layout = QVBoxLayout(container)
-    layout.setContentsMargins(0, 0, 0, 0)
-    label = QLabel(f"<b>{title}</b>")
-    layout.addWidget(label)
-    layout.addWidget(widget)
-    return container
 
 
 class MainWindow(QMainWindow):
@@ -179,17 +171,30 @@ class MainWindow(QMainWindow):
 
     def _build_central(self) -> None:
         self.plot_tabs = QTabWidget()
+        self.plot_tabs.setDocumentMode(True)
         self.reflectivity_plot = ReflectivityPlot()
         self.layer_plot = LayerProfilePlot()
+        self.comparison_view = DesignComparisonView()
         self.plot_tabs.addTab(self._reflectivity_tab(), "Reflectivity")
-        self.plot_tabs.addTab(self.layer_plot, "Layer profile")
+        self.plot_tabs.addTab(self._layer_tab(), "Layer profile")
+        self.plot_tabs.addTab(self.comparison_view, "Parameters")
         self.design_map = DesignMapPlot()
         self.convergence_plot = ConvergencePlot()
         self.tolerance_plot = HistogramPlot()
         self.plot_tabs.addTab(self.design_map, "Design map")
         self.plot_tabs.addTab(self.convergence_plot, "Convergence")
         self.plot_tabs.addTab(self.tolerance_plot, "Tolerance")
-        self.setCentralWidget(self.plot_tabs)
+        self.plot_tabs.setTabToolTip(
+            2, "Coating parameters of the selected candidate compared with the input design"
+        )
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self._step_panel())
+        splitter.addWidget(self.plot_tabs)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([560, 900])
+        self.setCentralWidget(splitter)
         self.job_runner = JobRunner(parent=self)
         self.overlays: list[str] = []
         self.preview_runner = LatestRunner(parent=self)
@@ -201,6 +206,81 @@ class MainWindow(QMainWindow):
         self.live_curves: tuple[ReflectivityResult, ...] = ()
         self._live_values: dict[str, float] | None = None
         self._job_state: ProjectState | None = None
+
+    def _step_panel(self) -> QWidget:
+        """Create the workflow panel: design summary and one tab per workflow step."""
+        panel = QWidget()
+        panel.setObjectName("step_panel")
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(8, 8, 4, 8)
+        self.design_label = QLabel()
+        self.design_label.setObjectName("design_header")
+        self.design_label.setWordWrap(True)
+        layout.addWidget(self.design_label)
+        self.goal_page = GoalPage()
+        self.materials_page = MaterialsPage()
+        self.coating_page = CoatingPage()
+        self.estimate_page = EstimatePage()
+        self.constraints_page = ConstraintsPage()
+        self.process_page = ProcessPage()
+        self.scan_page = ScanPage()
+        self.optimize_page = OptimizePage()
+        self.analyze_page = AnalyzePage()
+        self.pages: dict[str, QWidget] = {
+            "Goal": self.goal_page,
+            "Materials": self.materials_page,
+            "Coating": self.coating_page,
+            "Estimate": self.estimate_page,
+            "Constraints": self.constraints_page,
+            "Process": self.process_page,
+            "Scan": self.scan_page,
+            "Optimize": self.optimize_page,
+            "Analyze": self.analyze_page,
+        }
+        self.step_tabs = QTabWidget()
+        self.step_tabs.setObjectName("step_tabs")
+        self.step_tabs.setDocumentMode(True)
+        self.step_tabs.setUsesScrollButtons(True)
+        for index, step in enumerate(WORKFLOW_STEPS):
+            container = self._step_container(index, self.pages[step])
+            self.step_tabs.addTab(container, f"{index + 1} {step}")
+            self.step_tabs.setTabToolTip(index, f"Step {index + 1}: {step}")
+        self.step_tabs.setCurrentIndex(WORKFLOW_STEPS.index("Coating"))
+        layout.addWidget(self.step_tabs, 1)
+        self.parameter_table = self.coating_page.parameter_table
+        return panel
+
+    def _layer_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        bar = QHBoxLayout()
+        bar.addWidget(QLabel("Show:"))
+        self.layer_source = QComboBox()
+        self.layer_source.addItem("Input design", "input")
+        self.layer_source.addItem("Selected candidate", "selected")
+        self.layer_source.setToolTip(
+            "Show the layers of the input design or of the selected candidate"
+        )
+        self.layer_source.activated.connect(self._show_layers)
+        bar.addWidget(self.layer_source)
+        bar.addStretch()
+        layout.addLayout(bar)
+        layout.addWidget(self.layer_plot)
+        return tab
+
+    def _show_layers(self, _index: int = 0) -> None:
+        state = self.controller.state
+        stack = self.preview.stack if self.preview is not None else None
+        if self.layer_source.currentData() == "selected":
+            candidate = state.selected_candidate()
+            stack = None
+            if candidate is not None:
+                try:
+                    stack = candidate.mirror.stack()
+                except ValueError:
+                    stack = None
+        self.layer_plot.set_stack(stack)
 
     def _reflectivity_tab(self) -> QWidget:
         tab = QWidget()
@@ -262,8 +342,6 @@ class MainWindow(QMainWindow):
         return dock
 
     def _build_docks(self) -> None:
-        self.workflow_list = QListWidget()
-        self.workflow_list.addItems(list(WORKFLOW_STEPS))
         self.candidate_list = QListWidget()
         self.candidate_list.setToolTip(
             "Stored designs. Optimization runs are stored as “run N” (final design) and "
@@ -292,43 +370,8 @@ class MainWindow(QMainWindow):
         self.candidate_details = QLabel("No candidate selected.")
         self.candidate_details.setWordWrap(True)
         candidate_layout.addWidget(self.candidate_details)
-        left = QSplitter(Qt.Orientation.Vertical)
-        left.addWidget(_titled("Workflow", self.workflow_list))
-        left.addWidget(_titled("Candidates", candidates))
-        self.workflow_dock = self._dock("Project", left, Qt.DockWidgetArea.LeftDockWidgetArea)
-
-        properties = QWidget()
-        layout = QVBoxLayout(properties)
-        self.design_label = QLabel()
-        self.design_label.setWordWrap(True)
-        layout.addWidget(self.design_label)
-        self.goal_page = GoalPage()
-        self.materials_page = MaterialsPage()
-        self.coating_page = CoatingPage()
-        self.constraints_page = ConstraintsPage()
-        self.process_page = ProcessPage()
-        self.scan_page = ScanPage()
-        self.optimize_page = OptimizePage()
-        self.analyze_page = AnalyzePage()
-        self.pages: dict[str, QWidget] = {
-            "Goal": self.goal_page,
-            "Materials": self.materials_page,
-            "Coating": self.coating_page,
-            "Constraints": self.constraints_page,
-            "Process": self.process_page,
-            "Scan": self.scan_page,
-            "Optimize": self.optimize_page,
-            "Analyze": self.analyze_page,
-        }
-        self.page_stack = QStackedWidget()
-        for index, step in enumerate(WORKFLOW_STEPS):
-            self.page_stack.addWidget(self._step_container(index, self.pages[step]))
-        layout.addWidget(self.page_stack)
-        self.parameter_table = self.coating_page.parameter_table
-        self.workflow_list.currentRowChanged.connect(self.page_stack.setCurrentIndex)
-        self.workflow_list.setCurrentRow(WORKFLOW_STEPS.index("Coating"))
-        self.properties_dock = self._dock(
-            "Properties", properties, Qt.DockWidgetArea.RightDockWidgetArea
+        self.candidates_dock = self._dock(
+            "Candidates", candidates, Qt.DockWidgetArea.LeftDockWidgetArea
         )
 
         self.journal_view = JournalView()
@@ -342,10 +385,8 @@ class MainWindow(QMainWindow):
         )
         self.tabifyDockWidget(self.journal_dock, self.history_dock)
         self.journal_dock.raise_()
-        self.resizeDocks(
-            [self.workflow_dock, self.properties_dock], [220, 520], Qt.Orientation.Horizontal
-        )
-        self.resizeDocks([self.journal_dock], [160], Qt.Orientation.Vertical)
+        self.resizeDocks([self.candidates_dock], [240], Qt.Orientation.Horizontal)
+        self.resizeDocks([self.journal_dock], [130], Qt.Orientation.Vertical)
 
     def _step_container(self, index: int, page: QWidget) -> QWidget:
         """Wrap a workflow page with its help text and Back/Next buttons."""
@@ -386,12 +427,13 @@ class MainWindow(QMainWindow):
 
     def next_step(self) -> None:
         """Show the next workflow step."""
-        row = self.workflow_list.currentRow()
-        self.workflow_list.setCurrentRow(min(row + 1, len(WORKFLOW_STEPS) - 1))
+        self.step_tabs.setCurrentIndex(
+            min(self.step_tabs.currentIndex() + 1, len(WORKFLOW_STEPS) - 1)
+        )
 
     def previous_step(self) -> None:
         """Show the previous workflow step."""
-        self.workflow_list.setCurrentRow(max(self.workflow_list.currentRow() - 1, 0))
+        self.step_tabs.setCurrentIndex(max(self.step_tabs.currentIndex() - 1, 0))
 
     def _build_actions(self) -> None:
         self.new_actions: dict[str, QAction] = {}
@@ -447,8 +489,7 @@ class MainWindow(QMainWindow):
         run_menu.addAction(self.stop_action)
         view_menu = self.menuBar().addMenu("&View")
         for dock in (
-            self.workflow_dock,
-            self.properties_dock,
+            self.candidates_dock,
             self.journal_dock,
             self.history_dock,
         ):
@@ -493,6 +534,7 @@ class MainWindow(QMainWindow):
         self.optimize_page.pipelineFinished.connect(self._apply_pipeline_result)
         self.analyze_page.toleranceFinished.connect(self._show_tolerance)
         self.store_button.clicked.connect(lambda: self.store_candidate())
+        self.comparison_view.commandRequested.connect(c.execute)
         self.use_button.clicked.connect(self._use_candidate)
         self.delete_button.clicked.connect(self._delete_candidate)
 
@@ -509,6 +551,7 @@ class MainWindow(QMainWindow):
             self.parameter_table.setEnabled(True)
         for page in self.step_pages():
             page.set_state(state)
+        self.comparison_view.set_state(state)
         names = [c.name for c in state.candidates]
         self.overlays = [n for n in self.overlays if n in names]
         self.candidate_list.blockSignals(True)
@@ -526,6 +569,7 @@ class MainWindow(QMainWindow):
                 self.candidate_list.setCurrentItem(item)
         self.candidate_list.blockSignals(False)
         self.candidate_details.setText(_candidate_details(state))
+        self._show_layers()
         self._update_title()
         self._request_preview()
 
@@ -546,7 +590,7 @@ class MainWindow(QMainWindow):
             return
         self.preview = preview
         self._redraw()
-        self.layer_plot.set_stack(preview.stack)
+        self._show_layers()
         for page in self.step_pages():
             page.set_preview(preview)
         self.summary_label.setText(_summary(preview))
@@ -564,16 +608,10 @@ class MainWindow(QMainWindow):
             suffix = f" – {target.name or f'target {i + 1}'}" if multiple and target else ""
             return name + suffix
 
-        curves = [
-            Curve(label("input design", i), r, group="input") for i, r in enumerate(preview.curves)
-        ]
+        curves = [Curve(label("input design", i), r) for i, r in enumerate(preview.curves)]
         for name, results in preview.overlays:
-            curves += [
-                Curve(label(name, i), r, dashed=True, group=name) for i, r in enumerate(results)
-            ]
-        curves += [
-            Curve(label("best so far", i), r, group="live") for i, r in enumerate(self.live_curves)
-        ]
+            curves += [Curve(label(name, i), r, dashed=True) for i, r in enumerate(results)]
+        curves += [Curve(label("best so far", i), r) for i, r in enumerate(self.live_curves)]
         self.reflectivity_plot.set_curves(curves, targets)
 
     def start_job(self, job: Job) -> bool:

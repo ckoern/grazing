@@ -6,7 +6,7 @@ import pytest
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDockWidget
 
-from xstack.gui.main_window import MainWindow
+from xstack.gui.main_window import WORKFLOW_STEPS, MainWindow
 from xstack.project import Candidate
 from xstack.project.commands import add_candidate, set_parameter
 
@@ -140,8 +140,7 @@ def test_close_restores_layout(window: MainWindow, settings: QSettings) -> None:
 
 def test_docks_and_view_menu(window: MainWindow) -> None:
     docks = [
-        window.workflow_dock,
-        window.properties_dock,
+        window.candidates_dock,
         window.journal_dock,
         window.history_dock,
     ]
@@ -150,7 +149,7 @@ def test_docks_and_view_menu(window: MainWindow) -> None:
     toggles = {a.text() for a in view.actions()}
     assert {d.windowTitle() for d in docks} <= toggles
     window.show()
-    dock = window.properties_dock
+    dock = window.candidates_dock
     assert dock.isVisible()
     dock.toggleViewAction().trigger()
     assert not dock.isVisible()
@@ -158,8 +157,9 @@ def test_docks_and_view_menu(window: MainWindow) -> None:
     assert dock.isVisible()
 
 
-def test_workflow_list(window: MainWindow) -> None:
-    assert window.workflow_list.count() == 8
+def test_workflow_tabs(window: MainWindow) -> None:
+    assert window.step_tabs.count() == len(WORKFLOW_STEPS)
+    assert window.step_tabs.tabText(WORKFLOW_STEPS.index("Estimate")) == "4 Estimate"
 
 
 def test_new_actions_per_template(window: MainWindow) -> None:

@@ -65,7 +65,7 @@ def item_names(window: MainWindow) -> list[str]:
 
 def test_pages_with_help_text_have_help_label(window: MainWindow) -> None:
     for index, step in enumerate(WORKFLOW_STEPS):
-        container = window.page_stack.widget(index)
+        container = window.step_tabs.widget(index)
         label = container.findChild(QLabel, f"help_{step.lower()}")
         if getattr(window.pages[step], "help_text", ""):
             assert label is not None, step
@@ -75,37 +75,37 @@ def test_pages_with_help_text_have_help_label(window: MainWindow) -> None:
 
 
 def test_next_and_previous_step(window: MainWindow) -> None:
-    window.workflow_list.setCurrentRow(0)
+    window.step_tabs.setCurrentIndex(0)
     window.next_step()
-    assert window.workflow_list.currentRow() == 1
-    assert window.page_stack.currentIndex() == 1
+    assert window.step_tabs.currentIndex() == 1
+    assert window.step_tabs.currentIndex() == 1
     window.previous_step()
-    assert window.workflow_list.currentRow() == 0
+    assert window.step_tabs.currentIndex() == 0
     window.previous_step()
-    assert window.workflow_list.currentRow() == 0
-    window.workflow_list.setCurrentRow(len(WORKFLOW_STEPS) - 1)
+    assert window.step_tabs.currentIndex() == 0
+    window.step_tabs.setCurrentIndex(len(WORKFLOW_STEPS) - 1)
     window.next_step()
-    assert window.workflow_list.currentRow() == len(WORKFLOW_STEPS) - 1
-    assert window.page_stack.currentIndex() == len(WORKFLOW_STEPS) - 1
+    assert window.step_tabs.currentIndex() == len(WORKFLOW_STEPS) - 1
+    assert window.step_tabs.currentIndex() == len(WORKFLOW_STEPS) - 1
 
 
 def test_next_buttons_and_back_buttons(window: MainWindow) -> None:
     for index, step in enumerate(WORKFLOW_STEPS):
-        container = window.page_stack.widget(index)
+        container = window.step_tabs.widget(index)
         forward = container.findChild(QPushButton, f"next_{step.lower()}")
         if index < len(WORKFLOW_STEPS) - 1:
             assert forward is not None, step
-            window.workflow_list.setCurrentRow(index)
+            window.step_tabs.setCurrentIndex(index)
             forward.click()
-            assert window.workflow_list.currentRow() == index + 1
+            assert window.step_tabs.currentIndex() == index + 1
         else:
             assert forward is None
-    first = window.page_stack.widget(0)
+    first = window.step_tabs.widget(0)
     back = [b for b in first.findChildren(QPushButton) if b.text().endswith("Back")]
     assert len(back) == 1
     assert not back[0].isEnabled()
     second_back = [
-        b for b in window.page_stack.widget(1).findChildren(QPushButton) if "Back" in b.text()
+        b for b in window.step_tabs.widget(1).findChildren(QPushButton) if "Back" in b.text()
     ]
     assert second_back[0].isEnabled()
 
@@ -363,24 +363,19 @@ def test_reflectivity_label_reflects_number_of_reflections(qtbot: QtBot) -> None
     assert "Rⁿ" not in label
 
 
-def test_curves_of_same_group_share_color(qtbot: QtBot) -> None:
+def test_every_curve_has_its_own_color(qtbot: QtBot) -> None:
     state = new_state("periodic")
     assert state.mirror is not None
     result = compute_curves(state, state.mirror)[0]
     plot = ReflectivityPlot()
     qtbot.addWidget(plot)
     plot.set_curves(
-        [
-            Curve("a", result, group="g"),
-            Curve("b", result, dashed=True, group="g"),
-            Curve("c", result, group="h"),
-        ],
+        [Curve("a", result), Curve("b", result, dashed=True), Curve("c", result)],
         state.targets.targets if state.targets else (),
     )
     items = plot.plot_items()["energy"].listDataItems()
     colors = [item.opts["pen"].color().name() for item in items]
-    assert colors[0] == colors[1]
-    assert colors[0] != colors[2]
+    assert len(set(colors)) == 3
 
 
 def test_convergence_plot_fills_both_panels(qtbot: QtBot) -> None:

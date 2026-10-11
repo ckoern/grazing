@@ -106,9 +106,10 @@ class OptimizePage(StepPage):
     """Figure of merit (mixable, with optional coating-time penalty) and pipeline runs.
 
     Signals:
-        pipelineFinished(DesignProblem, PipelineResult, tuple): A pipeline run finished; the
-            evaluations of the stage results with the full problem (see
-            `xstack.project.commands.evaluate_stages`).
+        pipelineFinished(DesignProblem, PipelineResult, tuple, object): A pipeline run
+            finished; the evaluations of the stage results with the full problem (see
+            `xstack.project.commands.evaluate_stages`) and the candidate name entered for the
+            run (``None`` for an automatic name).
 
     Args:
         parent: Parent widget.
@@ -133,7 +134,7 @@ class OptimizePage(StepPage):
         "<p><b>Progress.</b> Watch the <i>Convergence</i> tab and the live reflectivity of the "
         "best design while the run is active.</p>"
     )
-    pipelineFinished = Signal(object, object, object)
+    pipelineFinished = Signal(object, object, object, object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -329,6 +330,14 @@ class OptimizePage(StepPage):
 
     def _build_buttons(self) -> QHBoxLayout:
         buttons = QHBoxLayout()
+        self.run_name = QLineEdit()
+        self.run_name.setPlaceholderText("run name (optional)")
+        self.run_name.setToolTip(
+            "Name of the candidate that stores the result of the next run (stage results are "
+            "named “<name> · <stage>”). Leave empty for an automatic name “run N”."
+        )
+        self.run_name.setMaximumWidth(180)
+        buttons.addWidget(self.run_name)
         self.run_button = QPushButton("Run pipeline")
         self.run_button.setToolTip("Run all enabled stages in order, each from the previous one.")
         self.run_button.clicked.connect(lambda: self.run())
@@ -593,6 +602,7 @@ class OptimizePage(StepPage):
             self.errorOccurred.emit("Cannot optimize: no stage is enabled")
             return
         name = f"Stage {stage}" if stage else "Pipeline"
+        candidate_name = self.run_name.text().strip() or None
 
         def compute(
             progress: Callable[[Any], None], cancel: CancellationToken
@@ -603,7 +613,7 @@ class OptimizePage(StepPage):
         def finished(outcome: tuple[PipelineResult, tuple[Evaluation, ...]]) -> None:
             result, evaluations = outcome
             self._show_results(result, evaluations)
-            self.pipelineFinished.emit(problem, result, evaluations)
+            self.pipelineFinished.emit(problem, result, evaluations, candidate_name)
 
         self.jobRequested.emit(Job(name, compute, finished))
 

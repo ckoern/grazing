@@ -66,19 +66,22 @@ def test_run_emits_job_with_error_model(qtbot: QtBot) -> None:
     page.samples.setValue(3)
     page.seed.setText("1")
     jobs: list[Job] = []
-    finished: list[ToleranceResult] = []
+    finished: list[tuple[object, ...]] = []
     page.jobRequested.connect(jobs.append)
-    page.toleranceFinished.connect(finished.append)
+    page.toleranceFinished.connect(lambda *args: finished.append(args))
     page.run()
-    result = jobs[0].function(lambda _: None, CancellationToken())
+    outcome = jobs[0].function(lambda _: None, CancellationToken())
+    result, curves, ranges = outcome
     assert isinstance(result, ToleranceResult)
+    assert curves is None
+    assert ranges == {}
     assert len(result.merits) == 3
     assert result.errors == page.error_model()
-    jobs[0].on_finished(result)
+    jobs[0].on_finished(outcome)
     text = page.summary.text()
     for word in ("Nominal", "median", "10", "worst", "feasible", "roughness", "mixed layer"):
         assert word in text
-    assert finished == [result]
+    assert finished == [(result, None, {})]
 
 
 def test_run_without_errors_reports(qtbot: QtBot) -> None:

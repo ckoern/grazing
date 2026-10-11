@@ -171,9 +171,12 @@ def test_analyze_page_tolerance_and_export(qtbot: QtBot, tmp_path: Path) -> None
     jobs: list[Job] = []
     page.jobRequested.connect(jobs.append)
     page.run()
-    result = jobs[0].function(lambda _: None, CancellationToken())
+    outcome = jobs[0].function(lambda _: None, CancellationToken())
+    result, curves, ranges = outcome
     assert len(result.merits) == 3
-    jobs[0].on_finished(result)
+    assert curves is None
+    assert ranges == {}
+    jobs[0].on_finished(outcome)
     assert "Nominal" in page.summary.text()
     csv_path, json_path = tmp_path / "recipe.csv", tmp_path / "recipe.json"
     assert page.export(csv_path, "csv")

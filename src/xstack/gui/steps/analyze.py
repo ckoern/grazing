@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from xstack.gui.preview import ToleranceCurves, tolerance_curves
 from xstack.gui.steps.base import StepPage
 from xstack.gui.workers import Job
 from xstack.io.recipe import write_recipe_csv, write_recipe_json
@@ -69,7 +70,13 @@ class AnalyzePage(StepPage):
     """Monte Carlo tolerance analysis of the current design and recipe export.
 
     Signals:
-        toleranceFinished(ToleranceResult): A tolerance analysis finished.
+        toleranceFinished(ToleranceResult, object, object): A tolerance analysis finished;
+            the arguments are the result, its reflectivity curves on the display range
+            (`ToleranceCurves`, or ``None`` without display range) and that display range.
+
+    Attributes:
+        display_ranges: Plot range by scan axis; the analysis also calculates the
+            reflectivity of all samples on this range for display.
 
     Args:
         parent: Parent widget.
@@ -91,10 +98,11 @@ class AnalyzePage(StepPage):
         "curves close to the nominal one mean a robust design. When you are satisfied, "
         "export the layer table or the full recipe for your deposition system."
     )
-    toleranceFinished = Signal(object)
+    toleranceFinished = Signal(object, object, object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.display_ranges: dict[str, tuple[float, float]] = {}
         self._state: ProjectState | None = None
         self.result: ToleranceResult | None = None
         self._applying = False
@@ -345,15 +353,25 @@ class AnalyzePage(StepPage):
             self.errorOccurred.emit("The random seed must be an integer")
             return
         samples = self.samples.value()
+        state = self._state
+        ranges = dict(self.display_ranges)
 
-        def compute(progress: Callable[[Any], None], cancel: CancellationToken) -> ToleranceResult:
-            return tolerance_analysis(
+        def compute(
+            progress: Callable[[Any], None], cancel: CancellationToken
+        ) -> tuple[ToleranceResult, ToleranceCurves | None, dict[str, tuple[float, float]]]:
+            result = tolerance_analysis(
                 problem, errors=errors, samples=samples, seed=seed, cancel=cancel, events=progress
             )
+            curves = tolerance_curves(state, result, ranges) if ranges else None
+            return result, curves, ranges
 
         self.jobRequested.emit(Job("Tolerance analysis", compute, self._finished))
 
-    def _finished(self, result: ToleranceResult) -> None:
+    def _finished(
+        self,
+        outcome: tuple[ToleranceResult, ToleranceCurves | None, dict[str, tuple[float, float]]],
+    ) -> None:
+        result, curves, ranges = outcome
         self.result = result
         m = result.merits
         self.summary.setText(
@@ -363,7 +381,7 @@ class AnalyzePage(StepPage):
             f"{int(result.feasible.sum())} of {len(m)} feasible.\n"
             f"Errors: {describe_errors(result.errors)}."
         )
-        self.toleranceFinished.emit(result)
+        self.toleranceFinished.emit(result, curves, ranges)
 
     def export(self, path: Path | str | None, kind: str) -> bool:
         """Write the layer table of the current design.

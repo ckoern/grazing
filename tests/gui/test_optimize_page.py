@@ -224,7 +224,8 @@ def test_job_returns_result_and_stage_evaluations(page: OptimizePage) -> None:
     assert len(evaluations) == 1
     jobs[0].on_finished(outcome)
     assert len(emitted) == 1
-    problem, emitted_result, emitted_evals = emitted[0]
+    problem, emitted_result, emitted_evals, run_name = emitted[0]
+    assert run_name is None
     assert emitted_result is result
     assert emitted_evals == evaluations
     assert problem is not None

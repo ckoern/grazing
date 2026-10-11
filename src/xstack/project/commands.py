@@ -39,6 +39,7 @@ __all__ = [
     "promote_candidate",
     "record_run",
     "remove_candidate",
+    "remove_candidates",
     "remove_constraint",
     "rename_candidate",
     "rename_project",
@@ -318,6 +319,33 @@ def remove_candidate(name: str) -> Command:
         )
 
     return Command(f"Delete candidate {name!r}", transform)
+
+
+def remove_candidates(names: Sequence[str]) -> Command:
+    """Delete several stored candidates in one step (and clear the selection if affected).
+
+    Args:
+        names: Candidate names.
+
+    Returns:
+        The command.
+    """
+    doomed = tuple(names)
+
+    def transform(state: ProjectState) -> ProjectState:
+        for name in doomed:
+            state.candidate(name)
+        return state.evolve(
+            candidates=tuple(c for c in state.candidates if c.name not in doomed),
+            selected=None if state.selected in doomed else state.selected,
+        )
+
+    text = (
+        f"Delete candidate {doomed[0]!r}"
+        if len(doomed) == 1
+        else f"Delete {len(doomed)} candidates"
+    )
+    return Command(text, transform)
 
 
 def rename_candidate(name: str, new_name: str) -> Command:

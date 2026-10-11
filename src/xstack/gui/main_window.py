@@ -4,9 +4,10 @@ import functools
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QPoint, QSettings, Qt
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence, QShowEvent
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -69,6 +71,7 @@ from xstack.gui.style import (
     set_variant,
 )
 from xstack.gui.widgets import JournalView
+from xstack.gui.widgets.candidate_dialog import CandidateParametersDialog
 from xstack.gui.widgets.design_comparison import DesignComparisonView
 from xstack.gui.widgets.tolerance_view import ToleranceView
 from xstack.gui.workers import Job, JobRunner, LatestRunner
@@ -83,7 +86,7 @@ from xstack.project.commands import (
     add_candidate,
     promote_candidate,
     record_run,
-    remove_candidate,
+    remove_candidates,
     rename_candidate,
     select_candidate,
     store_pipeline_result,
@@ -384,6 +387,7 @@ class MainWindow(QMainWindow):
                 ranges[axis] = previous
         if ranges != self.display_ranges:
             self.display_ranges = ranges
+            self.analyze_page.display_ranges = dict(ranges)
             self._request_preview()
             self._request_tolerance_curves()
 
@@ -408,6 +412,9 @@ class MainWindow(QMainWindow):
         )
         self.candidate_list.itemChanged.connect(self._candidate_item_changed)
         self.candidate_list.currentItemChanged.connect(self._candidate_clicked)
+        self.candidate_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.candidate_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.candidate_list.customContextMenuRequested.connect(self._candidate_menu)
         candidates = QWidget()
         candidate_layout = QVBoxLayout(candidates)
         candidate_layout.setContentsMargins(0, 0, 0, 0)
@@ -420,7 +427,9 @@ class MainWindow(QMainWindow):
             "Copy the selected candidate into the input design, e.g. to continue optimizing from it"
         )
         self.delete_button = QPushButton("Delete")
-        self.delete_button.setToolTip("Delete the selected candidate")
+        self.delete_button.setToolTip(
+            "Delete the selected candidates (Ctrl- or Shift-click to select several)"
+        )
         buttons.addWidget(self.store_button, 0, 0, 1, 2)
         buttons.addWidget(self.use_button, 1, 0)
         buttons.addWidget(self.delete_button, 1, 1)
@@ -816,22 +825,39 @@ class MainWindow(QMainWindow):
         if not self.display_ranges:
             self.tolerance_view.set_result(self.tolerance_result)
             return
-        self.tolerance_runner.request(
-            functools.partial(
-                tolerance_curves,
-                self.controller.state,
-                self.tolerance_result,
-                dict(self.display_ranges),
-            )
+        result, ranges, state = (
+            self.tolerance_result,
+            dict(self.display_ranges),
+            self.controller.state,
         )
 
-    def _on_tolerance_curves(self, curves: ToleranceCurves) -> None:
-        self.tolerance_view.set_result(self.tolerance_result, curves)
+        def compute() -> tuple[ToleranceResult, dict[str, tuple[float, float]], ToleranceCurves]:
+            return result, ranges, tolerance_curves(state, result, ranges)
 
-    def _show_tolerance(self, result: ToleranceResult) -> None:
+        self.statusBar().showMessage("Updating tolerance curves for the plot range…")
+        self.tolerance_runner.request(compute)
+
+    def _on_tolerance_curves(
+        self, outcome: tuple[ToleranceResult, dict[str, tuple[float, float]], ToleranceCurves]
+    ) -> None:
+        result, ranges, curves = outcome
+        # Curves of an older result or range are ignored.
+        if result is self.tolerance_result and ranges == self.display_ranges:
+            self.tolerance_view.set_result(result, curves)
+            self.statusBar().showMessage("Tolerance curves updated", 3000)
+
+    def _show_tolerance(
+        self,
+        result: ToleranceResult,
+        curves: ToleranceCurves | None = None,
+        ranges: dict[str, tuple[float, float]] | None = None,
+    ) -> None:
         self.tolerance_result = result
-        self.tolerance_view.set_result(result)
-        self._request_tolerance_curves()
+        if curves is not None and ranges == self.display_ranges:
+            self.tolerance_view.set_result(result, curves)
+        else:
+            self.tolerance_view.set_result(result)
+            self._request_tolerance_curves()
         self.plot_tabs.setCurrentWidget(self.tolerance_view)
 
     def _apply_pipeline_result(
@@ -839,11 +865,12 @@ class MainWindow(QMainWindow):
         problem: DesignProblem,
         result: PipelineResult,
         stage_evaluations: tuple[Evaluation, ...] | None = None,
+        name: str | None = None,
     ) -> None:
         record_run(self.controller.project.journal, result)
         runs = len(self.controller.project.journal.entries("run"))
         self.controller.execute(
-            store_pipeline_result(problem, result, f"run {runs}", stage_evaluations)
+            store_pipeline_result(problem, result, name or f"run {runs}", stage_evaluations)
         )
 
     def store_candidate(self, name: str | None = None) -> None:
@@ -877,15 +904,75 @@ class MainWindow(QMainWindow):
         item = self.candidate_list.currentItem()
         return item.data(Qt.ItemDataRole.UserRole) if item is not None else None
 
+    def selected_candidates(self) -> list[str]:
+        """Return the names of the candidates selected in the list, in list order."""
+        rows = sorted(self.candidate_list.row(i) for i in self.candidate_list.selectedItems())
+        return [self.candidate_list.item(r).data(Qt.ItemDataRole.UserRole) for r in rows]
+
     def _use_candidate(self) -> None:
         name = self._selected_candidate()
         if name is not None:
             self.controller.execute(promote_candidate(name))
 
     def _delete_candidate(self) -> None:
-        name = self._selected_candidate()
-        if name is not None:
-            self.controller.execute(remove_candidate(name))
+        names = self.selected_candidates()
+        if not names:
+            current = self._selected_candidate()
+            names = [current] if current is not None else []
+        if names:
+            self.controller.execute(remove_candidates(names))
+
+    def _rename_candidate(self) -> None:
+        item = self.candidate_list.currentItem()
+        if item is not None:
+            self.candidate_list.editItem(item)
+
+    def show_candidate_parameters(
+        self, name: str | None = None
+    ) -> CandidateParametersDialog | None:
+        """Open a window with the coating parameters of a candidate.
+
+        Args:
+            name: Candidate name; defaults to the current candidate of the list.
+
+        Returns:
+            The dialog, or ``None`` if there is no such candidate.
+        """
+        name = name or self._selected_candidate()
+        if name is None:
+            return None
+        try:
+            candidate = self.controller.state.candidate(name)
+        except KeyError:
+            return None
+        dialog = CandidateParametersDialog(candidate, self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.show()
+        return dialog
+
+    def candidate_menu(self) -> QMenu:
+        """Return the context menu of the candidates list for the current selection."""
+        menu = QMenu(self.candidate_list)
+        names = self.selected_candidates()
+        single = len(names) <= 1 and self._selected_candidate() is not None
+        use = menu.addAction("Use as start design", self._use_candidate)
+        rename = menu.addAction("Rename", self._rename_candidate)
+        show = menu.addAction("Show parameters…", lambda: self.show_candidate_parameters())
+        for action in (use, rename, show):
+            action.setEnabled(single)
+        menu.addSeparator()
+        count = max(len(names), 1 if single else 0)
+        delete = menu.addAction(
+            "Delete" if count <= 1 else f"Delete {count} candidates", self._delete_candidate
+        )
+        delete.setEnabled(count > 0)
+        return menu
+
+    def _candidate_menu(self, position: QPoint) -> None:
+        item = self.candidate_list.itemAt(position)
+        if item is not None and not item.isSelected():
+            self.candidate_list.setCurrentItem(item)
+        self.candidate_menu().exec(self.candidate_list.viewport().mapToGlobal(position))
 
     def _candidate_clicked(self, current: QListWidgetItem | None, _previous: object) -> None:
         name = current.data(Qt.ItemDataRole.UserRole) if current is not None else None

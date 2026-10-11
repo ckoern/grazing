@@ -12,9 +12,10 @@ from xstack.gui.preview import ToleranceCurves
 from xstack.gui.style import COLORS, PLOT_PALETTE
 from xstack.manufacturing.tolerance import ToleranceResult
 
-__all__ = ["ToleranceView"]
+__all__ = ["ToleranceView", "sample_alpha"]
 
-_SAMPLE_ALPHA = 32
+_ALPHA_SCALE = 340.0
+_ALPHA_RANGE = (14, 180)
 _BAND_ALPHA = 55
 _FILL_ALPHA = 110
 _PERCENTILES = (10.0, 90.0)
@@ -25,6 +26,24 @@ def _color(value: str, alpha: int = 255) -> QColor:
     color = pg.mkColor(value)
     color.setAlpha(alpha)
     return color
+
+
+def sample_alpha(count: int) -> int:
+    """Return the opacity (0 to 255) of each sample curve when `count` curves are overlaid.
+
+    The opacity decreases with the square root of the number of curves, so that a few curves
+    are clearly visible and many curves still show their density, within (14, 180).
+
+    Args:
+        count: Number of overlaid curves.
+
+    Returns:
+        The alpha value.
+    """
+    if count <= 0:
+        return _ALPHA_RANGE[1]
+    alpha = round(_ALPHA_SCALE / np.sqrt(count))
+    return int(min(max(alpha, _ALPHA_RANGE[0]), _ALPHA_RANGE[1]))
 
 
 class ToleranceView(QWidget):
@@ -173,8 +192,9 @@ class ToleranceView(QWidget):
                     brush=_color(sample_color, _BAND_ALPHA),
                 )
                 plot.addItem(band)
-            pen = pg.mkPen(_color(sample_color, _SAMPLE_ALPHA), width=1)
-            for k in self._chosen(len(curves)):
+            chosen = self._chosen(len(curves))
+            pen = pg.mkPen(_color(sample_color, sample_alpha(len(chosen))), width=1)
+            for k in chosen:
                 plot.addItem(
                     pg.PlotDataItem(x, curves[k], pen=pen, skipFiniteCheck=True, antialias=False)
                 )

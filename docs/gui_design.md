@@ -1,130 +1,188 @@
-# xstack GUI: design and layout concept
+# xstack GUI: design and layout
 
-Status: proposal. Stack: PySide6, pyqtgraph for interactive plots, and matplotlib only for figure export.
+Status: implemented. Stack: PySide6, pyqtgraph for interactive plots. The GUI is the package `xstack.gui`
+(`python -m xstack.gui`).
 
 ## 1. Principles
 
-- **Thin GUI.** No physics or optimization logic in the GUI. It edits the core `Project` and
-  displays results. Anything the GUI can do, the library can do (`architecture_core.md`).
-- **All edits are commands.** Widgets never mutate the project directly. They create core
-  `Command`s, wrapped in a `QUndoCommand` adapter and pushed onto a `QUndoStack`. Undo/redo,
-  the `QUndoView` history, and the core journal stay in sync automatically.
-- **Generated forms.** Parameter editors are built from `Parameter` declarations of the registered
-  class (coating, constraint, FOM, optimizer). New plugins appear in the GUI without GUI code.
-  Custom hand-written editors can be registered per type where needed.
-- **Responsive.** Long calculations run off the UI thread and are cancellable. Results stream in
-  through progress events.
+- **Thin GUI.** No physics or optimization logic in the GUI. It edits the core `Project` and displays
+  results. Anything the GUI does is a call to the library (`architecture_core.md`).
+- **All edits are commands.** Pages never mutate the project directly. They emit `commandRequested`, and
+  `ProjectController.execute()` wraps the core `Command` in a `CommandAdapter` (a `QUndoCommand`) and
+  pushes it onto a `QUndoStack`. Undo/redo and the history view stay in sync with the core journal.
+- **Input design and results are separate.** The Coating page edits the input design. Optimization runs
+  and scans never change it; their results are stored as candidates (see section 2.1).
+- **Generated forms.** `forms.DataclassForm` builds editors from the dataclass fields of a value (label
+  and unit metadata, `Literal` fields as choices). The parameter table (`widgets/parameter_table.py`)
+  shows the parameters of the coating.
+- **Responsive.** Long calculations run in a worker thread and are cancellable. Results stream in through
+  progress events.
 
 ## 2. Main window layout
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────┐
-│ File Edit View Run Tools Help                                                 │
-│ [New][Open][Save] │ [↶ Undo][↷ Redo] │ [▶ Run stage][▶▶ Run pipeline][■ Stop]  │
-│ │ [⧉ Compare]                                                                 │
-├────────────────┬──────────────────────────────────────────┬───────────────────┤
-│ WORKFLOW       │ ┌Reflectivity┬Layer profile┬Design map┬  │ PROPERTIES        │
-│ ① Goal       ✓ │ │Convergence┬Tolerance┐                 │ ───────────────── │
-│ ② Materials  ✓ │ │                                       │ DepthGraded       │
-│ ③ Coating    ✓ │ │   R                                   │  d_min [2.50] nm  │
-│ ④ Constraints! │ │   │   ___________                     │   ☑ vary 2.0–3.5  │
-│ ⑤ Process      │ │   │  /           \__  target ┄┄┄      │  d_max [12.0] nm  │
-│ ⑥ Scan         │ │   │_/               \_____            │   ☑ vary 8 – 20   │
-│ ⑦ Optimize     │ │   └──────────────────────── E (keV)   │  c     [0.25]     │
-│ ⑧ Analyze      │ │                                       │   ☐ vary          │
-│ ────────────── │ │  overlay: current │ candidate A │ B   │  N     [150]      │
-│ CANDIDATES     │ │                                       │   ☑ vary 50 – 300 │
-│ ★ current      │ └───────────────────────────────────────┘ │  …                │
-│   A  stage 3   │  status: R̄=41.2 %  T=31.4 h  Σt=1.21 µm   │ ───────────────── │
-│   B  stage 4   │                                          │ CONSTRAINTS       │
-│                │                                          │ ✓ t_min ≥ 0.8 nm  │
-│                │                                          │ ✗ T ≤ 30 h (31.4) │
-├────────────────┴──────────────────────────────────────────┴───────────────────┤
-│ [Journal] [History] [Log] [Progress]                                          │
-│ 14:02 Set coating.N range 50–300 · 14:03 Ran stage "Scan" (12 s) · …          │
-└───────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ File   Edit   Run   View                                                               │
+│ [New][Open][Save] │ [Undo][Redo] │ [Run pipeline][Stop]                                │
+├───────────────┬────────────────────────────────────────────────┬───────────────────────┤
+│ PROJECT       │ [Reflectivity][Layer profile][Design map]      │ PROPERTIES            │
+│ Workflow      │ [Convergence][Tolerance]                       │ Periodic (H: W, L: Si)│
+│  Goal         │ Plot range: [min] [max] keV  [min] [max] deg   │ ──────────────────── │
+│  Materials    │                                 [x] log scale  │ Coating               │
+│  Coating   ◀  │                                                │ Help text             │
+│  Constraints  │  R                                             │ Coating type [▼]      │
+│  Process      │  │      ____                                   │ Parameters table      │
+│  Scan         │  │ ____/    \___   input design (solid)        │   …                   │
+│  Optimize     │  │/              \  selected / checked: dashed  │                       │
+│  Analyze      │  └──────────────────────── E (keV)             │                       │
+│ Candidates    │                                                │                       │
+│  [x] run 2    │                                                │  [← Back] [Next →]    │
+│  [ ] input 1  │                                                │                       │
+│ [Store input…] [Use as start] [Delete]                         │                       │
+├───────────────┴────────────────────────────────────────────────┴───────────────────────┤
+│ [Journal] [History]   14:02 Set parameter N · 14:03 Run pipeline · …                  │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ message                 FOM 0.12 · time 31.4 h · R̄ 0.412 · 180 layers, 1.21 µm · ✓  [▮▮▮] │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-All panels are `QDockWidget`s (rearrangeable, state saved with `QSettings`). The central widget
-is the plot tab area.
+The window has three dock areas around a central tab widget. All docks are `QDockWidget`s, can be moved,
+and their geometry and state are stored with `QSettings`. The toolbar holds New, Open, Save, Undo, Redo,
+Run pipeline, and Stop. The menus are File (New project from templates, Open, Open recent, Save, Save as,
+Quit), Edit (Undo, Redo), Run (Run pipeline, Stop), and View (toggles for the docks).
 
 ### 2.1 Left dock: workflow and candidates
-- **Workflow stepper** (list with status icons: ✓ complete, ! issue, ○ open), following the concept's stages:
-  1. *Goal*: single or coupled targets (energy scan at fixed angle / angle scan at fixed energy;
-     table of targets with weights, ranges, target profile, polarization, resolution)
-  2. *Materials*: pick from the library, edit density, add custom materials, preview δ/β plots
-  3. *Coating*: choose the coating type (registry), set parameters fixed/ranged, cap pair, composite blocks
-  4. *Constraints*: minimum layer thickness and maximum total thickness (preset from the start), plus addable constraints
-  5. *Process* (optional): deposition rates per material, per-layer and fixed overheads, max time
-  6. *Scan*: choose scan axes and resolution, run the design-space scan
-  7. *Optimize*: FOM editor (including time-penalty weight slider 0…1), stage/pipeline editor (model, optimizer, free parameters, options)
-  8. *Analyze*: tolerance Monte Carlo, layer table, recipe export
-  The steps are not strictly sequential. The user can go back at any time, and later results are
-  marked "stale" when inputs change.
-- **Candidates list**: snapshots of designs (from any stage or saved manually). Actions: show in
-  plots (overlay), compare, promote to current, rename, annotate, delete, export.
 
-### 2.2 Central plot tabs
+- **Workflow list**: the steps Goal, Materials, Coating, Constraints, Process, Scan, Optimize, Analyze.
+  Selecting a step shows its page in the right dock. The window opens on Coating.
+- **Candidates list**: the stored designs.
+  - Click a candidate to select it. The selected candidate is shown and analyzed next to the input design
+    (selection is a command, so it is undoable).
+  - Check a candidate to overlay it in the reflectivity plot.
+  - Double-click to rename it.
+  - **Store input…** stores the input design under a name you enter.
+  - **Use as start** copies the selected candidate into the input design.
+  - **Delete** removes the selected candidate.
+  - A details label shows the name, source, figure of merit, objective, coating time, and creation time.
+- An optimization run stores its final design as `run N` and each stage result as `run N · <stage>`. The
+  final design is selected.
+
+### 2.2 Central tabs
+
 | Tab | Content |
 |---|---|
-| Reflectivity | R(E) or R(θ) per target (subplots or overlay for coupled targets), target profile and band shading, candidate overlays, s/p/unpolarized toggle, log/linear y |
-| Layer profile | thickness vs. layer index (bar chart colored by material), d and Γ vs. bilayer index for graded designs, cumulative deposition time |
-| Design map | heatmap of the FOM over the scan axes (e.g. Γ × N). Constraint-violating regions are hatched. Clicking a cell sets the starting parameters (as a command). |
-| Convergence | best FOM vs. iteration/evaluation per stage, parameter traces |
-| Tolerance | distribution of the FOM under thickness errors, band of R curves |
-| Optical constants | δ, β vs. E for the materials in use (from the Materials step) |
+| Reflectivity | Reflectivity R(E) or R(θ) of the input design (solid line), one subplot per target when there are several targets, with the R^n exponent in the axis label for n > 1. Checked and selected candidates are dashed. During a run, the best design so far is drawn live. Plot range fields (energy in keV, angle in deg; empty = target range) and a log-scale switch. The figure of merit always uses the target range. |
+| Layer profile | Thickness of each layer by index, bars colored by material. For designs with bilayers, the period d and Γ per bilayer. |
+| Design map | Result of the design-space scan: the figure of merit over one or two parameters. Infeasible points are grey. Clicking a cell sets the start values of the input design. |
+| Convergence | Two panels for the current or last run: best objective (FOM plus penalties, log scale) and figure of merit of the best design, against evaluations, one trace per stage. |
+| Tolerance | Histogram of the figure of merit over the perturbed samples, with the nominal value. |
 
-A status line under the plots shows the key numbers of the current design: FOM terms, coating
-time, total thickness, number of layers, and constraint state.
+### 2.3 Right dock: properties and workflow pages
 
-### 2.3 Right dock: properties and constraint status
-- Context-sensitive form for whatever is selected (workflow step, target row, coating block,
-  constraint, stage).
-- The **parameter editor row** is the central widget of the GUI:
-  `name | value (spinbox with unit) | ☐ vary | min | max | (expr)`. Integer parameters use integer
-  spinboxes. Invalid bounds are flagged inline.
-- **Constraint panel**: live ✓/✗ per constraint with a message (the `ConstraintResult.message`).
-  Clicking it highlights the offending layers in the layer-profile plot.
+The top of the dock shows a one-line description of the input design (coating type, materials, substrate).
+Below it is the page of the selected workflow step. Each page starts with a help text and ends with
+**← Back** and **Next: <step> →** buttons (the first page has no Back, the last has no Next).
+
+- **Goal**: table of targets with the columns Scan, Fixed, From, To, Points, Weight, Polarization,
+  Reflections. Scan is either *Fixed angle (energy range)* or *Fixed energy (angle range)*. Energies are
+  in keV and angles in degrees. Polarization is unpolarized, s, or p. Reflections is n in Rⁿ. Buttons:
+  *Add fixed-angle target*, *Add fixed-energy target*, *Remove*. **Combine targets** selects
+  *Average reflectivity* (curves averaged, one figure of merit) or *Average figure of merit* (one figure
+  of merit per target, averaged); the page explains the choice.
+- **Materials**: table of the material of each coating role and of the substrate, with density (editable),
+  a *New material…* dialog (name, chemical formula, density), and a plot of δ (solid) and β (dashed) for
+  the materials in use.
+- **Coating**: coating type (Periodic multilayer, Depth-graded multilayer, Single layer, Layer stack (N
+  layers)); top layer of each bilayer (absorber H or spacer L); grading law for depth-graded coatings; a
+  cap bilayer with its own period and Γ; substrate roughness. The N-layer stack has a layer table with
+  *Add layer* and *Remove layer*. Below is the parameter table: columns Parameter, Value, Unit, Vary, Min,
+  Max, Expression, Description. A parameter with *Vary* checked is explored between Min and Max; an
+  expression computes it from other parameters.
+- **Constraints**: list of constraints with *Add* and *Remove* and a type selector (min layer thickness,
+  max total thickness, max layers, max coating time). The selected constraint's settings are edited in a
+  generated form. Each constraint shows live whether the input design satisfies it. Hard constraints are
+  enforced by the optimizer; soft constraints add a penalty.
+- **Process** (optional): enable checkbox; table with deposition rate (nm/s) and extra time per layer (s)
+  for each material; overhead per layer (s); fixed overhead per run (h). The page shows the resulting
+  coating time.
+- **Scan**: first and second free parameter with number of points each, and the number of target grid
+  points. *Run scan* evaluates the figure of merit on the grid. The result goes to the Design map tab.
+  *Use best grid point* sets the best values as start values. The scan itself optimizes nothing.
+- **Optimize**:
+  - *Figure of merit*: the optical merit (mean reflectivity, soft-minimum reflectivity, profile
+    deviation, flatness, peak reflectivity), with a description of each. Flatness alone does not reward
+    high reflectivity, and the page says so.
+  - *Combine with second figure of merit*: a second optical merit and a fraction f; the figure of merit
+    is (1 − f)·primary + f·secondary.
+  - *Penalize coating time* (needs a deposition process): time weight w in [0, 1] and reference time.
+    The figure of merit is (1 − w)·F + w·T/T_ref.
+  - *Pipeline settings*: random seed, global generations, population factor, coarse grid points, scan
+    points per parameter, and *Use the pipeline stored in the project*.
+  - *Stages* table: Enabled, Stage (outline, scan, global, refine), Optimizer (Bragg law, grid scan, or
+    an lmfit method for the local stages), Max evaluations, Grid points.
+  - Buttons *Run pipeline* (all enabled stages in order) and *Run stage* (one enabled stage from the
+    current input design).
+  - *Last run* table: Stage, Evaluations, Best objective (on the stage's grid), Figure of merit on the
+    full problem, Time (s).
+- **Analyze**: design to analyze (input design or selected candidate); random thickness error per layer
+  (1σ, relative); rate error per material (systematic); number of samples; random seed (empty = random).
+  *Run tolerance analysis* runs in the background and shows the Tolerance tab. *Export layer table (CSV)…*
+  and *Export recipe (JSON)…* write the deposition recipe of the analyzed design.
 
 ### 2.4 Bottom dock
-- **Journal**: chronological, filterable, exportable (Markdown/CSV). Entries link to candidates and results.
-- **History**: `QUndoView` on the `QUndoStack`. Clicking an entry jumps to that state.
-- **Log**: Python `logging` output.
-- **Progress**: running jobs with progress bar, current best FOM, elapsed time, and cancel button.
+
+- **Journal**: list of the journal entries (every executed command, undo and redo, and every optimization
+  run with its settings and result summary).
+- **History**: `QUndoView` on the undo stack. Clicking an entry jumps to that state.
+
+### 2.5 Status bar, background jobs, live preview
+
+- **Summary**: the status bar shows the figure of merit, coating time, mean reflectivity, number of layers
+  and total thickness, and whether the constraints are satisfied (✓ or ✗) for the input design.
+- **Live preview**: after each change, the input design and the shown candidates are recalculated with the
+  full model in a worker, and the plots update. Only the latest request is kept.
+- **Background jobs**: runs (pipeline, stage, scan, tolerance analysis) run one at a time in a worker
+  thread. A progress bar in the status bar shows the evaluations of the running job, and the status
+  message shows its current best objective and figure of merit. The live best-so-far reflectivity is
+  redrawn while the run is active. *Stop* (Run menu, toolbar) cancels the job. The result of a finished run
+  is stored as candidates.
+- **Undo**: each edit is an undoable step with a description. Consecutive edits of the same parameter, the
+  same notes, or the same candidate selection are merged into one step. Undo and redo are in the Edit menu, the toolbar, and the History dock.
 
 ## 3. Architecture inside the GUI package
 
 ```
 src/xstack/gui/
+  __main__.py            # python -m xstack.gui
   app.py                 # QApplication setup, main()
-  main_window.py         # docks, actions, menus, settings
-  project_controller.py  # owns Project + QUndoStack; command adapter; emits change signals
-  models/                # Qt item models: targets table, constraints list, candidates, journal
-  forms/                 # ParameterEditor, generated form builder, per-type custom editors
-  steps/                 # one page widget per workflow step
-  plots/                 # pyqtgraph widgets per tab; matplotlib export
-  workers.py             # QRunnable job wrapper, progress/cancel bridge to core events
+  controller.py          # ProjectController (owns Project and QUndoStack), CommandAdapter
+  main_window.py         # MainWindow: docks, central tabs, actions, menus, settings
+  forms.py               # DataclassForm: editor generated from dataclass fields
+  plots.py               # pyqtgraph widgets: ReflectivityPlot, LayerProfilePlot, DesignMapPlot,
+                         #   ConvergencePlot, HistogramPlot
+  preview.py             # compute_preview, compute_curves: calculations for the live views
+  style.py               # application style and help text style
+  workers.py             # Task, LatestRunner (latest-request-wins), Job and JobRunner (one at a time)
+  steps/                 # one page per workflow step: goal, materials, coating, constraints,
+                         #   process, scan, optimize, analyze; base.py (StepPage)
+  widgets/               # parameter_table.py (ParameterTableModel, ParameterTable), journal_view.py
 ```
 
-- `ProjectController` is the single point of truth for the GUI. It emits fine-grained signals
-  (`coatingChanged`, `targetsChanged`, `candidateAdded`, `resultReady`, …). Views subscribe to these.
-- **Live preview**: on parameter edits, the current design is recalculated with the full model on a
-  modest grid (debounced ~150 ms, in a worker) so that the reflectivity plot follows edits.
-- **Workers**: `QThreadPool` + `QRunnable` running the core `Pipeline`/`Stage`. Core `ProgressEvent`s
-  are forwarded as Qt signals (queued connection), and the cancel button sets the core
-  `CancellationToken`. Differential evolution can additionally use process-level parallelism (lmfit `workers`).
-- **Commands from results**: finishing a run pushes a `RunStage` command (undoable, journaled)
-  that adds the result and candidate.
+- `ProjectController` is the single point of truth for the GUI. It emits `stateChanged`, `journalChanged`,
+  `fileChanged`, and `errorOccurred`. `MainWindow` subscribes to these and refreshes the pages, the
+  candidate list, the plots, and the title.
+- Each page is a `StepPage` with the signals `commandRequested` (connected to `controller.execute`),
+  `jobRequested` (connected to `MainWindow.start_job`), and `errorOccurred`.
+- **Workers**: `Job(name, function, on_finished)` runs in `JobRunner` on a `QThreadPool`. Core
+  `ProgressEvent`s are forwarded as Qt signals, and the cancel action sets the core `CancellationToken`.
+  `LatestRunner` runs the preview and live curve calculations and drops superseded requests.
 
 ## 4. Project files
-- Single `.xstack` JSON file (core serializer) containing all inputs, candidates, results summary,
-  and journal. Large arrays are optionally stored compressed.
-- Recent-files list, autosave plus crash-recovery file, dirty indicator in the title bar
-  (`QUndoStack.cleanChanged`).
-- The undo stack is not persisted. The journal is.
 
-## 5. Later extensions (kept possible by the design)
-- Side-by-side compare window for 2–4 candidates.
-- Python console dock with `project` in scope (for power users, shows the library-first approach).
-- Plugin manager dialog listing registered coatings, constraints, merits, and optimizers.
-- Batch mode: run a project file headless from the CLI (`python -m xstack run project.xstack`).
+- Single `.xstack` JSON file written by the core serializer. It contains the project state (input design,
+  targets, figure of merit, constraints, process, model, pipeline, candidates, notes) and the journal.
+- Opening, saving, and saving as use file dialogs. Closing or opening another project asks to save
+  unsaved changes. The window title shows the project name, the file name, and a modified marker
+  (`QUndoStack` clean state).
+- The Open recent menu lists the last 8 files.
+- The undo stack is not saved. The journal is.

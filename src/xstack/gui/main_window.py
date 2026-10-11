@@ -5,8 +5,9 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShowEvent
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence, QShowEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDockWidget,
@@ -37,7 +38,6 @@ from xstack.gui.plots import (
     ConvergencePlot,
     Curve,
     DesignMapPlot,
-    HistogramPlot,
     LayerProfilePlot,
     ReflectivityPlot,
 )
@@ -54,9 +54,17 @@ from xstack.gui.steps import (
     ScanPage,
     StepPage,
 )
-from xstack.gui.style import COLORS, HELP_STYLE, icon, set_variant
+from xstack.gui.style import (
+    COLORS,
+    Theme,
+    apply_style,
+    icon,
+    restyle_plots,
+    set_variant,
+)
 from xstack.gui.widgets import JournalView
 from xstack.gui.widgets.design_comparison import DesignComparisonView
+from xstack.gui.widgets.tolerance_view import ToleranceView
 from xstack.gui.workers import Job, JobRunner, LatestRunner
 from xstack.manufacturing.tolerance import ToleranceResult
 from xstack.optim.events import ProgressEvent
@@ -183,10 +191,10 @@ class MainWindow(QMainWindow):
         self.plot_tabs.addTab(self.comparison_view, "Parameters")
         self.design_map = DesignMapPlot()
         self.convergence_plot = ConvergencePlot()
-        self.tolerance_plot = HistogramPlot()
+        self.tolerance_view = ToleranceView()
         self.plot_tabs.addTab(self.design_map, "Design map")
         self.plot_tabs.addTab(self.convergence_plot, "Convergence")
-        self.plot_tabs.addTab(self.tolerance_plot, "Tolerance")
+        self.plot_tabs.addTab(self.tolerance_view, "Tolerance")
         self.plot_tabs.setTabToolTip(
             2, "Coating parameters of the selected candidate compared with the input design"
         )
@@ -419,7 +427,7 @@ class MainWindow(QMainWindow):
             help_label = QLabel(help_text)
             help_label.setWordWrap(True)
             help_label.setTextFormat(Qt.TextFormat.RichText)
-            help_label.setStyleSheet(HELP_STYLE)
+            help_label.setProperty("role", "help")
             help_label.setObjectName(f"help_{WORKFLOW_STEPS[index].lower()}")
         content = QWidget()
         content_layout = QVBoxLayout(content)
@@ -446,6 +454,35 @@ class MainWindow(QMainWindow):
             navigation.addWidget(forward)
         layout.addLayout(navigation)
         return container
+
+    def _apply_icons(self) -> None:
+        for action, name in (
+            (self.new_action, "new"),
+            (self.open_action, "open"),
+            (self.save_action, "save"),
+            (self.undo_action, "undo"),
+            (self.redo_action, "redo"),
+            (self.stop_action, "stop"),
+        ):
+            action.setIcon(icon(name))
+        self.run_action.setIcon(icon("run", "#ffffff"))
+
+    def set_theme(self, theme: Theme) -> None:
+        """Switch the color theme of the application and remember it in the settings.
+
+        Args:
+            theme: ``"light"``, ``"dark"`` or ``"system"``.
+        """
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            apply_style(app, theme)
+        self.settings.setValue("theme", theme)
+        self.theme_actions[theme].setChecked(True)
+        self._apply_icons()
+        restyle_plots(self)
+        self._on_state_changed(self.controller.state)
+        self._redraw()
+        self.tolerance_view.refresh()
 
     def next_step(self) -> None:
         """Show the next workflow step."""
@@ -510,6 +547,18 @@ class MainWindow(QMainWindow):
         run_menu.addAction(self.run_action)
         run_menu.addAction(self.stop_action)
         view_menu = self.menuBar().addMenu("&View")
+        theme_menu = view_menu.addMenu("&Theme")
+        self.theme_group = QActionGroup(self)
+        self.theme_actions: dict[str, QAction] = {}
+        saved = str(self.settings.value("theme", "system"))
+        for theme, label in (("light", "&Light"), ("dark", "&Dark"), ("system", "&System")):
+            action = QAction(label, self, checkable=True)
+            action.setChecked(theme == saved)
+            action.triggered.connect(lambda _=False, t=theme: self.set_theme(t))
+            self.theme_group.addAction(action)
+            theme_menu.addAction(action)
+            self.theme_actions[theme] = action
+        view_menu.addSeparator()
         for dock in (
             self.candidates_dock,
             self.journal_dock,
@@ -520,16 +569,7 @@ class MainWindow(QMainWindow):
         toolbar.setObjectName("toolbar_main")
         toolbar.setMovable(False)
         toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        for action, name in (
-            (self.new_action, "new"),
-            (self.open_action, "open"),
-            (self.save_action, "save"),
-            (self.undo_action, "undo"),
-            (self.redo_action, "redo"),
-            (self.stop_action, "stop"),
-        ):
-            action.setIcon(icon(name))
-        self.run_action.setIcon(icon("run", "#ffffff"))
+        self._apply_icons()
         toolbar.addAction(self.new_action)
         toolbar.addAction(self.open_action)
         toolbar.addAction(self.save_action)
@@ -691,7 +731,12 @@ class MainWindow(QMainWindow):
         )
         state = self._job_state
         values = dict(event.best_values)
-        if state is not None and state.mirror is not None and values != self._live_values:
+        if (
+            values
+            and state is not None
+            and state.mirror is not None
+            and values != self._live_values
+        ):
             self._live_values = values
             self.live_runner.request(
                 functools.partial(
@@ -736,8 +781,8 @@ class MainWindow(QMainWindow):
         self.plot_tabs.setCurrentWidget(self.design_map)
 
     def _show_tolerance(self, result: ToleranceResult) -> None:
-        self.tolerance_plot.set_samples(result.merits, result.nominal.merit, "Figure of merit")
-        self.plot_tabs.setCurrentWidget(self.tolerance_plot)
+        self.tolerance_view.set_result(result)
+        self.plot_tabs.setCurrentWidget(self.tolerance_view)
 
     def _apply_pipeline_result(
         self,

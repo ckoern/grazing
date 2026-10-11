@@ -1,85 +1,109 @@
 """Design language of the graphical user interface.
 
-All colors, spacing and component styles are defined here: a light, neutral surface, a single
-indigo accent for primary actions and selections, white cards with rounded corners for grouped
-content, and a categorical palette for plots that matches the interface colors.
+All colors, spacing and component styles are defined here: a neutral surface, a single indigo
+accent for primary actions and selections, cards with rounded corners for grouped content, and
+a categorical palette for plots that reads well on light and dark backgrounds.
 
-Use `apply_style` once for the application, `set_variant` to mark primary buttons, and
-`PLOT_PALETTE` for plot colors.
+Two color themes exist, ``"light"`` and ``"dark"``; ``"system"`` follows the operating system.
+Use `apply_style` for the application (again to switch the theme), `set_variant` to mark primary
+buttons, `restyle_plots` to update existing plots after a theme change, `COLORS` for the colors
+of the active theme and `PLOT_PALETTE` for plot colors.
 """
 
 from typing import Literal
 
 import pyqtgraph as pg
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QIcon, QPalette, QPixmap
 from PySide6.QtWidgets import QApplication, QStyleFactory, QWidget
 
 __all__ = [
     "COLORS",
-    "HELP_STYLE",
     "PLOT_PALETTE",
+    "THEMES",
+    "Theme",
     "Variant",
     "apply_style",
+    "current_theme",
     "icon",
+    "resolve_theme",
+    "restyle_plots",
     "set_variant",
 ]
 
-COLORS: dict[str, str] = {
-    "background": "#f4f5f8",
-    "surface": "#ffffff",
-    "surface_alt": "#f8f9fb",
-    "border": "#e1e4ea",
-    "border_strong": "#c9ced8",
-    "text": "#1d2433",
-    "text_muted": "#5f6b7c",
-    "accent": "#4f46e5",
-    "accent_hover": "#4338ca",
-    "accent_soft": "#eef0fe",
-    "accent_border": "#c7cbfa",
-    "success": "#15803d",
-    "success_soft": "#e9f7ef",
-    "danger": "#b91c1c",
+type Theme = Literal["light", "dark", "system"]
+"""Color theme; ``"system"`` follows the color scheme of the operating system."""
+
+THEMES: dict[str, dict[str, str]] = {
+    "light": {
+        "background": "#f4f5f8",
+        "surface": "#ffffff",
+        "surface_alt": "#f8f9fb",
+        "border": "#e1e4ea",
+        "border_strong": "#c9ced8",
+        "text": "#1d2433",
+        "text_muted": "#5f6b7c",
+        "accent": "#4f46e5",
+        "accent_hover": "#4338ca",
+        "accent_soft": "#eef0fe",
+        "accent_border": "#c7cbfa",
+        "success": "#15803d",
+        "success_soft": "#e9f7ef",
+        "danger": "#b91c1c",
+    },
+    "dark": {
+        "background": "#14161c",
+        "surface": "#1d2029",
+        "surface_alt": "#242833",
+        "border": "#2f3442",
+        "border_strong": "#424959",
+        "text": "#e6e8ee",
+        "text_muted": "#9aa3b2",
+        "accent": "#6366f1",
+        "accent_hover": "#818cf8",
+        "accent_soft": "#272b4d",
+        "accent_border": "#3f4683",
+        "success": "#4ade80",
+        "success_soft": "#173222",
+        "danger": "#f87171",
+    },
 }
-"""Color tokens of the interface."""
+"""Color tokens of the themes."""
+
+COLORS: dict[str, str] = dict(THEMES["light"])
+"""Color tokens of the active theme; updated in place by `apply_style`."""
 
 PLOT_PALETTE: tuple[str, ...] = (
-    "#4f46e5",
-    "#e11d48",
-    "#0891b2",
-    "#d97706",
-    "#16a34a",
-    "#9333ea",
-    "#475569",
-    "#db2777",
+    "#6366f1",
+    "#f43f5e",
+    "#06b6d4",
+    "#f59e0b",
+    "#22c55e",
+    "#a855f7",
+    "#94a3b8",
+    "#ec4899",
 )
-"""Categorical colors for plot curves, in the order of use."""
-
-HELP_STYLE = (
-    f"background-color: {COLORS['accent_soft']}; border: none; "
-    f"border-left: 3px solid {COLORS['accent']}; border-radius: 6px; "
-    f"padding: 10px 12px; color: {COLORS['text']};"
-)
-"""Stylesheet for labels that explain a workflow step."""
+"""Categorical colors for plot curves, in the order of use, for both themes."""
 
 type Variant = Literal["primary", "secondary"]
 """Button variants: one primary action per area, secondary for everything else."""
 
-_C = COLORS
 
-_STYLESHEET = f"""
+def _stylesheet(c: dict[str, str]) -> str:
+    return f"""
 QMainWindow, #step_panel {{
-    background: {_C["background"]};
+    background: {c["background"]};
 }}
 QDockWidget::title {{
-    background: {_C["background"]};
+    background: {c["background"]};
     padding: 6px 8px;
     font-weight: 600;
-    color: {_C["text_muted"]};
+    color: {c["text_muted"]};
 }}
 QToolBar {{
-    background: {_C["surface"]};
+    background: {c["surface"]};
     border: none;
-    border-bottom: 1px solid {_C["border"]};
+    border-bottom: 1px solid {c["border"]};
     spacing: 4px;
     padding: 4px 8px;
 }}
@@ -89,27 +113,27 @@ QToolButton {{
     padding: 4px 8px;
 }}
 QToolButton:hover {{
-    background: {_C["accent_soft"]};
-    border-color: {_C["accent_border"]};
+    background: {c["accent_soft"]};
+    border-color: {c["accent_border"]};
 }}
 QToolButton:disabled {{
-    color: {_C["border_strong"]};
+    color: {c["border_strong"]};
 }}
 QStatusBar {{
-    background: {_C["surface"]};
-    border-top: 1px solid {_C["border"]};
-    color: {_C["text_muted"]};
+    background: {c["surface"]};
+    border-top: 1px solid {c["border"]};
+    color: {c["text_muted"]};
 }}
 QMenuBar {{
-    background: {_C["surface"]};
+    background: {c["surface"]};
 }}
 QMenuBar::item:selected, QMenu::item:selected {{
-    background: {_C["accent_soft"]};
-    color: {_C["text"]};
+    background: {c["accent_soft"]};
+    color: {c["text"]};
 }}
 QMenu {{
-    background: {_C["surface"]};
-    border: 1px solid {_C["border"]};
+    background: {c["surface"]};
+    border: 1px solid {c["border"]};
     padding: 4px;
 }}
 QMenu::item {{
@@ -118,9 +142,9 @@ QMenu::item {{
 }}
 
 QTabWidget::pane {{
-    border: 1px solid {_C["border"]};
+    border: 1px solid {c["border"]};
     border-radius: 8px;
-    background: {_C["surface"]};
+    background: {c["surface"]};
     top: -1px;
 }}
 QTabBar {{
@@ -128,18 +152,18 @@ QTabBar {{
 }}
 QTabBar::tab {{
     background: transparent;
-    color: {_C["text_muted"]};
+    color: {c["text_muted"]};
     padding: 6px 11px;
     margin: 0 2px 4px 0;
     border-radius: 14px;
     font-weight: 600;
 }}
 QTabBar::tab:hover {{
-    background: {_C["surface"]};
-    color: {_C["text"]};
+    background: {c["surface"]};
+    color: {c["text"]};
 }}
 QTabBar::tab:selected {{
-    background: {_C["accent"]};
+    background: {c["accent"]};
     color: white;
 }}
 #step_tabs QTabBar::tab {{
@@ -154,87 +178,87 @@ QTabBar::tab:selected {{
     font-size: 9pt;
 }}
 #primary_tool {{
-    background: {_C["accent"]};
+    background: {c["accent"]};
     color: white;
     font-weight: 600;
     padding: 4px 12px;
 }}
 #primary_tool:hover {{
-    background: {_C["accent_hover"]};
+    background: {c["accent_hover"]};
 }}
 #primary_tool:disabled {{
-    background: {_C["accent_border"]};
+    background: {c["accent_border"]};
 }}
 
 QPushButton {{
-    background: {_C["surface"]};
-    border: 1px solid {_C["border_strong"]};
+    background: {c["surface"]};
+    border: 1px solid {c["border_strong"]};
     border-radius: 6px;
     padding: 6px 14px;
     font-weight: 500;
 }}
 QPushButton:hover {{
-    border-color: {_C["accent"]};
-    color: {_C["accent"]};
+    border-color: {c["accent"]};
+    color: {c["accent"]};
 }}
 QPushButton:pressed {{
-    background: {_C["accent_soft"]};
+    background: {c["accent_soft"]};
 }}
 QPushButton:disabled {{
-    color: {_C["border_strong"]};
-    border-color: {_C["border"]};
-    background: {_C["surface_alt"]};
+    color: {c["border_strong"]};
+    border-color: {c["border"]};
+    background: {c["surface_alt"]};
 }}
 QPushButton[variant="primary"] {{
-    background: {_C["accent"]};
-    border: 1px solid {_C["accent"]};
+    background: {c["accent"]};
+    border: 1px solid {c["accent"]};
     color: white;
     font-weight: 600;
 }}
 QPushButton[variant="primary"]:hover {{
-    background: {_C["accent_hover"]};
-    border-color: {_C["accent_hover"]};
+    background: {c["accent_hover"]};
+    border-color: {c["accent_hover"]};
     color: white;
 }}
 QPushButton[variant="primary"]:disabled {{
-    background: {_C["accent_border"]};
-    border-color: {_C["accent_border"]};
+    background: {c["accent_border"]};
+    border-color: {c["accent_border"]};
     color: white;
 }}
 
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
-    background: {_C["surface"]};
-    border: 1px solid {_C["border_strong"]};
+    background: {c["surface"]};
+    border: 1px solid {c["border_strong"]};
     border-radius: 6px;
     padding: 4px 8px;
     min-height: 20px;
-    selection-background-color: {_C["accent"]};
+    selection-background-color: {c["accent"]};
 }}
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{
-    border: 1px solid {_C["accent"]};
+    border: 1px solid {c["accent"]};
 }}
 QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {{
-    background: {_C["surface_alt"]};
-    color: {_C["text_muted"]};
-    border-color: {_C["border"]};
+    background: {c["surface_alt"]};
+    color: {c["text_muted"]};
+    border-color: {c["border"]};
 }}
 QComboBox::drop-down {{
     border: none;
     width: 22px;
 }}
 QComboBox QAbstractItemView {{
-    background: {_C["surface"]};
-    border: 1px solid {_C["border"]};
-    selection-background-color: {_C["accent_soft"]};
-    selection-color: {_C["text"]};
+    background: {c["surface"]};
+    border: 1px solid {c["border"]};
+    selection-background-color: {c["accent_soft"]};
+    selection-color: {c["text"]};
 }}
 QCheckBox, QRadioButton {{
     spacing: 6px;
 }}
 
 QGroupBox {{
-    background: {_C["surface"]};
-    border: 1px solid {_C["border"]};
+    background: {c["surface"]};
+    border: 1px solid {c["border"]};
     border-radius: 8px;
     margin-top: 14px;
     padding: 12px 10px 10px 10px;
@@ -243,17 +267,17 @@ QGroupBox::title {{
     subcontrol-origin: margin;
     left: 10px;
     padding: 0 4px;
-    color: {_C["text"]};
+    color: {c["text"]};
     font-weight: 600;
 }}
 
 QTableView, QTableWidget, QListWidget, QTreeView {{
-    background: {_C["surface"]};
+    background: {c["surface"]};
     gridline-color: transparent;
     border: none;
-    alternate-background-color: {_C["surface_alt"]};
-    selection-background-color: {_C["accent_soft"]};
-    selection-color: {_C["text"]};
+    alternate-background-color: {c["surface_alt"]};
+    selection-background-color: {c["accent_soft"]};
+    selection-color: {c["text"]};
     outline: 0;
 }}
 QTableView::item, QTableWidget::item, QListWidget::item {{
@@ -265,22 +289,22 @@ QListWidget::item {{
     margin: 1px 2px;
 }}
 QListWidget::item:hover, QTableView::item:hover {{
-    background: {_C["surface_alt"]};
+    background: {c["surface_alt"]};
 }}
 QListWidget::item:selected, QTableView::item:selected {{
-    background: {_C["accent_soft"]};
-    color: {_C["text"]};
+    background: {c["accent_soft"]};
+    color: {c["text"]};
 }}
 QHeaderView::section {{
-    background: {_C["surface"]};
-    color: {_C["text_muted"]};
+    background: {c["surface"]};
+    color: {c["text_muted"]};
     border: none;
-    border-bottom: 1px solid {_C["border"]};
+    border-bottom: 1px solid {c["border"]};
     padding: 6px 6px;
     font-weight: 600;
 }}
 QTableCornerButton::section {{
-    background: {_C["surface"]};
+    background: {c["surface"]};
     border: none;
 }}
 
@@ -298,13 +322,13 @@ QScrollBar:horizontal {{
     margin: 2px;
 }}
 QScrollBar::handle {{
-    background: {_C["border_strong"]};
+    background: {c["border_strong"]};
     border-radius: 4px;
     min-height: 24px;
     min-width: 24px;
 }}
 QScrollBar::handle:hover {{
-    background: {_C["text_muted"]};
+    background: {c["text_muted"]};
 }}
 QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::sub-page {{
     background: none;
@@ -316,34 +340,41 @@ QSplitter::handle {{
     background: transparent;
 }}
 QProgressBar {{
-    border: 1px solid {_C["border"]};
+    border: 1px solid {c["border"]};
     border-radius: 6px;
-    background: {_C["surface_alt"]};
+    background: {c["surface_alt"]};
     text-align: center;
     height: 14px;
 }}
 QProgressBar::chunk {{
-    background: {_C["accent"]};
+    background: {c["accent"]};
     border-radius: 5px;
 }}
 QToolTip {{
-    background: {_C["text"]};
-    color: white;
+    background: {c["text"]};
+    color: {c["background"]};
     border: none;
     padding: 6px 8px;
 }}
 
 #design_header {{
-    background: {_C["surface"]};
-    border: 1px solid {_C["border"]};
+    background: {c["surface"]};
+    border: 1px solid {c["border"]};
     border-radius: 8px;
     padding: 10px 12px;
 }}
 #confirmation {{
-    background: {_C["success_soft"]};
-    color: {_C["success"]};
+    background: {c["success_soft"]};
+    color: {c["success"]};
     border-radius: 6px;
     padding: 6px 10px;
+}}
+QLabel[role="help"] {{
+    background: {c["accent_soft"]};
+    border: none;
+    border-left: 3px solid {c["accent"]};
+    border-radius: 6px;
+    padding: 10px 12px;
 }}
 """
 
@@ -398,48 +429,105 @@ def set_variant(widget: QWidget, variant: Variant) -> None:
     widget.style().polish(widget)
 
 
-def _palette() -> QPalette:
+def _palette(colors: dict[str, str]) -> QPalette:
     palette = QPalette()
     roles = {
-        QPalette.ColorRole.Window: COLORS["background"],
-        QPalette.ColorRole.Base: COLORS["surface"],
-        QPalette.ColorRole.AlternateBase: COLORS["surface_alt"],
-        QPalette.ColorRole.Button: COLORS["surface"],
-        QPalette.ColorRole.Text: COLORS["text"],
-        QPalette.ColorRole.WindowText: COLORS["text"],
-        QPalette.ColorRole.ButtonText: COLORS["text"],
-        QPalette.ColorRole.Highlight: COLORS["accent"],
+        QPalette.ColorRole.Window: colors["background"],
+        QPalette.ColorRole.Base: colors["surface"],
+        QPalette.ColorRole.AlternateBase: colors["surface_alt"],
+        QPalette.ColorRole.Button: colors["surface"],
+        QPalette.ColorRole.Text: colors["text"],
+        QPalette.ColorRole.WindowText: colors["text"],
+        QPalette.ColorRole.ButtonText: colors["text"],
+        QPalette.ColorRole.BrightText: colors["text"],
+        QPalette.ColorRole.Highlight: colors["accent"],
         QPalette.ColorRole.HighlightedText: "#ffffff",
-        QPalette.ColorRole.PlaceholderText: COLORS["text_muted"],
-        QPalette.ColorRole.ToolTipBase: COLORS["text"],
-        QPalette.ColorRole.ToolTipText: "#ffffff",
+        QPalette.ColorRole.PlaceholderText: colors["text_muted"],
+        QPalette.ColorRole.ToolTipBase: colors["text"],
+        QPalette.ColorRole.ToolTipText: colors["background"],
+        QPalette.ColorRole.Light: colors["border_strong"],
+        QPalette.ColorRole.Mid: colors["border"],
+        QPalette.ColorRole.Dark: colors["border_strong"],
     }
     for role, color in roles.items():
         palette.setColor(role, QColor(color))
+    disabled = QColor(colors["text_muted"])
+    for role in (
+        QPalette.ColorRole.Text,
+        QPalette.ColorRole.WindowText,
+        QPalette.ColorRole.ButtonText,
+    ):
+        palette.setColor(QPalette.ColorGroup.Disabled, role, disabled)
     return palette
 
 
-def apply_style(app: QApplication) -> None:
-    """Install the design language for the application and the plots.
+def resolve_theme(theme: Theme) -> Literal["light", "dark"]:
+    """Return the concrete theme for a theme setting.
 
-    Sets the Fusion style with a light palette, the application stylesheet and the
-    pyqtgraph defaults (white background, muted axes, antialiasing). Calling it again for the
-    same application has no effect.
+    Args:
+        theme: ``"light"``, ``"dark"`` or ``"system"``.
+
+    Returns:
+        ``"light"`` or ``"dark"``; ``"system"`` follows the color scheme reported by Qt.
+    """
+    if theme in ("light", "dark"):
+        return theme
+    app = QApplication.instance()
+    if isinstance(app, QApplication) and app.styleHints().colorScheme() == Qt.ColorScheme.Dark:
+        return "dark"
+    return "light"
+
+
+def current_theme() -> Literal["light", "dark"]:
+    """Return the active concrete theme."""
+    return "dark" if COLORS["background"] == THEMES["dark"]["background"] else "light"
+
+
+def apply_style(app: QApplication, theme: Theme = "light") -> None:
+    """Install the design language for the application and new plots.
+
+    Sets the Fusion style with the palette of the theme, the application stylesheet and the
+    pyqtgraph defaults. Calling it again with the same concrete theme has no effect; calling
+    it with another theme switches the theme (existing plots are updated by `restyle_plots`).
 
     Args:
         app: The application to style.
+        theme: ``"light"``, ``"dark"`` or ``"system"``.
     """
-    if app.property("xstack_styled"):
+    concrete = resolve_theme(theme)
+    if app.property("xstack_theme") == concrete:
         return
-    app.setProperty("xstack_styled", True)
+    app.setProperty("xstack_theme", concrete)
+    COLORS.clear()
+    COLORS.update(THEMES[concrete])
     fusion = QStyleFactory.create("Fusion")
     if fusion is not None:
         app.setStyle(fusion)
-    app.setPalette(_palette())
+    app.setPalette(_palette(COLORS))
     font = QFont(app.font())
     font.setPointSizeF(max(font.pointSizeF(), 9.5))
     app.setFont(font)
-    app.setStyleSheet(_STYLESHEET)
+    app.setStyleSheet(_stylesheet(COLORS))
     pg.setConfigOptions(
         antialias=True, background=COLORS["surface"], foreground=COLORS["text_muted"]
     )
+
+
+def restyle_plots(root: QWidget) -> None:
+    """Apply the colors of the active theme to all existing pyqtgraph plots below a widget.
+
+    Args:
+        root: Widget whose plots are updated.
+    """
+    pen = pg.mkPen(COLORS["text_muted"])
+    for view in root.findChildren(pg.GraphicsView):
+        view.setBackground(COLORS["surface"])
+        scene = view.scene()
+        if scene is None:
+            continue
+        for item in scene.items():
+            if isinstance(item, pg.AxisItem):
+                item.setPen(pen)
+                item.setTextPen(pen)
+            elif isinstance(item, pg.LegendItem):
+                item.setLabelTextColor(COLORS["text"])

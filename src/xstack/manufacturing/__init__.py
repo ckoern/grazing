@@ -11,20 +11,32 @@ from xstack.manufacturing.constraints import (
     register_constraint,
 )
 from xstack.manufacturing.process import DepositionProcess, DepositionStep
-from xstack.manufacturing.tolerance import ToleranceResult, perturb_thicknesses, thickness_tolerance
+from xstack.manufacturing.tolerance import (
+    ErrorModel,
+    ToleranceResult,
+    mixed_material,
+    perturb_stack,
+    perturb_thicknesses,
+    thickness_tolerance,
+    tolerance_analysis,
+)
 
 __all__ = [
     "Constraint",
     "ConstraintResult",
     "DepositionProcess",
     "DepositionStep",
+    "ErrorModel",
     "MaxCoatingTime",
     "MaxLayers",
     "MaxTotalThickness",
     "MinLayerThickness",
     "ToleranceResult",
     "constraints",
+    "mixed_material",
+    "perturb_stack",
     "perturb_thicknesses",
     "register_constraint",
     "thickness_tolerance",
+    "tolerance_analysis",
 ]

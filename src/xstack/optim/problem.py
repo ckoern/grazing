@@ -157,12 +157,20 @@ class DesignProblem:
             )
         return self.evaluate_stack(stack, resolved)
 
-    def evaluate_stack(self, stack: Stack, values: Mapping[str, float] | None = None) -> Evaluation:
+    def evaluate_stack(
+        self,
+        stack: Stack,
+        values: Mapping[str, float] | None = None,
+        deposited: Stack | None = None,
+    ) -> Evaluation:
         """Rate an arbitrary stack with the targets, figure of merit and constraints.
 
         Args:
             stack: The stack, e.g. a design with perturbed layer thicknesses.
             values: Parameter values to store in the evaluation, if known.
+            deposited: The stack as deposited, used for the coating time and the constraints,
+                if it differs from the physical `stack` (e.g. by interlayers that form at the
+                interfaces). Defaults to `stack`.
 
         Returns:
             The evaluation.
@@ -170,8 +178,9 @@ class DesignProblem:
         results = tuple(
             self.model.evaluate(stack, t, self.points, self.library) for t in self.targets.targets
         )
-        time = self.process.time(stack) if self.process is not None else None
-        checked = tuple((c, c.evaluate(stack, self.process)) for c in self.constraints)
+        made = deposited if deposited is not None else stack
+        time = self.process.time(made) if self.process is not None else None
+        checked = tuple((c, c.evaluate(made, self.process)) for c in self.constraints)
         ctx = EvaluationContext(stack, self.targets, results, time)
         merit = self.merit.scalar(ctx)
         return Evaluation(

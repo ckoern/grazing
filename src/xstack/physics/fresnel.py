@@ -9,8 +9,8 @@ magnetic field. In both cases the field component used is continuous across a sh
 so that t = 1 + r. The reflectance |r|² is the same in either convention.
 """
 
-from collections.abc import Callable
-from typing import Literal
+from dataclasses import dataclass
+from typing import ClassVar, Literal, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
@@ -18,13 +18,14 @@ from numpy.typing import NDArray
 from xstack.plugins import Registry
 
 __all__ = [
+    "DebyeWaller",
     "InterfaceModel",
+    "NevotCroce",
     "Polarization",
-    "debye_waller",
+    "SharpInterface",
     "fresnel_coefficients",
     "interface_models",
-    "nevot_croce",
-    "sharp",
+    "interface_reflection",
     "wavevector_z",
 ]
 
@@ -32,16 +33,6 @@ type Polarization = Literal["s", "p"]
 """Polarization of the incident wave."""
 
 type ComplexArray = NDArray[np.complex128]
-
-type InterfaceModel = Callable[
-    [ComplexArray, ComplexArray, NDArray[np.float64]], tuple[ComplexArray, ComplexArray]
-]
-"""Callable ``(kz_above, kz_below, sigma) -> (r_factor, t_factor)``.
-
-Returns the factors by which the sharp-interface reflection and transmission coefficients are
-multiplied to account for an interface of width ``sigma`` (nm). ``kz_above`` and ``kz_below``
-have shape (P, M − 1) and are given in 1/nm, ``sigma`` has shape (M − 1,).
-"""
 
 
 def wavevector_z(
@@ -60,18 +51,54 @@ def wavevector_z(
     Returns:
         k_z in 1/nm, shape (P, M).
     """
+    return _kz(n, n[:, :1], theta, wavelength)
+
+
+def _kz(
+    n: ComplexArray, n0: ComplexArray, theta: NDArray[np.float64], wavelength: NDArray[np.float64]
+) -> ComplexArray:
     k = 2.0 * np.pi / wavelength
-    n0 = n[:, :1]
     # n_j² − n_0²cos²θ written without the cancellation in 1 − cos²θ at grazing incidence.
     radicand = (n0 * np.sin(theta)[:, None]) ** 2 + (n - n0) * (n + n0)
     kz = k[:, None] * np.sqrt(radicand)
     return np.where(kz.imag < 0.0, -kz, kz)
 
 
+def interface_reflection(
+    kz_above: ComplexArray,
+    kz_below: ComplexArray,
+    n_above: ComplexArray,
+    n_below: ComplexArray,
+    polarization: Polarization,
+) -> ComplexArray:
+    """Return the reflection coefficients of sharp interfaces for waves incident from above.
+
+    Args:
+        kz_above: k_z in the medium above each interface.
+        kz_below: k_z in the medium below each interface.
+        n_above: Refractive index of the medium above each interface.
+        n_below: Refractive index of the medium below each interface.
+        polarization: ``"s"`` or ``"p"``.
+
+    Returns:
+        Reflection coefficients, broadcast shape of the inputs.
+
+    Raises:
+        ValueError: If the polarization is unknown.
+    """
+    if polarization == "s":
+        return (kz_above - kz_below) / (kz_above + kz_below)
+    if polarization == "p":
+        a = n_below**2 * kz_above
+        b = n_above**2 * kz_below
+        return (a - b) / (a + b)
+    raise ValueError(f"unknown polarization {polarization!r}, expected 's' or 'p'")
+
+
 def fresnel_coefficients(
     kz: ComplexArray, n: ComplexArray, polarization: Polarization
 ) -> ComplexArray:
-    """Return the reflection coefficients of all sharp interfaces.
+    """Return the reflection coefficients of all sharp interfaces of a stack.
 
     Args:
         kz: Perpendicular wavevector components, shape (P, M), from `wavevector_z`.
@@ -84,81 +111,182 @@ def fresnel_coefficients(
     Raises:
         ValueError: If the polarization is unknown.
     """
-    upper, lower = kz[:, :-1], kz[:, 1:]
-    if polarization == "s":
-        return (upper - lower) / (upper + lower)
-    if polarization == "p":
-        eps = n**2
-        a = eps[:, 1:] * upper
-        b = eps[:, :-1] * lower
-        return (a - b) / (a + b)
-    raise ValueError(f"unknown polarization {polarization!r}, expected 's' or 'p'")
+    return interface_reflection(kz[:, :-1], kz[:, 1:], n[:, :-1], n[:, 1:], polarization)
 
 
-def sharp(
-    kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
-) -> tuple[ComplexArray, ComplexArray]:
-    """Ideal sharp interfaces: the roughness is ignored.
+class InterfaceModel(Protocol):
+    """Model of imperfect interfaces of width σ.
 
-    Args:
-        kz_above: k_z in the medium above each interface, shape (P, M − 1).
-        kz_below: k_z in the medium below each interface, shape (P, M − 1).
-        sigma: Interface widths in nm, shape (M − 1,).
-
-    Returns:
-        Factors (1, 1) for r and t, shape (P, M − 1) each.
+    It provides the factors by which the reflection and transmission coefficients of a sharp
+    interface are multiplied. All arrays broadcast against each other; ``kz_above`` and
+    ``kz_below`` are in 1/nm and ``sigma`` in nm.
     """
-    ones = np.ones(np.broadcast_shapes(kz_above.shape, kz_below.shape), dtype=np.complex128)
-    return ones, ones
+
+    @property
+    def name(self) -> str:
+        """Registry name of the model."""
+        ...
+
+    def reflection_factor(
+        self, kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
+    ) -> ComplexArray:
+        """Return the factor applied to the reflection coefficients.
+
+        Args:
+            kz_above: k_z in the medium above each interface.
+            kz_below: k_z in the medium below each interface.
+            sigma: Interface widths in nm.
+
+        Returns:
+            The factors, broadcast shape of the inputs.
+        """
+        ...
+
+    def transmission_factor(
+        self, kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
+    ) -> ComplexArray:
+        """Return the factor applied to the transmission coefficients.
+
+        Args:
+            kz_above: k_z in the medium above each interface.
+            kz_below: k_z in the medium below each interface.
+            sigma: Interface widths in nm.
+
+        Returns:
+            The factors, broadcast shape of the inputs.
+        """
+        ...
 
 
-def nevot_croce(
+def _gaussian_transmission(
     kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
-) -> tuple[ComplexArray, ComplexArray]:
+) -> ComplexArray:
+    return np.exp(0.5 * (kz_above - kz_below) ** 2 * np.asarray(sigma, dtype=np.float64) ** 2)
+
+
+@dataclass(frozen=True)
+class SharpInterface:
+    """Ideal sharp interfaces: the roughness is ignored."""
+
+    name: ClassVar[str] = "sharp"
+
+    def reflection_factor(
+        self, kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
+    ) -> ComplexArray:
+        """Return ones.
+
+        Args:
+            kz_above: k_z in the medium above each interface.
+            kz_below: k_z in the medium below each interface.
+            sigma: Interface widths in nm (ignored).
+
+        Returns:
+            Ones with the broadcast shape of the inputs.
+        """
+        shape = np.broadcast_shapes(np.shape(kz_above), np.shape(kz_below), np.shape(sigma))
+        return np.ones(shape, dtype=np.complex128)
+
+    def transmission_factor(
+        self, kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
+    ) -> ComplexArray:
+        """Return ones.
+
+        Args:
+            kz_above: k_z in the medium above each interface.
+            kz_below: k_z in the medium below each interface.
+            sigma: Interface widths in nm (ignored).
+
+        Returns:
+            Ones with the broadcast shape of the inputs.
+        """
+        return self.reflection_factor(kz_above, kz_below, sigma)
+
+
+@dataclass(frozen=True)
+class NevotCroce:
     """Névot–Croce factors for interfaces with a Gaussian height or composition profile.
 
     r → r·exp(−2·k_z,j·k_z,j+1·σ²) and t → t·exp((k_z,j − k_z,j+1)²·σ²/2)
     (L. Névot, P. Croce, Rev. Phys. Appl. 15, 761 (1980)).
-
-    Args:
-        kz_above: k_z in the medium above each interface, shape (P, M − 1).
-        kz_below: k_z in the medium below each interface, shape (P, M − 1).
-        sigma: Interface widths in nm, shape (M − 1,).
-
-    Returns:
-        Factors for r and t, shape (P, M − 1) each.
     """
-    s2 = np.asarray(sigma, dtype=np.float64) ** 2
-    r_factor = np.exp(-2.0 * kz_above * kz_below * s2)
-    t_factor = np.exp(0.5 * (kz_above - kz_below) ** 2 * s2)
-    return r_factor, t_factor
+
+    name: ClassVar[str] = "nevot_croce"
+
+    def reflection_factor(
+        self, kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
+    ) -> ComplexArray:
+        """Return exp(−2·k_z,j·k_z,j+1·σ²).
+
+        Args:
+            kz_above: k_z in the medium above each interface.
+            kz_below: k_z in the medium below each interface.
+            sigma: Interface widths in nm.
+
+        Returns:
+            The factors, broadcast shape of the inputs.
+        """
+        return np.exp(-2.0 * kz_above * kz_below * np.asarray(sigma, dtype=np.float64) ** 2)
+
+    def transmission_factor(
+        self, kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
+    ) -> ComplexArray:
+        """Return exp((k_z,j − k_z,j+1)²·σ²/2).
+
+        Args:
+            kz_above: k_z in the medium above each interface.
+            kz_below: k_z in the medium below each interface.
+            sigma: Interface widths in nm.
+
+        Returns:
+            The factors, broadcast shape of the inputs.
+        """
+        return _gaussian_transmission(kz_above, kz_below, sigma)
 
 
-def debye_waller(
-    kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
-) -> tuple[ComplexArray, ComplexArray]:
+@dataclass(frozen=True)
+class DebyeWaller:
     """Debye–Waller factors for interfaces with a Gaussian height or composition profile.
 
     r → r·exp(−2·k_z,j²·σ²), with k_z,j taken in the medium above the interface. The
-    transmission factor is the same as for `nevot_croce`.
-
-    Args:
-        kz_above: k_z in the medium above each interface, shape (P, M − 1).
-        kz_below: k_z in the medium below each interface, shape (P, M − 1).
-        sigma: Interface widths in nm, shape (M − 1,).
-
-    Returns:
-        Factors for r and t, shape (P, M − 1) each.
+    transmission factor is the same as for `NevotCroce`.
     """
-    s2 = np.asarray(sigma, dtype=np.float64) ** 2
-    r_factor = np.exp(-2.0 * kz_above**2 * s2)
-    t_factor = np.exp(0.5 * (kz_above - kz_below) ** 2 * s2)
-    return r_factor, t_factor
+
+    name: ClassVar[str] = "debye_waller"
+
+    def reflection_factor(
+        self, kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
+    ) -> ComplexArray:
+        """Return exp(−2·k_z,j²·σ²).
+
+        Args:
+            kz_above: k_z in the medium above each interface.
+            kz_below: k_z in the medium below each interface.
+            sigma: Interface widths in nm.
+
+        Returns:
+            The factors, broadcast shape of the inputs.
+        """
+        factor = np.exp(-2.0 * kz_above**2 * np.asarray(sigma, dtype=np.float64) ** 2)
+        return np.broadcast_to(factor, np.broadcast_shapes(factor.shape, np.shape(kz_below)))
+
+    def transmission_factor(
+        self, kz_above: ComplexArray, kz_below: ComplexArray, sigma: NDArray[np.float64]
+    ) -> ComplexArray:
+        """Return exp((k_z,j − k_z,j+1)²·σ²/2).
+
+        Args:
+            kz_above: k_z in the medium above each interface.
+            kz_below: k_z in the medium below each interface.
+            sigma: Interface widths in nm.
+
+        Returns:
+            The factors, broadcast shape of the inputs.
+        """
+        return _gaussian_transmission(kz_above, kz_below, sigma)
 
 
 interface_models: Registry[InterfaceModel] = Registry("interface model")
 """Registry of interface roughness models."""
 
-interface_models.register("sharp", sharp)
-interface_models.register("nevot_croce", nevot_croce)
-interface_models.register("debye_waller", debye_waller)
+for _model in (SharpInterface(), NevotCroce(), DebyeWaller()):
+    interface_models.register(_model.name, _model)

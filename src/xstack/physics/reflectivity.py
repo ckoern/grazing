@@ -16,14 +16,18 @@ __all__ = ["reflectivity", "stack_response"]
 
 def _prepare(
     stack: Stack, energy: ArrayLike, theta: ArrayLike, library: MaterialLibrary | None
-) -> tuple[tuple[int, ...], NDArray[np.float64], NDArray[np.float64], NDArray[np.complex128]]:
+) -> tuple[
+    tuple[int, ...],
+    NDArray[np.float64],
+    NDArray[np.float64],
+    tuple[NDArray[np.complex128], NDArray[np.intp]],
+]:
     e, th = np.broadcast_arrays(
         np.asarray(energy, dtype=np.float64), np.asarray(theta, dtype=np.float64)
     )
     shape = e.shape
     e_flat, th_flat = e.ravel(), th.ravel()
-    n = stack.refractive_indices(e_flat, library)
-    return shape, e_flat, th_flat, n
+    return shape, e_flat, th_flat, stack.distinct_refractive_indices(e_flat, library)
 
 
 def reflectivity(
@@ -57,7 +61,7 @@ def reflectivity(
         >>> bool(r[0] > 0.9 and r[1] < 1e-3)
         True
     """
-    shape, e, th, n = _prepare(stack, energy, theta, library)
+    shape, e, th, (n, media) = _prepare(stack, energy, theta, library)
     r = reflectance(
         n,
         stack.thicknesses(),
@@ -66,6 +70,7 @@ def reflectivity(
         energy_to_wavelength(e),
         polarization,
         interface_model,
+        media,
     )
     return r.reshape(shape)
 
@@ -92,7 +97,7 @@ def stack_response(
         Kernel result with all arrays flattened to one dimension in the broadcast order of
         `energy` and `theta`.
     """
-    _, e, th, n = _prepare(stack, energy, theta, library)
+    _, e, th, (n, media) = _prepare(stack, energy, theta, library)
     return parratt(
         n,
         stack.thicknesses(),
@@ -101,4 +106,5 @@ def stack_response(
         energy_to_wavelength(e),
         polarization,
         interface_model,
+        media,
     )

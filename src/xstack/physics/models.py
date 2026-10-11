@@ -184,7 +184,7 @@ class ParrattModel:
         polarization: Polarization | Literal["unpolarized"],
         library: MaterialLibrary | None,
     ) -> NDArray[np.float64]:
-        n = stack.refractive_indices(energy, library)
+        n, media = stack.distinct_refractive_indices(energy, library)
         return reflectance(
             n,
             stack.thicknesses(),
@@ -193,6 +193,7 @@ class ParrattModel:
             energy_to_wavelength(energy),
             polarization,
             self.interface_model,
+            media,
         )
 
 
@@ -268,7 +269,7 @@ class KinematicModel:
             r_int = (eps[:, :-1] - eps[:, 1:]) / (4.0 * sin**2)
             if polarization == "p":
                 r_int = r_int * np.cos(2.0 * theta)[:, None]
-        r_factor, _ = interface_models.get(self.interface_model)(
+        r_factor = interface_models.get(self.interface_model).reflection_factor(
             kz[:, :-1], kz[:, 1:], stack.roughnesses()
         )
         # Phase of interface j: path through media 1 … j and back.

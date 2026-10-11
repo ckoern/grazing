@@ -105,6 +105,33 @@ class Stack:
         values = [layer.roughness for layer in self.layers] + [self.substrate_roughness]
         return np.array(values, dtype=np.float64)
 
+    def distinct_refractive_indices(
+        self, energy: ArrayLike, library: MaterialLibrary | None = None
+    ) -> tuple[NDArray[np.complex128], NDArray[np.intp]]:
+        """Return the refractive indices of the distinct materials and the medium mapping.
+
+        Args:
+            energy: Photon energies in eV, shape (P,).
+            library: Library used to compute (and cache) optical constants. Defaults to the
+                shared default library.
+
+        Returns:
+            Complex refractive indices of the U distinct materials, shape (P, U), and for each
+            medium from the ambient to the substrate the index of its column, shape
+            (num_layers + 2,).
+
+        Raises:
+            ValueError: If `energy` is not one-dimensional.
+        """
+        lib = library or default_library()
+        e = np.atleast_1d(np.asarray(energy, dtype=np.float64))
+        if e.ndim != 1:
+            raise ValueError("energy must be one-dimensional")
+        columns: dict[Material, int] = {}
+        index = np.array([columns.setdefault(m, len(columns)) for m in self.media], dtype=np.intp)
+        n = np.stack([lib.refractive_index(m, e) for m in columns], axis=1)
+        return n, index
+
     def refractive_indices(
         self, energy: ArrayLike, library: MaterialLibrary | None = None
     ) -> NDArray[np.complex128]:
@@ -118,14 +145,5 @@ class Stack:
         Returns:
             Complex refractive indices, shape (P, num_layers + 2), ambient first.
         """
-        lib = library or default_library()
-        e = np.atleast_1d(np.asarray(energy, dtype=np.float64))
-        if e.ndim != 1:
-            raise ValueError("energy must be one-dimensional")
-        unique: dict[Material, NDArray[np.complex128]] = {}
-        columns = []
-        for material in self.media:
-            if material not in unique:
-                unique[material] = lib.refractive_index(material, e)
-            columns.append(unique[material])
-        return np.stack(columns, axis=1)
+        n, index = self.distinct_refractive_indices(energy, library)
+        return n[:, index]

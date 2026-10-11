@@ -12,8 +12,8 @@ from xstack.project.templates import new_state
 
 pytestmark = pytest.mark.gui
 
-COLS = ["Parameter", "Value", "Unit", "Vary", "Min", "Max", "Expression"]
-NAME, VALUE, UNIT, VARY, MIN, MAX, EXPR = range(7)
+COLS = ["Parameter", "Value", "Unit", "Vary", "Min", "Max", "Expression", "Description"]
+NAME, VALUE, UNIT, VARY, MIN, MAX, EXPR, DESC = range(8)
 
 
 def periodic_params() -> ParameterSet:
@@ -59,8 +59,8 @@ def apply(command: Command) -> ProjectController:
 
 def test_shape_and_header(model: ParameterTableModel) -> None:
     assert model.rowCount() == len(periodic_params())
-    assert model.columnCount() == 7
-    headers = [model.headerData(i, Qt.Orientation.Horizontal) for i in range(7)]
+    assert model.columnCount() == 8
+    headers = [model.headerData(i, Qt.Orientation.Horizontal) for i in range(8)]
     assert headers == COLS
 
 
@@ -173,3 +173,18 @@ def test_table_widget_forwards_commands(qtbot: QtBot) -> None:
     table.set_parameters(periodic_params())
     with qtbot.waitSignal(table.commandRequested):
         table.table_model.setData(table.table_model.index(0, VALUE), "12")
+
+
+def test_description_column_is_read_only_and_tooltip(model: ParameterTableModel) -> None:
+    index = cell(model, "N", DESC)
+    assert model.data(index) == "Number of bilayers"
+    assert not model.flags(index) & Qt.ItemFlag.ItemIsEditable
+    assert model.data(cell(model, "N", NAME), Qt.ItemDataRole.ToolTipRole) == "Number of bilayers"
+    assert not model.setData(index, "x")
+
+
+def test_table_is_not_spreadsheet_like(qtbot: QtBot) -> None:
+    table = ParameterTable()
+    qtbot.addWidget(table)
+    assert not table.showGrid()
+    assert table.frameShape() == table.Shape.NoFrame

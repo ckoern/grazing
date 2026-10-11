@@ -6,7 +6,8 @@ modified copy on every edit, so that new plugin classes are editable without GUI
 
 Supported field types: ``float``, ``int``, ``bool``, ``str``, ``Literal[...]``, ``tuple[str,
 ...]`` and optional variants of these. Other fields are shown read-only. Field metadata may
-provide ``"label"``, ``"unit"`` and ``"scale"`` (displayed value = stored value · scale).
+provide ``"label"``, ``"unit"``, ``"scale"`` (displayed value = stored value · scale) and
+``"help"`` (tooltip text of the editor).
 """
 
 import dataclasses
@@ -145,6 +146,7 @@ class DataclassForm(QWidget):
                 line.editingFinished.connect(lambda n=f.name: self._commit(n))
                 editor = line
             editor.setObjectName(f"field_{f.name}")
+            editor.setToolTip(str(f.metadata.get("help", f"{label}{f' ({unit})' if unit else ''}")))
             self._editors[f.name] = (editor, kind, tp, scale)
             self._layout.addRow(f"{label}{f' ({unit})' if unit else ''}", editor)
         if not self._editors:

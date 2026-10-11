@@ -7,10 +7,12 @@ from typing import Any
 import numpy as np
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
+    QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -25,7 +27,7 @@ from xstack.io.recipe import write_recipe_csv, write_recipe_json
 from xstack.manufacturing.tolerance import ToleranceResult, thickness_tolerance
 from xstack.optim.events import CancellationToken
 from xstack.project import ProjectState
-from xstack.structure.coating import CoatingBuildError
+from xstack.structure.coating import CoatingBuildError, Mirror
 
 __all__ = ["AnalyzePage"]
 
@@ -41,6 +43,14 @@ class AnalyzePage(StepPage):
     """
 
     title = "Analyze"
+    help_text = (
+        "<b>Analyze.</b> Real deposition is never perfect, so this step tests how robust the "
+        "current design is. The Monte Carlo analysis perturbs every layer thickness randomly "
+        "and each material's deposition rate systematically, then re-evaluates the figure of "
+        "merit for many samples. The spread of the results shows how sensitive the design is "
+        "to manufacturing errors. When you are satisfied, export the layer table or the full "
+        "recipe for your deposition system."
+    )
     toleranceFinished = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -48,6 +58,18 @@ class AnalyzePage(StepPage):
         self._state: ProjectState | None = None
         self.result: ToleranceResult | None = None
         layout = QVBoxLayout(self)
+        design_row = QHBoxLayout()
+        design_row.addWidget(QLabel("Design to analyze:"))
+        self.design_combo = QComboBox()
+        self.design_combo.setToolTip(
+            "Analyze and export the input design (Coating step) or the candidate selected in "
+            "the candidates list, e.g. an optimization result"
+        )
+        self.design_combo.addItem("Input design", "input")
+        self.design_combo.addItem("Selected candidate", "selected")
+        design_row.addWidget(self.design_combo)
+        design_row.addStretch()
+        layout.addLayout(design_row)
         box = QGroupBox("Thickness tolerance (Monte Carlo)")
         form = QFormLayout(box)
         self.random_error = QDoubleSpinBox()
@@ -62,11 +84,18 @@ class AnalyzePage(StepPage):
         self.samples.setValue(50)
         self.seed = QLineEdit()
         self.seed.setPlaceholderText("random")
+        self.random_error.setToolTip("Relative random thickness error of each layer (1 sigma).")
+        self.systematic_error.setToolTip(
+            "Relative error of the deposition rate of each material, common to all its layers."
+        )
+        self.samples.setToolTip("Number of randomly perturbed designs to evaluate.")
+        self.seed.setToolTip("Integer seed for reproducible results; empty for a random seed.")
         form.addRow("Random error per layer", self.random_error)
         form.addRow("Rate error per material", self.systematic_error)
         form.addRow("Samples", self.samples)
         form.addRow("Random seed", self.seed)
         self.run_button = QPushButton("Run tolerance analysis")
+        self.run_button.setToolTip("Evaluate the perturbed designs in the background.")
         self.run_button.clicked.connect(self.run)
         form.addRow(self.run_button)
         self.summary = QLabel()
@@ -77,6 +106,8 @@ class AnalyzePage(StepPage):
         export_layout = QVBoxLayout(export)
         self.csv_button = QPushButton("Export layer table (CSV)…")
         self.json_button = QPushButton("Export recipe (JSON)…")
+        self.csv_button.setToolTip("Write the layer table of the design as a CSV file.")
+        self.json_button.setToolTip("Write the layer table and process as a JSON recipe.")
         self.csv_button.clicked.connect(lambda: self.export(None, "csv"))
         self.json_button.clicked.connect(lambda: self.export(None, "json"))
         export_layout.addWidget(self.csv_button)
@@ -91,13 +122,32 @@ class AnalyzePage(StepPage):
             state: The current project state.
         """
         self._state = state
+        selected = state.selected_candidate()
+        label = f"Selected candidate ({selected.name})" if selected else "Selected candidate (none)"
+        self.design_combo.setItemText(1, label)
+
+    def design(self) -> Mirror | None:
+        """Return the design chosen for analysis and export.
+
+        Returns:
+            The input design or the selected candidate's design; ``None`` if there is none.
+        """
+        if self._state is None:
+            return None
+        if self.design_combo.currentData() == "selected":
+            candidate = self._state.selected_candidate()
+            return candidate.mirror if candidate is not None else None
+        return self._state.mirror
 
     def run(self) -> None:
         """Request a tolerance analysis job."""
         if self._state is None:
             return
+        mirror = self.design()
         try:
-            problem = self._state.problem()
+            if mirror is None:
+                raise ValueError("no design selected")
+            problem = self._state.problem().evolve(mirror=mirror)
         except ValueError as exc:
             self.errorOccurred.emit(f"Cannot analyze: {exc}")
             return
@@ -134,11 +184,12 @@ class AnalyzePage(StepPage):
         Returns:
             Whether a file was written.
         """
-        if self._state is None or self._state.mirror is None:
+        mirror = self.design()
+        if self._state is None or mirror is None:
             self.errorOccurred.emit("No design to export")
             return False
         try:
-            stack = self._state.mirror.stack()
+            stack = mirror.stack()
         except (CoatingBuildError, ValueError) as exc:
             self.errorOccurred.emit(f"Cannot export: {exc}")
             return False

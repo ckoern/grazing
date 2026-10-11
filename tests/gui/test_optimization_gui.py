@@ -12,9 +12,8 @@ from pytestqt.qtbot import QtBot
 
 from xstack.gui.main_window import MainWindow
 from xstack.gui.plots import ConvergencePlot, DesignMapPlot, HistogramPlot
-from xstack.gui.steps import AnalyzePage, OptimizePage, ScanPage
+from xstack.gui.steps import AnalyzePage, ScanPage
 from xstack.gui.workers import Job, JobRunner
-from xstack.merit import MeanReflectivity, TimePenalized
 from xstack.optim.events import CancellationToken, ProgressEvent
 from xstack.parameters import free
 from xstack.project.commands import set_mirror
@@ -147,6 +146,9 @@ def test_scan_page_axes_and_job(qtbot: QtBot) -> None:
     new_state_ = commands[-1].transform(small_state())
     best = result.best_values()
     assert new_state_.mirror.parameters["d"].value == pytest.approx(best["d"])
+    assert not page.confirmation.isHidden()
+    assert page.confirmation.text().startswith("Start values set: ")
+    assert f"d = {best['d']:.4g}" in page.confirmation.text()
 
 
 def test_scan_page_reports_missing_bounds(qtbot: QtBot) -> None:
@@ -164,42 +166,6 @@ def test_scan_page_reports_missing_bounds(qtbot: QtBot) -> None:
     page.run()
     assert errors
     assert "finite bounds" in errors[0]
-
-
-def test_optimize_page_merit_editing(qtbot: QtBot) -> None:
-    page = OptimizePage()
-    qtbot.addWidget(page)
-    state = small_state()
-    page.set_state(state)
-    commands: list[Any] = []
-    page.commandRequested.connect(commands.append)
-    page.time_check.setChecked(True)
-    merit = commands[-1].transform(state).merit
-    assert isinstance(merit, TimePenalized)
-    assert isinstance(merit.merit, MeanReflectivity)
-    page.merit_combo.setCurrentIndex(page.merit_combo.findData("soft_min_reflectivity"))
-    page.merit_combo.activated.emit(page.merit_combo.currentIndex())
-    merit = commands[-1].transform(state).merit
-    assert merit.merit.type_name == "soft_min_reflectivity"
-    page.set_state(state.evolve(merit=merit))
-    assert page.time_check.isChecked()
-
-
-def test_optimize_page_pipeline_and_stage_jobs(qtbot: QtBot) -> None:
-    page = OptimizePage()
-    qtbot.addWidget(page)
-    page.set_state(small_state())
-    assert "outline" in page.stages_label.text()
-    assert page.stage_combo.count() >= 3
-    jobs: list[Job] = []
-    page.jobRequested.connect(jobs.append)
-    page.run("outline")
-    finished: list[Any] = []
-    page.pipelineFinished.connect(lambda problem, result: finished.append(result))
-    result = jobs[0].function(lambda _: None, CancellationToken())
-    assert [s.stage.name for s in result.stages] == ["outline"]
-    jobs[0].on_finished(result)
-    assert finished == [result]
 
 
 def test_analyze_page_tolerance_and_export(qtbot: QtBot, tmp_path: Path) -> None:
@@ -224,8 +190,9 @@ def test_analyze_page_tolerance_and_export(qtbot: QtBot, tmp_path: Path) -> None
     assert "layers" in json.loads(json_path.read_text())
 
 
-def test_window_pipeline_run_applies_result_and_candidate(qtbot: QtBot, window: MainWindow) -> None:
+def test_window_pipeline_run_stores_candidates(qtbot: QtBot, window: MainWindow) -> None:
     window.controller.execute(set_mirror(small_state().mirror))
+    input_design = window.controller.state.mirror
     window.optimize_page.seed.setText("1")
     window.optimize_page.iterations.setValue(1)
     window.optimize_page.population.setValue(3)
@@ -239,8 +206,12 @@ def test_window_pipeline_run_applies_result_and_candidate(qtbot: QtBot, window: 
     assert not window.stop_action.isEnabled()
     assert any(isinstance(e, ProgressEvent) for e in events)
     assert window.convergence_plot.tasks()
-    names = [c.name for c in window.controller.state.candidates]
-    assert names == ["run 1"]
+    state = window.controller.state
+    names = [c.name for c in state.candidates]
+    stages = [s.name for s in window.optimize_page.pipeline(state.problem()).stages]
+    assert names == [f"run 1 · {stage}" for stage in stages] + ["run 1"]
+    assert state.selected == "run 1"
+    assert state.mirror == input_design
     assert window.controller.project.journal.entries("run")
     window.controller.undo()
     assert window.controller.state.candidates == ()

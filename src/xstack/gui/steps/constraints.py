@@ -2,6 +2,7 @@
 
 from PySide6.QtWidgets import (
     QComboBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -29,6 +30,15 @@ class ConstraintsPage(StepPage):
     """
 
     title = "Constraints"
+    help_text = (
+        "<b>Manufacturing constraints.</b> Constraints describe what can actually be deposited, "
+        "for example minimum or maximum layer thicknesses or a limit on the total thickness. "
+        "Add a constraint, select it in the list and edit its settings below. A hard "
+        "constraint must be satisfied by the optimizer, whereas a soft one only adds a penalty "
+        "to the figure of merit. The list shows live whether the current design satisfies each "
+        "constraint; the Scan and Optimize steps mark designs violating hard constraints as "
+        "infeasible."
+    )
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -38,20 +48,31 @@ class ConstraintsPage(StepPage):
         layout.addWidget(QLabel("<b>Manufacturing constraints</b>"))
         self.list = QListWidget()
         self.list.currentRowChanged.connect(self._select)
+        self.list.setFrameShape(QFrame.Shape.NoFrame)
+        self.list.setAlternatingRowColors(True)
+        self.list.setSizeAdjustPolicy(QListWidget.SizeAdjustPolicy.AdjustToContents)
+        self.list.setToolTip(
+            "Constraints of the design. A check mark means satisfied, a cross violated."
+        )
         layout.addWidget(self.list)
         buttons = QHBoxLayout()
         self.type_combo = QComboBox()
         for name in constraints:
             self.type_combo.addItem(name.replace("_", " "), name)
+        self.type_combo.setToolTip("Kind of constraint to add.")
         self.add_button = QPushButton("Add")
+        self.add_button.setToolTip("Add a constraint of the chosen kind.")
         self.remove_button = QPushButton("Remove")
+        self.remove_button.setToolTip("Remove the selected constraint.")
         buttons.addWidget(self.type_combo)
         buttons.addWidget(self.add_button)
         buttons.addWidget(self.remove_button)
+        buttons.addStretch()
         layout.addLayout(buttons)
         self.add_button.clicked.connect(self._add)
         self.remove_button.clicked.connect(self._remove)
         self.form = DataclassForm()
+        self.form.setToolTip("Settings of the selected constraint.")
         self.form.valueChanged.connect(self._edited)
         self.form.invalidInput.connect(self.errorOccurred)
         layout.addWidget(self.form)

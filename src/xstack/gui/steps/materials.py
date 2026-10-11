@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFrame,
     QHeaderView,
     QLabel,
     QLineEdit,
@@ -45,6 +46,9 @@ class MaterialDialog(QDialog):
         self.name = QLineEdit()
         self.formula = QLineEdit()
         self.density = QLineEdit()
+        self.name.setToolTip("Display name; defaults to the formula.")
+        self.formula.setToolTip("Chemical formula, for example Si, MoSi2 or B4C.")
+        self.density.setToolTip("Mass density of the film in g/cm³.")
         layout.addRow("Name", self.name)
         layout.addRow("Chemical formula", self.formula)
         layout.addRow("Density (g/cm³)", self.density)
@@ -74,6 +78,15 @@ class MaterialsPage(StepPage):
     """
 
     title = "Materials"
+    help_text = (
+        "<b>Materials.</b> Each role of the coating (for example the absorber and the spacer "
+        "of a multilayer) and the substrate is assigned a material here. The optical constants "
+        "delta and beta of these materials, evaluated at the energies of your goal, determine "
+        "the reflectivity of every later step. Choose a material from the library or define "
+        "your own from a chemical formula and density; the density may be edited if your "
+        "deposited film differs from the bulk value. The plot below shows the resulting "
+        "optical constants over a wide energy range."
+    )
 
     def __init__(
         self, library: MaterialLibrary | None = None, parent: QWidget | None = None
@@ -88,9 +101,16 @@ class MaterialsPage(StepPage):
         self.table.setHorizontalHeaderLabels(["Role", "Material", "Density (g/cm³)"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.verticalHeader().setVisible(False)
+        self.table.setShowGrid(False)
+        self.table.setFrameShape(QFrame.Shape.NoFrame)
+        self.table.setAlternatingRowColors(True)
+        self.table.setToolTip(
+            "One row per coating role and the substrate. Choose the material and edit its density."
+        )
         self.table.itemChanged.connect(self._density_edited)
         layout.addWidget(self.table)
         self.new_material = QPushButton("New material…")
+        self.new_material.setToolTip("Define a material from a chemical formula and a density.")
         self.new_material.clicked.connect(self._define_material)
         layout.addWidget(self.new_material)
         layout.addWidget(QLabel("Optical constants (δ solid, β dashed)"))
@@ -99,6 +119,7 @@ class MaterialsPage(StepPage):
         self.plot.setLabel("bottom", "Energy (keV)")
         self.plot.addLegend(offset=(-10, 10))
         self.plot.setMinimumHeight(220)
+        self.plot.setToolTip("Optical constants delta (solid) and beta (dashed) versus energy.")
         layout.addWidget(self.plot)
 
     def set_state(self, state: ProjectState) -> None:
@@ -134,10 +155,22 @@ class MaterialsPage(StepPage):
             combo.activated.connect(
                 lambda _=0, r=role, c=combo: self._material_chosen(r, c.currentText())
             )
+            combo.setToolTip(f"Material of the role '{role}'.")
             self.table.setCellWidget(row, 1, combo)
-            self.table.setItem(row, 2, QTableWidgetItem(f"{material.density:g}"))
+            density_item = QTableWidgetItem(f"{material.density:g}")
+            density_item.setToolTip("Mass density in g/cm³ (editable).")
+            self.table.setItem(row, 2, density_item)
+        self._fit_table_height()
         self._loading = False
         self._plot_constants(roles)
+
+    def _fit_table_height(self) -> None:
+        self.table.resizeRowsToContents()
+        rows = self.table.rowCount()
+        height = self.table.horizontalHeader().height() + sum(
+            self.table.rowHeight(r) for r in range(rows)
+        )
+        self.table.setFixedHeight(height + 4)
 
     def _plot_constants(self, roles: list[tuple[str, Material]]) -> None:
         self.plot.clear()

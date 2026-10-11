@@ -96,8 +96,8 @@ def test_bilayer_profile_counts_interlayers_in_period() -> None:
         N=4,
         d=4.0,
         gamma=0.4,
-        interlayers={"HonL": get("C")},
-        t_HonL=0.5,
+        interlayers={"interlayer_H_on_L": get("C")},
+        t_interlayer_H_on_L=0.5,
     )
     profile = bilayer_profile(_stack(coating))
     assert profile is not None

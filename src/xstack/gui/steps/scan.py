@@ -38,6 +38,14 @@ class ScanPage(StepPage):
     """
 
     title = "Scan"
+    help_text = (
+        "<b>Design-space scan.</b> The scan evaluates the figure of merit on a grid of one or "
+        "two free parameters over their bounds, keeping all other parameters at the values of "
+        "the current input design. The resulting map shows where designs are good and where "
+        "they are infeasible (grey). Clicking a cell of the map, or pressing <i>Use best grid "
+        "point</i>, sets those parameter values as <b>start values</b> of the input design; "
+        "the Optimize step starts from them. The scan itself does not optimize anything."
+    )
     scanFinished = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -57,6 +65,13 @@ class ScanPage(StepPage):
         self.grid_points = QSpinBox()
         self.grid_points.setRange(5, 2000)
         self.grid_points.setValue(60)
+        self.x_combo.setToolTip("Free parameter varied along the horizontal axis of the map.")
+        self.y_combo.setToolTip("Optional second free parameter, varied along the vertical axis.")
+        self.x_points.setToolTip("Number of grid values of the first parameter.")
+        self.y_points.setToolTip("Number of grid values of the second parameter.")
+        self.grid_points.setToolTip(
+            "Number of points of the evaluation grid (energy or angle) used for each design."
+        )
         form.addRow("First parameter", self.x_combo)
         form.addRow("Points", self.x_points)
         form.addRow("Second parameter", self.y_combo)
@@ -64,15 +79,27 @@ class ScanPage(StepPage):
         form.addRow("Target grid points", self.grid_points)
         layout.addLayout(form)
         self.run_button = QPushButton("Run scan")
+        self.run_button.setToolTip("Evaluate the figure of merit on the grid.")
         self.run_button.clicked.connect(self.run)
         self.apply_button = QPushButton("Use best grid point")
         self.apply_button.setEnabled(False)
+        self.apply_button.setToolTip(
+            "Set the parameters of the best grid point as start values of the input design."
+        )
         self.apply_button.clicked.connect(self.apply_best)
         layout.addWidget(self.run_button)
         layout.addWidget(self.apply_button)
         self.summary = QLabel()
         self.summary.setWordWrap(True)
         layout.addWidget(self.summary)
+        self.confirmation = QLabel()
+        self.confirmation.setWordWrap(True)
+        self.confirmation.setStyleSheet(
+            "background-color: #e3f4e6; border: 1px solid #9fd3a8; border-radius: 6px; "
+            "padding: 6px 8px; color: #1d4d27;"
+        )
+        self.confirmation.setVisible(False)
+        layout.addWidget(self.confirmation)
         layout.addWidget(QLabel("Click a cell of the design map to use its parameter values."))
         layout.addStretch()
 
@@ -171,4 +198,6 @@ class ScanPage(StepPage):
                 max=max(p.max, value),
             )
         text = ", ".join(f"{k} = {v:.4g}" for k, v in values.items())
+        self.confirmation.setText(f"Start values set: {text}")
+        self.confirmation.setVisible(True)
         self.commandRequested.emit(set_parameters(params, f"Use scan point {text}"))

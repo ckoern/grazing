@@ -3,19 +3,25 @@
 import functools
 from pathlib import Path
 
+import numpy as np
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDockWidget,
     QFileDialog,
+    QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QStackedWidget,
     QTabWidget,
@@ -33,7 +39,7 @@ from xstack.gui.plots import (
     LayerProfilePlot,
     ReflectivityPlot,
 )
-from xstack.gui.preview import Preview, compute_preview
+from xstack.gui.preview import Preview, compute_curves, compute_preview
 from xstack.gui.steps import (
     AnalyzePage,
     CoatingPage,
@@ -45,20 +51,24 @@ from xstack.gui.steps import (
     ScanPage,
     StepPage,
 )
+from xstack.gui.style import HELP_STYLE
 from xstack.gui.widgets import JournalView
 from xstack.gui.workers import Job, JobRunner, LatestRunner
 from xstack.manufacturing.tolerance import ToleranceResult
 from xstack.optim.events import ProgressEvent
 from xstack.optim.pipeline import PipelineResult
-from xstack.optim.problem import DesignProblem
+from xstack.optim.problem import DesignProblem, Evaluation
 from xstack.optim.scan import ScanResult
+from xstack.physics.models import ReflectivityResult
 from xstack.project import Candidate, ProjectState
 from xstack.project.commands import (
     add_candidate,
-    apply_result,
     promote_candidate,
     record_run,
     remove_candidate,
+    rename_candidate,
+    select_candidate,
+    store_pipeline_result,
 )
 from xstack.project.templates import TEMPLATES
 
@@ -98,6 +108,23 @@ def _summary(preview: Preview) -> str:
     if evaluation is not None and evaluation.constraints:
         parts.append("constraints ✓" if evaluation.feasible else "constraints ✗")
     return " · ".join(parts)
+
+
+def _candidate_details(state: ProjectState) -> str:
+    """Return a description of the selected candidate."""
+    candidate = state.selected_candidate()
+    if candidate is None:
+        return "No candidate selected. The plots show the input design."
+    parts = [f"<b>{candidate.name}</b> ({candidate.source})"]
+    if candidate.merit is not None:
+        parts.append(f"figure of merit {candidate.merit:.4g}")
+    if candidate.objective is not None:
+        parts.append(f"objective {candidate.objective:.4g}")
+    if candidate.coating_time is not None:
+        parts.append(f"coating time {candidate.coating_time / 3600:.3g} h")
+    if candidate.created:
+        parts.append(f"created {candidate.created.replace('T', ' ')[:19]}")
+    return "<br>".join(parts)
 
 
 def _titled(title: str, widget: QWidget) -> QWidget:
@@ -154,7 +181,7 @@ class MainWindow(QMainWindow):
         self.plot_tabs = QTabWidget()
         self.reflectivity_plot = ReflectivityPlot()
         self.layer_plot = LayerProfilePlot()
-        self.plot_tabs.addTab(self.reflectivity_plot, "Reflectivity")
+        self.plot_tabs.addTab(self._reflectivity_tab(), "Reflectivity")
         self.plot_tabs.addTab(self.layer_plot, "Layer profile")
         self.design_map = DesignMapPlot()
         self.convergence_plot = ConvergencePlot()
@@ -169,6 +196,63 @@ class MainWindow(QMainWindow):
         self.preview_runner.finished.connect(self._on_preview)
         self.preview_runner.failed.connect(self._show_error)
         self.preview: Preview | None = None
+        self.live_runner = LatestRunner(delay_ms=300, parent=self)
+        self.live_runner.finished.connect(self._on_live_curves)
+        self.live_curves: tuple[ReflectivityResult, ...] = ()
+        self._live_values: dict[str, float] | None = None
+        self._job_state: ProjectState | None = None
+
+    def _reflectivity_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        bar = QHBoxLayout()
+        bar.addWidget(QLabel("Plot range:"))
+        self.range_edits: dict[str, tuple[QLineEdit, QLineEdit]] = {}
+        for axis, label, unit in (("energy", "energy", "keV"), ("angle", "angle", "deg")):
+            low, high = QLineEdit(), QLineEdit()
+            for edit, end in ((low, "min"), (high, "max")):
+                edit.setPlaceholderText(f"{end} {label} ({unit}), auto")
+                edit.setToolTip(
+                    f"Range of the {label} axis in the reflectivity plot. Leave empty to show "
+                    "the target range. The figure of merit always uses the target range."
+                )
+                edit.setMaximumWidth(170)
+                edit.editingFinished.connect(self._range_changed)
+                bar.addWidget(edit)
+            self.range_edits[axis] = (low, high)
+        self.log_check = QCheckBox("log scale")
+        self.log_check.setToolTip("Show the reflectivity on a logarithmic axis")
+        self.log_check.toggled.connect(self._log_toggled)
+        bar.addWidget(self.log_check)
+        bar.addStretch()
+        layout.addLayout(bar)
+        layout.addWidget(self.reflectivity_plot)
+        self.display_ranges: dict[str, tuple[float, float]] = {}
+        return tab
+
+    def _range_changed(self) -> None:
+        ranges: dict[str, tuple[float, float]] = {}
+        for axis, (low, high) in self.range_edits.items():
+            if not low.text().strip() and not high.text().strip():
+                continue
+            scale = 1e3 if axis == "energy" else np.pi / 180.0
+            try:
+                lo, hi = float(low.text()) * scale, float(high.text()) * scale
+            except ValueError:
+                self._show_error(f"Plot range of the {axis} axis needs a min and a max value")
+                continue
+            if not 0 < lo < hi or (axis == "angle" and hi > np.pi / 2):
+                self._show_error(f"Invalid plot range of the {axis} axis")
+                continue
+            ranges[axis] = (lo, hi)
+        if ranges != self.display_ranges:
+            self.display_ranges = ranges
+            self._request_preview()
+
+    def _log_toggled(self, checked: bool) -> None:
+        self.reflectivity_plot.log_scale = checked
+        self._redraw()
 
     def _dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -181,23 +265,33 @@ class MainWindow(QMainWindow):
         self.workflow_list = QListWidget()
         self.workflow_list.addItems(list(WORKFLOW_STEPS))
         self.candidate_list = QListWidget()
-        self.candidate_list.itemChanged.connect(self._overlay_toggled)
+        self.candidate_list.setToolTip(
+            "Stored designs. Optimization runs are stored as “run N” (final design) and "
+            "“run N · stage” (design after each stage). Click to select a candidate: it is "
+            "shown next to the input design and can be analyzed or exported. Double-click to "
+            "rename. Check to overlay it in the reflectivity plot."
+        )
+        self.candidate_list.itemChanged.connect(self._candidate_item_changed)
+        self.candidate_list.currentItemChanged.connect(self._candidate_clicked)
         candidates = QWidget()
         candidate_layout = QVBoxLayout(candidates)
         candidate_layout.setContentsMargins(0, 0, 0, 0)
         candidate_layout.addWidget(self.candidate_list)
         buttons = QHBoxLayout()
-        self.store_button = QPushButton("Store")
-        self.store_button.setToolTip("Store the current design as candidate")
-        self.use_button = QPushButton("Use")
-        self.use_button.setToolTip("Make the selected candidate the current design")
+        self.store_button = QPushButton("Store input…")
+        self.store_button.setToolTip("Store the input design (Coating step) as a named candidate")
+        self.use_button = QPushButton("Use as start")
+        self.use_button.setToolTip(
+            "Copy the selected candidate into the input design, e.g. to continue optimizing from it"
+        )
         self.delete_button = QPushButton("Delete")
+        self.delete_button.setToolTip("Delete the selected candidate")
         for button in (self.store_button, self.use_button, self.delete_button):
             buttons.addWidget(button)
         candidate_layout.addLayout(buttons)
-        hint = QLabel("Check a candidate to overlay it in the reflectivity plot.")
-        hint.setWordWrap(True)
-        candidate_layout.addWidget(hint)
+        self.candidate_details = QLabel("No candidate selected.")
+        self.candidate_details.setWordWrap(True)
+        candidate_layout.addWidget(self.candidate_details)
         left = QSplitter(Qt.Orientation.Vertical)
         left.addWidget(_titled("Workflow", self.workflow_list))
         left.addWidget(_titled("Candidates", candidates))
@@ -227,13 +321,8 @@ class MainWindow(QMainWindow):
             "Analyze": self.analyze_page,
         }
         self.page_stack = QStackedWidget()
-        for step in WORKFLOW_STEPS:
-            page = self.pages.get(step)
-            if page is None:
-                page = QLabel(f"{step}: not available yet")
-                page.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.pages[step] = page
-            self.page_stack.addWidget(page)
+        for index, step in enumerate(WORKFLOW_STEPS):
+            self.page_stack.addWidget(self._step_container(index, self.pages[step]))
         layout.addWidget(self.page_stack)
         self.parameter_table = self.coating_page.parameter_table
         self.workflow_list.currentRowChanged.connect(self.page_stack.setCurrentIndex)
@@ -254,9 +343,55 @@ class MainWindow(QMainWindow):
         self.tabifyDockWidget(self.journal_dock, self.history_dock)
         self.journal_dock.raise_()
         self.resizeDocks(
-            [self.workflow_dock, self.properties_dock], [220, 420], Qt.Orientation.Horizontal
+            [self.workflow_dock, self.properties_dock], [220, 520], Qt.Orientation.Horizontal
         )
         self.resizeDocks([self.journal_dock], [160], Qt.Orientation.Vertical)
+
+    def _step_container(self, index: int, page: QWidget) -> QWidget:
+        """Wrap a workflow page with its help text and Back/Next buttons."""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        help_text = getattr(page, "help_text", "")
+        if help_text:
+            help_label = QLabel(help_text)
+            help_label.setWordWrap(True)
+            help_label.setTextFormat(Qt.TextFormat.RichText)
+            help_label.setStyleSheet(HELP_STYLE)
+            help_label.setObjectName(f"help_{WORKFLOW_STEPS[index].lower()}")
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        if help_text:
+            content_layout.addWidget(help_label)
+        content_layout.addWidget(page)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
+        navigation = QHBoxLayout()
+        navigation.addStretch()
+        back = QPushButton("← Back")
+        back.setEnabled(index > 0)
+        back.clicked.connect(self.previous_step)
+        navigation.addWidget(back)
+        if index < len(WORKFLOW_STEPS) - 1:
+            forward = QPushButton(f"Next: {WORKFLOW_STEPS[index + 1]} →")
+            forward.setObjectName(f"next_{WORKFLOW_STEPS[index].lower()}")
+            forward.clicked.connect(self.next_step)
+            navigation.addWidget(forward)
+        layout.addLayout(navigation)
+        return container
+
+    def next_step(self) -> None:
+        """Show the next workflow step."""
+        row = self.workflow_list.currentRow()
+        self.workflow_list.setCurrentRow(min(row + 1, len(WORKFLOW_STEPS) - 1))
+
+    def previous_step(self) -> None:
+        """Show the previous workflow step."""
+        self.workflow_list.setCurrentRow(max(self.workflow_list.currentRow() - 1, 0))
 
     def _build_actions(self) -> None:
         self.new_actions: dict[str, QAction] = {}
@@ -357,7 +492,7 @@ class MainWindow(QMainWindow):
         self.design_map.pointSelected.connect(self.scan_page.apply_values)
         self.optimize_page.pipelineFinished.connect(self._apply_pipeline_result)
         self.analyze_page.toleranceFinished.connect(self._show_tolerance)
-        self.store_button.clicked.connect(self.store_candidate)
+        self.store_button.clicked.connect(lambda: self.store_candidate())
         self.use_button.clicked.connect(self._use_candidate)
         self.delete_button.clicked.connect(self._delete_candidate)
 
@@ -380,17 +515,27 @@ class MainWindow(QMainWindow):
         self.candidate_list.clear()
         for name in names:
             item = QListWidgetItem(name)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setData(Qt.ItemDataRole.UserRole, name)
+            item.setFlags(
+                item.flags() | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEditable
+            )
             checked = name in self.overlays
             item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
             self.candidate_list.addItem(item)
+            if name == state.selected:
+                self.candidate_list.setCurrentItem(item)
         self.candidate_list.blockSignals(False)
+        self.candidate_details.setText(_candidate_details(state))
         self._update_title()
         self._request_preview()
 
     def _request_preview(self) -> None:
         state = self.controller.state
-        self.preview_runner.request(functools.partial(compute_preview, state, tuple(self.overlays)))
+        shown = [state.selected] if state.selected else []
+        shown += [n for n in self.overlays if n not in shown]
+        self.preview_runner.request(
+            functools.partial(compute_preview, state, tuple(shown), dict(self.display_ranges))
+        )
 
     def step_pages(self) -> list[StepPage]:
         """Return the workflow pages that edit the project."""
@@ -400,18 +545,36 @@ class MainWindow(QMainWindow):
         if preview.state is not self.controller.state:
             return
         self.preview = preview
-        targets = preview.state.targets.targets if preview.state.targets else ()
-        curves = [
-            Curve(t.name or f"target {i + 1}", r)
-            for i, (t, r) in enumerate(zip(targets, preview.results, strict=False))
-        ]
-        for name, results in preview.overlays:
-            curves += [Curve(name, r, dashed=True) for r in results]
-        self.reflectivity_plot.set_curves(curves, targets)
+        self._redraw()
         self.layer_plot.set_stack(preview.stack)
         for page in self.step_pages():
             page.set_preview(preview)
         self.summary_label.setText(_summary(preview))
+
+    def _redraw(self) -> None:
+        """Draw the input design, the shown candidates and the live best design."""
+        preview = self.preview
+        if preview is None:
+            return
+        targets = preview.state.targets.targets if preview.state.targets else ()
+        multiple = len(targets) > 1
+
+        def label(name: str, i: int) -> str:
+            target = targets[i] if i < len(targets) else None
+            suffix = f" – {target.name or f'target {i + 1}'}" if multiple and target else ""
+            return name + suffix
+
+        curves = [
+            Curve(label("input design", i), r, group="input") for i, r in enumerate(preview.curves)
+        ]
+        for name, results in preview.overlays:
+            curves += [
+                Curve(label(name, i), r, dashed=True, group=name) for i, r in enumerate(results)
+            ]
+        curves += [
+            Curve(label("best so far", i), r, group="live") for i, r in enumerate(self.live_curves)
+        ]
+        self.reflectivity_plot.set_curves(curves, targets)
 
     def start_job(self, job: Job) -> bool:
         """Run a long calculation in the background.
@@ -429,6 +592,9 @@ class MainWindow(QMainWindow):
 
     def _job_started(self, name: str) -> None:
         self.convergence_plot.clear()
+        self._job_state = self.controller.state
+        self._live_values = None
+        self.live_curves = ()
         self.progress_bar.setRange(0, 0)
         self.progress_bar.setVisible(True)
         self.stop_action.setEnabled(True)
@@ -438,13 +604,30 @@ class MainWindow(QMainWindow):
     def _job_progress(self, event: object) -> None:
         if not isinstance(event, ProgressEvent):
             return
-        self.convergence_plot.add_point(event.task, event.evaluations, event.best_objective)
+        self.convergence_plot.add_point(
+            event.task, event.evaluations, event.best_objective, event.best_merit
+        )
+        state = self._job_state
+        values = dict(event.best_values)
+        if state is not None and state.mirror is not None and values != self._live_values:
+            self._live_values = values
+            self.live_runner.request(
+                functools.partial(
+                    compute_curves, state, state.mirror, values, dict(self.display_ranges)
+                )
+            )
         if event.total:
             self.progress_bar.setRange(0, event.total)
             self.progress_bar.setValue(min(event.evaluations, event.total))
         self.statusBar().showMessage(
-            f"{event.task}: {event.evaluations} evaluations, best {event.best_objective:.5g}"
+            f"{event.task}: {event.evaluations} evaluations, best objective "
+            f"{event.best_objective:.5g}, figure of merit {event.best_merit:.5g}"
         )
+
+    def _on_live_curves(self, curves: tuple[ReflectivityResult, ...]) -> None:
+        if self.job_runner.running:
+            self.live_curves = curves
+            self._redraw()
 
     def _on_file_changed(self, _path: object) -> None:
         self._update_title()
@@ -456,6 +639,9 @@ class MainWindow(QMainWindow):
         self._job_done(f"{name} finished")
 
     def _job_done(self, message: str) -> None:
+        self.live_curves = ()
+        self._job_state = None
+        self._redraw()
         self.progress_bar.setVisible(False)
         self.stop_action.setEnabled(False)
         self.run_action.setEnabled(True)
@@ -471,22 +657,35 @@ class MainWindow(QMainWindow):
         self.tolerance_plot.set_samples(result.merits, result.nominal.merit, "Figure of merit")
         self.plot_tabs.setCurrentWidget(self.tolerance_plot)
 
-    def _apply_pipeline_result(self, problem: DesignProblem, result: PipelineResult) -> None:
+    def _apply_pipeline_result(
+        self,
+        problem: DesignProblem,
+        result: PipelineResult,
+        stage_evaluations: tuple[Evaluation, ...] | None = None,
+    ) -> None:
         record_run(self.controller.project.journal, result)
         runs = len(self.controller.project.journal.entries("run"))
-        command = apply_result(problem, result.parameters, result.final, f"run {runs}", "pipeline")
-        self.controller.execute(command)
+        self.controller.execute(
+            store_pipeline_result(problem, result, f"run {runs}", stage_evaluations)
+        )
 
     def store_candidate(self, name: str | None = None) -> None:
-        """Store the current design as a candidate.
+        """Store the input design as a candidate.
 
         Args:
-            name: Candidate name; defaults to a numbered name.
+            name: Candidate name; asked for in a dialog if not given.
         """
         state = self.controller.state
         if state.mirror is None:
             return
-        name = name or f"design {len(state.candidates) + 1}"
+        if name is None:
+            proposal = f"input {len(state.candidates) + 1}"
+            text, accepted = QInputDialog.getText(
+                self, "Store input design", "Name of the candidate:", text=proposal
+            )
+            if not accepted or not text.strip():
+                return
+            name = text.strip()
         evaluation = (
             self.preview.evaluation if self.preview and self.preview.state is state else None
         )
@@ -499,7 +698,7 @@ class MainWindow(QMainWindow):
 
     def _selected_candidate(self) -> str | None:
         item = self.candidate_list.currentItem()
-        return item.text() if item is not None else None
+        return item.data(Qt.ItemDataRole.UserRole) if item is not None else None
 
     def _use_candidate(self) -> None:
         name = self._selected_candidate()
@@ -511,8 +710,23 @@ class MainWindow(QMainWindow):
         if name is not None:
             self.controller.execute(remove_candidate(name))
 
+    def _candidate_clicked(self, current: QListWidgetItem | None, _previous: object) -> None:
+        name = current.data(Qt.ItemDataRole.UserRole) if current is not None else None
+        if name != self.controller.state.selected:
+            self.controller.execute(select_candidate(name))
+
+    def _candidate_item_changed(self, item: QListWidgetItem) -> None:
+        old = item.data(Qt.ItemDataRole.UserRole)
+        if item.text() != old:
+            if not self.controller.execute(rename_candidate(old, item.text().strip())):
+                self.candidate_list.blockSignals(True)
+                item.setText(old)
+                self.candidate_list.blockSignals(False)
+            return
+        self._overlay_toggled(item)
+
     def _overlay_toggled(self, item: QListWidgetItem) -> None:
-        name = item.text()
+        name = item.data(Qt.ItemDataRole.UserRole)
         if item.checkState() == Qt.CheckState.Checked and name not in self.overlays:
             self.overlays.append(name)
         elif item.checkState() != Qt.CheckState.Checked and name in self.overlays:

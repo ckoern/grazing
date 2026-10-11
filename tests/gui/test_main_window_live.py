@@ -1,6 +1,7 @@
 """Tests of the live behaviour of `xstack.gui.main_window`: pages and previews."""
 
 import pytest
+from PySide6.QtWidgets import QLineEdit
 from pytestqt.qtbot import QtBot
 
 from xstack.gui.main_window import WORKFLOW_STEPS, MainWindow
@@ -22,14 +23,14 @@ def wait_for_preview(qtbot: QtBot, window: MainWindow, previous: object = None) 
 def test_pages_in_workflow_order(window: MainWindow) -> None:
     assert window.page_stack.count() == len(WORKFLOW_STEPS)
     for index, step in enumerate(WORKFLOW_STEPS):
-        assert window.page_stack.widget(index) is window.pages[step]
+        assert window.page_stack.widget(index).isAncestorOf(window.pages[step])
 
 
 def test_selecting_workflow_row_switches_page(window: MainWindow) -> None:
     for index, step in enumerate(WORKFLOW_STEPS):
         window.workflow_list.setCurrentRow(index)
         assert window.page_stack.currentIndex() == index
-        assert window.page_stack.currentWidget() is window.pages[step]
+        assert window.page_stack.currentWidget().isAncestorOf(window.pages[step])
 
 
 def test_initial_preview(qtbot: QtBot, window: MainWindow) -> None:
@@ -65,9 +66,10 @@ def test_page_error_shown_in_status_bar(window: MainWindow) -> None:
 def test_page_command_updates_project(qtbot: QtBot, window: MainWindow) -> None:
     wait_for_preview(qtbot, window)
     page = window.goal_page
-    item = page.table.item(0, 3)
-    assert item is not None
-    item.setText("8.4")
+    edit = page.table.cellWidget(0, 3)
+    assert isinstance(edit, QLineEdit)
+    edit.setText("8.4")
+    edit.editingFinished.emit()
     targets = window.controller.state.targets
     assert targets is not None
     assert targets.targets[0].scan_range[1] == pytest.approx(8400.0)

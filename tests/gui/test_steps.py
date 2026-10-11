@@ -11,7 +11,6 @@ from xstack.gui.preview import compute_preview
 from xstack.gui.steps import (
     CoatingPage,
     ConstraintsPage,
-    GoalPage,
     MaterialsPage,
     ProcessPage,
     StepPage,
@@ -24,8 +23,7 @@ from xstack.project import Command, ProjectState
 from xstack.project.templates import new_state
 from xstack.structure.coatings.graded import DepthGraded
 from xstack.structure.coatings.periodic import Periodic
-from xstack.structure.coatings.simple import SingleLayer
-from xstack.targets import AngleScan, EnergyScan
+from xstack.structure.coatings.simple import NLayer, SingleLayer
 
 pytestmark = pytest.mark.gui
 
@@ -55,7 +53,7 @@ def make_page[P: StepPage](
     return page, Recorder(page)
 
 
-def combo_at(page: GoalPage | MaterialsPage, row: int, column: int) -> QComboBox:
+def combo_at(page: MaterialsPage, row: int, column: int) -> QComboBox:
     widget = page.table.cellWidget(row, column)
     assert isinstance(widget, QComboBox)
     return widget
@@ -64,108 +62,6 @@ def combo_at(page: GoalPage | MaterialsPage, row: int, column: int) -> QComboBox
 def choose(combo: QComboBox, text: str) -> None:
     combo.setCurrentText(text)
     combo.activated.emit(combo.currentIndex())
-
-
-# --- GoalPage ---------------------------------------------------------------------------
-
-
-def energy_target() -> EnergyScan:
-    return EnergyScan(
-        angle=1.1 * DEG, energy_min=7900.0, energy_max=8200.0, resolution=2.5, name="mine"
-    )
-
-
-def test_goal_shows_units(qtbot: QtBot) -> None:
-    page, _ = make_page(qtbot, GoalPage, new_state("periodic"))
-    assert page.table.rowCount() == 1
-    assert combo_at(page, 0, 0).currentText() == "Energy scan"
-    texts = [page.table.item(0, c).text() for c in (1, 2, 3, 4)]
-    assert texts == ["1.1", "7.9", "8.2", "deg | keV"]
-    angle, _ = make_page(qtbot, GoalPage, new_state("single_layer"))
-    assert combo_at(angle, 0, 0).currentText() == "Angle scan"
-    assert angle.table.item(0, 1).text() == "8.048"
-    assert angle.table.item(0, 4).text() == "keV | deg"
-
-
-def test_goal_edit_to_converts_and_preserves(qtbot: QtBot) -> None:
-    from xstack.targets import TargetSet
-
-    state = new_state("periodic").evolve(targets=TargetSet(energy_target()))
-    page, rec = make_page(qtbot, GoalPage, state)
-    page.table.item(0, 3).setText("8.5")
-    new = rec.applied(state).targets
-    assert new is not None
-    target = new.targets[0]
-    assert isinstance(target, EnergyScan)
-    assert target.energy_max == pytest.approx(8500.0)
-    assert target.energy_min == pytest.approx(7900.0)
-    assert target.angle == pytest.approx(1.1 * DEG)
-    assert target.resolution == 2.5
-    assert target.name == "mine"
-
-
-def test_goal_scan_type_to_angle(qtbot: QtBot) -> None:
-    state = new_state("periodic")
-    page, rec = make_page(qtbot, GoalPage, state)
-    choose(combo_at(page, 0, 0), "Angle scan")
-    targets = rec.applied(state).targets
-    assert targets is not None
-    target = targets.targets[0]
-    assert isinstance(target, AngleScan)
-    assert target.energy == pytest.approx(1100.0)
-    assert target.angle_max == pytest.approx(8.2 * DEG)
-
-
-def test_goal_invalid_text(qtbot: QtBot) -> None:
-    page, rec = make_page(qtbot, GoalPage, new_state("periodic"))
-    page.table.item(0, 3).setText("abc")
-    assert not rec.commands
-    assert len(rec.errors) == 1
-    assert page.table.item(0, 3).text() == "8.2"
-
-
-def test_goal_add_scans_and_remove(qtbot: QtBot) -> None:
-    state = new_state("periodic")
-    page, rec = make_page(qtbot, GoalPage, state)
-    page.add_energy.click()
-    added = rec.applied(state)
-    assert added.targets is not None
-    assert len(added.targets) == 2
-    assert isinstance(added.targets.targets[1], EnergyScan)
-    assert added.targets.combine == "average_merit"
-
-    rec.commands.clear()
-    page.add_angle.click()
-    angle_state = rec.applied(state)
-    assert angle_state.targets is not None
-    assert isinstance(angle_state.targets.targets[1], AngleScan)
-
-    page.set_state(added)
-    rec.commands.clear()
-    page.table.setCurrentCell(1, 1)
-    page.remove.click()
-    removed = rec.applied(added).targets
-    assert removed is not None
-    assert state.targets is not None
-    assert removed.targets == (state.targets.targets[0],)
-
-
-def test_goal_remove_last_target_refused(qtbot: QtBot) -> None:
-    page, rec = make_page(qtbot, GoalPage, new_state("periodic"))
-    page.remove.click()
-    assert not rec.commands
-    assert len(rec.errors) == 1
-
-
-def test_goal_combine_combo(qtbot: QtBot) -> None:
-    state = new_state("periodic")
-    page, rec = make_page(qtbot, GoalPage, state)
-    assert page.combine.currentData() == "average_reflectivity"
-    page.combine.setCurrentIndex(1)
-    page.combine.activated.emit(1)
-    targets = rec.applied(state).targets
-    assert targets is not None
-    assert targets.combine == "average_merit"
 
 
 # --- MaterialsPage -----------------------------------------------------------------------
@@ -224,7 +120,9 @@ def test_materials_invalid_density(qtbot: QtBot, text: str) -> None:
 
 def test_convert_periodic_to_depth_graded_keeps_settings() -> None:
     w, si, c = get("W"), get("Si"), get("C")
-    old = Periodic.create(w, si, N=30, sigma_H=0.5, sigma_L=0.3, interlayers={"HonL": c})
+    old = Periodic.create(
+        w, si, N=30, sigma_H=0.5, sigma_L=0.3, interlayers={"interlayer_H_on_L": c}
+    )
     new = convert_coating(old, "depth_graded")
     assert isinstance(new, DepthGraded)
     assert new.materials == old.materials
@@ -319,6 +217,125 @@ def test_coating_page_single_layer(qtbot: QtBot) -> None:
     new = rec.applied(state)
     assert new.mirror is not None
     assert isinstance(new.mirror.coating, SingleLayer)
+
+
+def test_help_text() -> None:
+    text = CoatingPage.help_text
+    assert "input" in text
+    assert "Vary" in text
+    assert "expression" in text
+
+
+def test_substrate_roughness_edit(qtbot: QtBot) -> None:
+    state = new_state("periodic")
+    page, rec = make_page(qtbot, CoatingPage, state)
+    page.roughness_spin.setValue(0.7)
+    page.roughness_spin.editingFinished.emit()
+    new = rec.applied(state)
+    assert new.mirror is not None
+    assert state.mirror is not None
+    assert new.mirror.substrate_roughness == pytest.approx(0.7)
+    assert new.mirror.coating == state.mirror.coating
+    assert new.mirror.substrate == state.mirror.substrate
+
+
+def test_substrate_roughness_unchanged_emits_nothing(qtbot: QtBot) -> None:
+    page, rec = make_page(qtbot, CoatingPage, new_state("periodic"))
+    page.roughness_spin.editingFinished.emit()
+    assert not rec.commands
+
+
+def test_convert_to_n_layer_from_bilayer_and_single() -> None:
+    old = Periodic.create(get("W"), get("Si"), d=5.0, gamma=0.4, sigma_H=0.5)
+    new = convert_coating(old, "n_layer")
+    assert isinstance(new, NLayer)
+    assert [m.name for _, m in new.material_roles] == ["W", "Si"]
+    assert new.parameters["t1"].value == pytest.approx(2.0)
+    assert new.parameters["t2"].value == pytest.approx(3.0)
+    assert new.parameters["sigma1"].value == pytest.approx(0.5)
+    single = convert_coating(SingleLayer.create(get("W"), t=12.0), "n_layer")
+    assert isinstance(single, NLayer)
+    assert single.count == 1
+    assert single.parameters["t1"].value == pytest.approx(12.0)
+
+
+def test_convert_from_n_layer() -> None:
+    old = NLayer.create([get("Pt"), get("C"), get("Si")], [1.0, 2.0, 3.0])
+    for name in ("periodic", "depth_graded"):
+        new = convert_coating(old, name)
+        assert new.materials["H"].name == "Pt"
+        assert new.materials["L"].name == "C"
+    single = convert_coating(old, "single_layer")
+    assert single.materials["M"].name == "Pt"
+    assert convert_coating(old, "n_layer") is old
+
+
+def n_layer_state() -> ProjectState:
+    state = new_state("periodic")
+    assert state.mirror is not None
+    coating = NLayer.create([get("Pt"), get("C")], [3.0, 4.0])
+    return state.evolve(mirror=state.mirror.with_coating(coating))
+
+
+def test_coating_page_select_n_layer(qtbot: QtBot) -> None:
+    state = new_state("periodic")
+    page, rec = make_page(qtbot, CoatingPage, state)
+    assert page.layers_box.isHidden()
+    index = page.type_combo.findData("n_layer")
+    page.type_combo.setCurrentIndex(index)
+    page.type_combo.activated.emit(index)
+    new = rec.applied(state)
+    assert new.mirror is not None
+    assert isinstance(new.mirror.coating, NLayer)
+    page.set_state(new)
+    assert not page.layers_box.isHidden()
+    assert page.layer_table.rowCount() == 2
+    assert not page.top_combo.isEnabled()
+    assert not page.law_combo.isEnabled()
+
+
+def test_coating_page_add_remove_layer(qtbot: QtBot) -> None:
+    state = n_layer_state()
+    page, rec = make_page(qtbot, CoatingPage, state)
+    page.add_layer_button.click()
+    added = rec.commands[-1].transform(state).mirror
+    assert added is not None
+    assert isinstance(added.coating, NLayer)
+    assert added.coating.count == 3
+    assert added.coating.parameters["t2"].value == pytest.approx(4.0)
+
+    rec.commands.clear()
+    page.layer_table.selectRow(0)
+    page.remove_layer_button.click()
+    removed = rec.commands[-1].transform(state).mirror
+    assert removed is not None
+    assert isinstance(removed.coating, NLayer)
+    assert [m.name for _, m in removed.coating.material_roles] == ["C"]
+    assert removed.coating.parameters["t1"].value == pytest.approx(4.0)
+
+
+def test_coating_page_cannot_remove_last_layer(qtbot: QtBot) -> None:
+    state = new_state("periodic")
+    assert state.mirror is not None
+    single = state.evolve(mirror=state.mirror.with_coating(NLayer.create([get("W")], [3.0])))
+    page, rec = make_page(qtbot, CoatingPage, single)
+    page.remove_layer_button.click()
+    assert not rec.commands
+    assert rec.errors
+
+
+def test_coating_page_layer_material_change(qtbot: QtBot) -> None:
+    state = n_layer_state()
+    page, rec = make_page(qtbot, CoatingPage, state)
+    combo = page.layer_table.cellWidget(1, 0)
+    assert isinstance(combo, QComboBox)
+    combo.setCurrentText("Si")
+    combo.activated.emit(combo.currentIndex())
+    new = rec.applied(state)
+    assert new.mirror is not None
+    assert isinstance(new.mirror.coating, NLayer)
+    assert [m.name for _, m in new.mirror.coating.material_roles] == ["Pt", "Si"]
+    assert new.mirror.coating.parameters["t2"].value == pytest.approx(4.0)
 
 
 # --- ConstraintsPage ---------------------------------------------------------------------

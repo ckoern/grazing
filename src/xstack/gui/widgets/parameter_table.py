@@ -4,7 +4,7 @@ import math
 from typing import Any
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, Qt, Signal
-from PySide6.QtWidgets import QHeaderView, QTableView, QWidget
+from PySide6.QtWidgets import QFrame, QHeaderView, QTableView, QWidget
 
 from xstack.parameters import ParameterSet
 from xstack.project.commands import set_parameter
@@ -13,8 +13,8 @@ __all__ = ["ParameterTable", "ParameterTableModel"]
 
 type _Index = QModelIndex | QPersistentModelIndex
 
-_COLUMNS = ("Parameter", "Value", "Unit", "Vary", "Min", "Max", "Expression")
-_NAME, _VALUE, _UNIT, _VARY, _MIN, _MAX, _EXPR = range(len(_COLUMNS))
+_COLUMNS = ("Parameter", "Value", "Unit", "Vary", "Min", "Max", "Expression", "Description")
+_NAME, _VALUE, _UNIT, _VARY, _MIN, _MAX, _EXPR, _DESC = range(len(_COLUMNS))
 
 
 def _format(value: float, integer: bool) -> str:
@@ -84,6 +84,16 @@ class ParameterTableModel(QAbstractTableModel):
     def _parameter(self, index: _Index) -> Any:
         return list(self._params.values())[index.row()]
 
+    @staticmethod
+    def _tooltip(p: Any, column: int) -> str:
+        if column == _VARY:
+            return "Let the optimizer vary this parameter between Min and Max."
+        if column in (_MIN, _MAX):
+            return "Bound of the range explored by the optimizer."
+        if column == _EXPR:
+            return "Optional expression in terms of other parameters; overrides the value."
+        return p.description or p.name
+
     def data(self, index: _Index, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         """Return cell contents."""
         if not index.isValid():
@@ -93,7 +103,7 @@ class ParameterTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.CheckStateRole and column == _VARY:
             return Qt.CheckState.Checked if p.vary else Qt.CheckState.Unchecked
         if role == Qt.ItemDataRole.ToolTipRole:
-            return p.description or p.name
+            return self._tooltip(p, column)
         if role not in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
             return None
         if column == _NAME:
@@ -108,6 +118,8 @@ class ParameterTableModel(QAbstractTableModel):
             return _format(p.max, p.integer)
         if column == _EXPR:
             return p.expr or ""
+        if column == _DESC:
+            return p.description
         return None
 
     def flags(self, index: _Index) -> Qt.ItemFlag:
@@ -169,7 +181,11 @@ class ParameterTable(QTableView):
         header = self.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setStretchLastSection(True)
+        header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.setAlternatingRowColors(True)
+        self.setShowGrid(False)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.verticalHeader().setDefaultSectionSize(28)
 
     def set_parameters(self, params: ParameterSet) -> None:
         """Show a parameter set.

@@ -53,6 +53,16 @@ def scan_axis(target: Target) -> tuple[str, float]:
     return "Grazing angle (deg)", 180.0 / np.pi
 
 
+def _reflectivity_label(counts: set[int]) -> str:
+    """Return the axis label for reflectivity after the given numbers of reflections."""
+    if counts <= {1}:
+        return "Reflectivity R"
+    if len(counts) == 1:
+        (n,) = counts
+        return f"Reflectivity Rⁿ (n = {n} reflections)"
+    return "Reflectivity Rⁿ (n per target)"
+
+
 @dataclass(frozen=True)
 class Curve:
     """A reflectivity curve for display.
@@ -61,11 +71,14 @@ class Curve:
         label: Legend label.
         result: The reflectivity result.
         dashed: Draw with a dashed line (used for overlays).
+        group: Curves with the same group (e.g. the same design) share a color; defaults to
+            the label.
     """
 
     label: str
     result: ReflectivityResult
     dashed: bool = False
+    group: str = ""
 
 
 class ReflectivityPlot(QWidget):
@@ -100,7 +113,12 @@ class ReflectivityPlot(QWidget):
             plot = self.graphics.addPlot(row=row, col=0)
             plot.showGrid(x=True, y=True, alpha=0.3)
             plot.addLegend(offset=(-10, 10))
-            plot.setLabel("left", "Reflectivity")
+            counts = {
+                t.reflections
+                for t in (*targets, *(c.result.target for c in curves))
+                if t.axis == axis
+            }
+            plot.setLabel("left", _reflectivity_label(counts))
             plot.getAxis("left").enableAutoSIPrefix(False)
             plot.setLogMode(y=self.log_scale)
             self._plots[axis] = plot
@@ -114,10 +132,10 @@ class ReflectivityPlot(QWidget):
             )
             region.setZValue(-10)
             plot.addItem(region)
-        colors: dict[int, str] = {}
+        colors: dict[str, str] = {}
         for curve in curves:
             label, factor = scan_axis(curve.result.target)
-            key = id(curve.result.target)
+            key = curve.group or curve.label
             color = colors.setdefault(key, PALETTE[len(colors) % len(PALETTE)])
             style = (
                 pg.QtCore.Qt.PenStyle.DashLine if curve.dashed else pg.QtCore.Qt.PenStyle.SolidLine
@@ -154,7 +172,7 @@ def bilayer_profile(
     groups: dict[str, dict[str, float]] = {}
     order: list[str] = []
     for layer in stack.layers:
-        match = re.fullmatch(r"(.*)\.(H|L|HonL|LonH)", layer.tag)
+        match = re.fullmatch(r"(.*)\.(H|L|interlayer_H_on_L|interlayer_L_on_H)", layer.tag)
         if match is None:
             continue
         prefix, role = match.groups()
@@ -240,7 +258,11 @@ class LayerProfilePlot(QWidget):
 
 
 class ConvergencePlot(QWidget):
-    """Best objective versus number of evaluations, one curve per task (stage).
+    """Progress of an optimization versus the number of evaluations, one curve per stage.
+
+    The upper panel shows the best objective found so far (figure of merit plus constraint
+    penalties; the optimizers minimize it), the lower panel the figure of merit of that best
+    design without penalties.
 
     Args:
         parent: Parent widget.
@@ -250,38 +272,59 @@ class ConvergencePlot(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.plot = pg.PlotWidget()
-        self.plot.setLabel("bottom", "Evaluations")
-        self.plot.setLabel("left", "Best objective")
-        self.plot.getAxis("left").enableAutoSIPrefix(False)
-        self.plot.setLogMode(y=True)
-        self.plot.addLegend(offset=(-10, 10))
-        self.plot.showGrid(x=True, y=True, alpha=0.3)
-        layout.addWidget(self.plot)
-        self._data: dict[str, tuple[list[float], list[float]]] = {}
-        self._curves: dict[str, pg.PlotDataItem] = {}
+        self.graphics = pg.GraphicsLayoutWidget()
+        layout.addWidget(self.graphics)
+        self.objective_plot = self.graphics.addPlot(row=0, col=0)
+        self.objective_plot.setLabel("left", "Best objective (FOM + penalties)")
+        self.objective_plot.setLogMode(y=True)
+        self.merit_plot = self.graphics.addPlot(row=1, col=0)
+        self.merit_plot.setLabel("left", "Figure of merit of best design")
+        self.merit_plot.setXLink(self.objective_plot)
+        for plot in (self.objective_plot, self.merit_plot):
+            plot.setLabel("bottom", "Evaluations")
+            plot.getAxis("left").enableAutoSIPrefix(False)
+            plot.showGrid(x=True, y=True, alpha=0.3)
+        self.objective_plot.addLegend(offset=(-10, 10))
+        self._data: dict[str, tuple[list[float], list[float], list[float]]] = {}
+        self._curves: dict[str, tuple[pg.PlotDataItem, pg.PlotDataItem]] = {}
 
     def clear(self) -> None:
         """Remove all curves."""
-        self.plot.clear()
+        for objective, merit in self._curves.values():
+            self.objective_plot.removeItem(objective)
+            self.merit_plot.removeItem(merit)
+        if self.objective_plot.legend is not None:
+            self.objective_plot.legend.clear()
         self._data.clear()
         self._curves.clear()
 
-    def add_point(self, task: str, evaluations: int, best: float) -> None:
-        """Append a point to the curve of a task.
+    def add_point(
+        self, task: str, evaluations: int, best: float, merit: float = float("nan")
+    ) -> None:
+        """Append a point to the curves of a task.
 
         Args:
             task: Task name, e.g. ``"global: differential_evolution"``.
             evaluations: Number of evaluations so far.
             best: Best objective so far (positive).
+            merit: Figure of merit of the best design so far.
         """
-        xs, ys = self._data.setdefault(task, ([], []))
+        xs, objectives, merits = self._data.setdefault(task, ([], [], []))
         xs.append(float(evaluations))
-        ys.append(max(float(best), 1e-12))
+        objectives.append(max(float(best), 1e-12))
+        merits.append(float(merit))
         if task not in self._curves:
             color = PALETTE[len(self._curves) % len(PALETTE)]
-            self._curves[task] = self.plot.plot(pen=pg.mkPen(color, width=2), name=task)
-        self._curves[task].setData(xs, ys)
+            pen = pg.mkPen(color, width=2)
+            self._curves[task] = (
+                self.objective_plot.plot(pen=pen, name=task),
+                self.merit_plot.plot(pen=pen),
+            )
+        objective_curve, merit_curve = self._curves[task]
+        objective_curve.setData(xs, objectives)
+        merit_x = [x for x, m in zip(xs, merits, strict=True) if np.isfinite(m)]
+        merit_y = [m for m in merits if np.isfinite(m)]
+        merit_curve.setData(merit_x, merit_y)
 
     def tasks(self) -> tuple[str, ...]:
         """Return the names of the tasks shown."""
@@ -312,6 +355,7 @@ class DesignMapPlot(QWidget):
         self._names: tuple[str, ...] = ()
         self._axes: tuple[NDArray[np.float64], ...] = ()
         self._plot: pg.PlotItem | None = None
+        self._marker: pg.ScatterPlotItem | None = None
 
     def set_scan(
         self,
@@ -331,6 +375,7 @@ class DesignMapPlot(QWidget):
             label: Name of the shown quantity.
         """
         self.graphics.clear()
+        self._marker = None
         self._names, self._axes = tuple(names), tuple(axes)
         plot = self.graphics.addPlot(row=0, col=0)
         plot.getAxis("left").enableAutoSIPrefix(False)
@@ -372,6 +417,10 @@ class DesignMapPlot(QWidget):
         bar.setImageItem(image, insert_in=plot)
         image.mouseClickEvent = self._clicked
         mask.mouseClickEvent = self._clicked
+        self._marker = pg.ScatterPlotItem(
+            size=16, symbol="+", pen=pg.mkPen("#d62728", width=3), brush=None
+        )
+        plot.addItem(self._marker)
 
     def _clicked(self, event: Any) -> None:
         if self._plot is None or len(self._axes) != 2:
@@ -380,7 +429,7 @@ class DesignMapPlot(QWidget):
         x, y = self._axes
         i = int(np.argmin(np.abs(x - pos.x())))
         j = int(np.argmin(np.abs(y - pos.y())))
-        self.pointSelected.emit({self._names[0]: float(x[i]), self._names[1]: float(y[j])})
+        self.select(i, j)
 
     def select(self, i: int, j: int) -> None:
         """Emit the parameter values of a grid point, as if it had been clicked.
@@ -392,7 +441,20 @@ class DesignMapPlot(QWidget):
         values = {self._names[0]: float(self._axes[0][i])}
         if len(self._axes) == 2:
             values[self._names[1]] = float(self._axes[1][j])
+        self.mark(values)
         self.pointSelected.emit(values)
+
+    def mark(self, values: dict[str, float]) -> None:
+        """Mark a grid point of a two-dimensional map with a cross.
+
+        Args:
+            values: Parameter values of the point.
+        """
+        if self._marker is None or len(self._names) != 2:
+            return
+        x, y = values.get(self._names[0]), values.get(self._names[1])
+        if x is not None and y is not None:
+            self._marker.setData([x], [y])
 
 
 class HistogramPlot(QWidget):

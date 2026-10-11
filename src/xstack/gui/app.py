@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QApplication
 
 from xstack import __version__
 from xstack.gui.main_window import MainWindow
+from xstack.gui.style import apply_style
 
 __all__ = ["main"]
 
@@ -26,6 +27,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     app.setApplicationName("xstack")
     app.setApplicationVersion(__version__)
     app.setOrganizationName("xstack")
+    apply_style(app)
     window = MainWindow()
     if args:
         window.open_project(args[0])

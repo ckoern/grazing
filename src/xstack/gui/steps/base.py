@@ -1,5 +1,7 @@
 """Common base of the workflow step pages."""
 
+from typing import ClassVar
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
 
@@ -18,6 +20,10 @@ class StepPage(QWidget):
         commandRequested(Command): An edit to execute.
         errorOccurred(str): An entry was invalid; the message describes why.
         jobRequested(Job): A long-running calculation to run in the background.
+
+    Attributes:
+        title: Name of the page in the workflow.
+        help_text: Rich-text explanation of the step, shown by the main window above the page.
     """
 
     commandRequested = Signal(object)
@@ -25,6 +31,7 @@ class StepPage(QWidget):
     jobRequested = Signal(object)
 
     title: str = ""
+    help_text: ClassVar[str] = ""
 
     def set_state(self, state: ProjectState) -> None:
         """Show a project state.

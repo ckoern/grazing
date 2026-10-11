@@ -1,9 +1,11 @@
 """Tests for `xstack.gui.widgets.tolerance_view`."""
 
+import numpy as np
 import pyqtgraph as pg
 import pytest
 from pytestqt.qtbot import QtBot
 
+from xstack.gui.preview import tolerance_curves
 from xstack.gui.widgets.tolerance_view import ToleranceView
 from xstack.manufacturing import ErrorModel, ToleranceResult, tolerance_analysis
 from xstack.project.templates import new_state
@@ -93,3 +95,21 @@ def test_reflections_label(view: ToleranceView) -> None:
     base = new_state("periodic").problem().targets.targets[0]
     view.set_result(make_result(TargetSet(base.__class__(**{**vars(base), "reflections": 2}))))
     assert view.curve_plots()["energy"].getAxis("left").labelText == "Reflectivity Rⁿ"
+
+
+def test_wider_curves_span_display_range_and_mark_target(view: ToleranceView) -> None:
+    state = new_state("periodic")
+    result = make_result()
+    curves = tolerance_curves(state, result, {"energy": (6000.0, 10000.0)})
+    view.set_result(result, curves)
+    energy = view.curve_plots()["energy"]
+    nominal = lines(energy, 2.5)
+    assert len(nominal) == 1
+    x = np.asarray(nominal[0].xData)
+    assert x[0] == pytest.approx(6.0)
+    assert x[-1] == pytest.approx(10.0)
+    regions = [i for i in energy.items if isinstance(i, pg.LinearRegionItem)]
+    assert len(regions) == 1
+    lo, hi = regions[0].getRegion()
+    assert lo == pytest.approx(7.9)
+    assert hi == pytest.approx(8.2)

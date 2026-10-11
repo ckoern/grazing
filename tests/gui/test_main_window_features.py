@@ -145,7 +145,7 @@ def test_invalid_ranges_report_error_and_keep_ranges(qtbot: QtBot, window: MainW
         window.statusBar().clearMessage()
         set_range(window, "energy", low, high)
         assert "plot range" in window.statusBar().currentMessage().lower()
-        assert window.display_ranges != valid or window.display_ranges == {}
+        assert window.display_ranges == valid
         set_range(window, "energy", "7.5", "8.5")
         assert window.display_ranges == valid
 

@@ -3,9 +3,17 @@
 import numpy as np
 import pytest
 
-from xstack.gui.preview import compute_curves, compute_preview, display_targets
+import xstack.materials
+from xstack.gui.preview import (
+    compute_curves,
+    compute_preview,
+    display_targets,
+    lowest_energy,
+    tolerance_curves,
+)
+from xstack.manufacturing import ErrorModel, ToleranceResult, tolerance_analysis
 from xstack.parameters import ParameterSet
-from xstack.project import Candidate
+from xstack.project import Candidate, ProjectState
 from xstack.project.templates import new_state
 from xstack.structure.coating import Mirror
 from xstack.targets import AngleScan, EnergyScan, TargetSet
@@ -115,3 +123,77 @@ def test_compute_preview_overlays() -> None:
         assert results[0].x[0] == pytest.approx(7800.0)
         assert results[0].x[-1] == pytest.approx(8300.0)
     assert compute_preview(state).overlays == ()
+
+
+def periodic_media() -> frozenset[xstack.materials.Material]:
+    state = new_state("periodic")
+    assert state.mirror is not None
+    return frozenset(state.mirror.stack().media)
+
+
+def test_lowest_energy_of_periodic_stack() -> None:
+    value = lowest_energy(periodic_media())
+    assert 10.0 < value < 100.0
+    assert lowest_energy(periodic_media()) == value
+
+
+def test_lowest_energy_of_vacuum_is_zero() -> None:
+    assert lowest_energy(frozenset([xstack.materials.VACUUM])) == 0.0
+
+
+def test_display_targets_energy_from_zero_starts_at_first_grid_point() -> None:
+    energy, _ = mixed_targets()
+    shown = display_targets([energy], {"energy": (0.0, 10e3)}, energy_floor=0.0)[0]
+    assert isinstance(shown, EnergyScan)
+    assert shown.energy_min == pytest.approx(10e3 / (shown.points - 1))
+    assert shown.energy_max == pytest.approx(10e3)
+
+
+def test_display_targets_energy_from_zero_is_raised_to_floor() -> None:
+    energy, _ = mixed_targets()
+    shown = display_targets([energy], {"energy": (0.0, 10e3)}, energy_floor=50.0)[0]
+    assert isinstance(shown, EnergyScan)
+    assert shown.energy_min == pytest.approx(50.0)
+    assert shown.energy_max == pytest.approx(10e3)
+
+
+def test_display_targets_angle_from_zero_starts_above_zero() -> None:
+    _, angle = mixed_targets()
+    shown = display_targets([angle], {"angle": (0.0, 0.02)})[0]
+    assert isinstance(shown, AngleScan)
+    assert shown.angle_min == pytest.approx(0.02 / (shown.points - 1))
+    assert shown.angle_min > 0.0
+    assert shown.angle_max == pytest.approx(0.02)
+
+
+def tolerance_setup() -> tuple[ProjectState, ToleranceResult]:
+    state = new_state("periodic")
+    result = tolerance_analysis(
+        state.problem().evolve(points=20),
+        errors=ErrorModel(thickness_random=0.02),
+        samples=3,
+        seed=0,
+    )
+    return state, result
+
+
+def test_tolerance_curves_without_display_returns_analysis_curves() -> None:
+    state, result = tolerance_setup()
+    curves = tolerance_curves(state, result)
+    assert curves.nominal is result.nominal.results
+    assert len(curves.samples) == len(result.samples)
+    for drawn, sample in zip(curves.samples, result.samples, strict=True):
+        assert drawn is sample.results
+
+
+def test_tolerance_curves_with_display_cover_display_range() -> None:
+    state, result = tolerance_setup()
+    curves = tolerance_curves(state, result, {"energy": (0.0, 12e3)})
+    stacks = [result.nominal.stack, *(sample.stack for sample in result.samples)]
+    floor = lowest_energy(frozenset(m for stack in stacks if stack for m in stack.media))
+    assert len(curves.samples) == 3
+    drawn = [*curves.nominal, *(r for sample in curves.samples for r in sample)]
+    assert drawn
+    for curve in drawn:
+        assert curve.x[0] >= floor
+        assert curve.x[-1] == pytest.approx(12e3)

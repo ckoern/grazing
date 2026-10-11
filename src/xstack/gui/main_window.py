@@ -41,7 +41,13 @@ from xstack.gui.plots import (
     LayerProfilePlot,
     ReflectivityPlot,
 )
-from xstack.gui.preview import Preview, compute_curves, compute_preview
+from xstack.gui.preview import (
+    Preview,
+    ToleranceCurves,
+    compute_curves,
+    compute_preview,
+    tolerance_curves,
+)
 from xstack.gui.steps import (
     AnalyzePage,
     CoatingPage,
@@ -201,7 +207,12 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(self._step_panel())
-        splitter.addWidget(self.plot_tabs)
+        plot_area = QWidget()
+        plot_layout = QVBoxLayout(plot_area)
+        plot_layout.setContentsMargins(4, 8, 8, 4)
+        plot_layout.addLayout(self._range_bar())
+        plot_layout.addWidget(self.plot_tabs, 1)
+        splitter.addWidget(plot_area)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([640, 860])
@@ -217,6 +228,10 @@ class MainWindow(QMainWindow):
         self.live_curves: tuple[ReflectivityResult, ...] = ()
         self._live_values: dict[str, float] | None = None
         self._job_state: ProjectState | None = None
+        self.tolerance_result: ToleranceResult | None = None
+        self.tolerance_runner = LatestRunner(delay_ms=200, parent=self)
+        self.tolerance_runner.finished.connect(self._on_tolerance_curves)
+        self.tolerance_runner.failed.connect(self._show_error)
 
     def _step_panel(self) -> QWidget:
         """Create the workflow panel: design summary and one tab per workflow step."""
@@ -314,20 +329,6 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(0, 0, 0, 0)
         bar = QHBoxLayout()
-        bar.addWidget(QLabel("Plot range:"))
-        self.range_edits: dict[str, tuple[QLineEdit, QLineEdit]] = {}
-        for axis, label, unit in (("energy", "energy", "keV"), ("angle", "angle", "deg")):
-            low, high = QLineEdit(), QLineEdit()
-            for edit, end in ((low, "min"), (high, "max")):
-                edit.setPlaceholderText(f"{end} {label} ({unit}), auto")
-                edit.setToolTip(
-                    f"Range of the {label} axis in the reflectivity plot. Leave empty to show "
-                    "the target range. The figure of merit always uses the target range."
-                )
-                edit.setMaximumWidth(170)
-                edit.editingFinished.connect(self._range_changed)
-                bar.addWidget(edit)
-            self.range_edits[axis] = (low, high)
         self.log_check = QCheckBox("log scale")
         self.log_check.setToolTip("Show the reflectivity on a logarithmic axis")
         self.log_check.toggled.connect(self._log_toggled)
@@ -335,8 +336,30 @@ class MainWindow(QMainWindow):
         bar.addStretch()
         layout.addLayout(bar)
         layout.addWidget(self.reflectivity_plot)
-        self.display_ranges: dict[str, tuple[float, float]] = {}
         return tab
+
+    def _range_bar(self) -> QHBoxLayout:
+        """Create the plot-range fields shared by the reflectivity and tolerance plots."""
+        bar = QHBoxLayout()
+        bar.addWidget(QLabel("Plot range:"))
+        self.range_edits: dict[str, tuple[QLineEdit, QLineEdit]] = {}
+        for axis, label, unit in (("energy", "energy", "keV"), ("angle", "angle", "deg")):
+            low, high = QLineEdit(), QLineEdit()
+            for edit, end in ((low, "min"), (high, "max")):
+                edit.setPlaceholderText(f"{end} {label} ({unit})")
+                edit.setToolTip(
+                    f"Range of the {label} axis in the Reflectivity and Tolerance plots. Leave "
+                    "both fields empty to show the target range. A minimum of 0 starts at the "
+                    "first grid point for which the reflectivity can be calculated. The figure "
+                    "of merit always uses the target range."
+                )
+                edit.setMaximumWidth(150)
+                edit.editingFinished.connect(self._range_changed)
+                bar.addWidget(edit)
+            self.range_edits[axis] = (low, high)
+        bar.addStretch()
+        self.display_ranges: dict[str, tuple[float, float]] = {}
+        return bar
 
     def _range_changed(self) -> None:
         ranges: dict[str, tuple[float, float]] = {}
@@ -344,18 +367,25 @@ class MainWindow(QMainWindow):
             if not low.text().strip() and not high.text().strip():
                 continue
             scale = 1e3 if axis == "energy" else np.pi / 180.0
+            previous = self.display_ranges.get(axis)
             try:
                 lo, hi = float(low.text()) * scale, float(high.text()) * scale
             except ValueError:
                 self._show_error(f"Plot range of the {axis} axis needs a min and a max value")
-                continue
-            if not 0 < lo < hi or (axis == "angle" and hi > np.pi / 2):
-                self._show_error(f"Invalid plot range of the {axis} axis")
-                continue
-            ranges[axis] = (lo, hi)
+                lo, hi = -1.0, -1.0
+            else:
+                if not 0 <= lo < hi or (axis == "angle" and hi > np.pi / 2):
+                    self._show_error(f"Invalid plot range of the {axis} axis")
+                    lo, hi = -1.0, -1.0
+            if lo >= 0:
+                ranges[axis] = (lo, hi)
+            elif previous is not None:
+                # An invalid entry keeps the last valid range of this axis.
+                ranges[axis] = previous
         if ranges != self.display_ranges:
             self.display_ranges = ranges
             self._request_preview()
+            self._request_tolerance_curves()
 
     def _log_toggled(self, checked: bool) -> None:
         self.reflectivity_plot.log_scale = checked
@@ -780,8 +810,28 @@ class MainWindow(QMainWindow):
         )
         self.plot_tabs.setCurrentWidget(self.design_map)
 
+    def _request_tolerance_curves(self) -> None:
+        if self.tolerance_result is None:
+            return
+        if not self.display_ranges:
+            self.tolerance_view.set_result(self.tolerance_result)
+            return
+        self.tolerance_runner.request(
+            functools.partial(
+                tolerance_curves,
+                self.controller.state,
+                self.tolerance_result,
+                dict(self.display_ranges),
+            )
+        )
+
+    def _on_tolerance_curves(self, curves: ToleranceCurves) -> None:
+        self.tolerance_view.set_result(self.tolerance_result, curves)
+
     def _show_tolerance(self, result: ToleranceResult) -> None:
+        self.tolerance_result = result
         self.tolerance_view.set_result(result)
+        self._request_tolerance_curves()
         self.plot_tabs.setCurrentWidget(self.tolerance_view)
 
     def _apply_pipeline_result(

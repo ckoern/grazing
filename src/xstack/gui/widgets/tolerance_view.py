@@ -8,6 +8,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from xstack.gui.plots import scan_axis
+from xstack.gui.preview import ToleranceCurves
 from xstack.gui.style import COLORS, PLOT_PALETTE
 from xstack.manufacturing.tolerance import ToleranceResult
 
@@ -32,7 +33,8 @@ class ToleranceView(QWidget):
     The upper panel is a histogram of the figure of merit of the samples with the nominal value
     and the 10 % and 90 % percentiles. Below it, one panel per scan axis overlays the
     reflectivity curves of the samples, the nominal curve and the 10 % to 90 % band across the
-    samples. Colors are read from the current style on every redraw.
+    samples; the target range is shaded. The curves may cover a wider range than the targets
+    (see `set_result`). Colors are read from the current style on every redraw.
 
     Args:
         max_curves: Maximum number of sample curves drawn per target.
@@ -47,16 +49,22 @@ class ToleranceView(QWidget):
         self.graphics = pg.GraphicsLayoutWidget()
         layout.addWidget(self.graphics)
         self._result: ToleranceResult | None = None
+        self._display: ToleranceCurves | None = None
         self._histogram: pg.PlotItem | None = None
         self._curves: dict[str, pg.PlotItem] = {}
 
-    def set_result(self, result: ToleranceResult | None) -> None:
+    def set_result(
+        self, result: ToleranceResult | None, curves: ToleranceCurves | None = None
+    ) -> None:
         """Show a tolerance result.
 
         Args:
             result: The result, or ``None`` to clear the view.
+            curves: Reflectivity curves to draw, e.g. on a wider display range. Defaults to the
+                curves of the analysis on the target grids.
         """
         self._result = result
+        self._display = curves
         self.refresh()
 
     def refresh(self) -> None:
@@ -117,6 +125,21 @@ class ToleranceView(QWidget):
 
     def _draw_curves(self, result: ToleranceResult, axis: str, row: int) -> pg.PlotItem:
         plot = self._new_plot(row)
+        display = self._display
+        nominal_results = display.nominal if display else result.nominal.results
+        sample_results = display.samples if display else tuple(ev.results for ev in result.samples)
+        for target in {id(r.target): r.target for r in result.nominal.results}.values():
+            if target.axis != axis:
+                continue
+            _, factor = scan_axis(target)
+            lo, hi = target.scan_range
+            region = pg.LinearRegionItem(
+                (lo * factor, hi * factor), movable=False, brush=_color(COLORS["accent"], 22)
+            )
+            region.setZValue(-10)
+            for line in region.lines:
+                line.setPen(pg.mkPen(None))
+            plot.addItem(region)
         plot.setLabel("left", "Reflectivity R")
         indices = [i for i, r in enumerate(result.nominal.results) if r.target.axis == axis]
         reflections = {result.nominal.results[i].target.reflections for i in indices}
@@ -124,7 +147,9 @@ class ToleranceView(QWidget):
             plot.setLabel("left", "Reflectivity Rⁿ")
         x_min, x_max = np.inf, -np.inf
         for index in indices:
-            nominal = result.nominal.results[index]
+            if index >= len(nominal_results):
+                continue
+            nominal = nominal_results[index]
             label, factor = scan_axis(nominal.target)
             plot.setLabel("bottom", label)
             base = 2 * indices.index(index)
@@ -133,11 +158,11 @@ class ToleranceView(QWidget):
             x = nominal.x * factor
             x_min, x_max = min(x_min, float(x.min())), max(x_max, float(x.max()))
             curves = [
-                ev.results[index].reflectivity
-                for ev in result.samples
-                if len(ev.results) > index
-                and ev.results[index].x.shape == nominal.x.shape
-                and np.allclose(ev.results[index].x, nominal.x)
+                results[index].reflectivity
+                for results in sample_results
+                if len(results) > index
+                and results[index].x.shape == nominal.x.shape
+                and np.allclose(results[index].x, nominal.x)
             ]
             if curves:
                 data = np.asarray(curves, dtype=np.float64)

@@ -15,6 +15,12 @@ dependencies = [
     "xraylib>=4.1",
 ]
 
+[project.scripts]
+xstack = "xstack.__main__:main"
+
+[project.gui-scripts]
+xstack-gui = "xstack.gui.app:main"
+
 [project.optional-dependencies]
 gui = [
     "PySide6>=6.6",

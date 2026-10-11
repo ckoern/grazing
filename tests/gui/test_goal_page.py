@@ -3,6 +3,7 @@
 import math
 
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QLineEdit, QSpinBox
 from pytestqt.qtbot import QtBot
 
@@ -73,10 +74,10 @@ def test_help_text_present() -> None:
 def test_shows_values_and_scan_names(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot, new_state("periodic"))
     assert page.table.rowCount() == 1
-    assert combo_at(page, 0, 0).currentText() == "Fixed angle (energy range)"
+    assert combo_at(page, 0, 0).currentText() == "Fixed angle"
     assert [edit_at(page, 0, c).text() for c in (1, 2, 3)] == ["1.1", "7.9", "8.2"]
     angle, _ = make_page(qtbot, new_state("single_layer"))
-    assert combo_at(angle, 0, 0).currentText() == "Fixed energy (angle range)"
+    assert combo_at(angle, 0, 0).currentText() == "Fixed energy"
     assert edit_at(angle, 0, 1).text() == "8.048"
 
 
@@ -84,7 +85,7 @@ def test_no_units_column_and_compact_style(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot, new_state("periodic"))
     headers = [page.table.horizontalHeaderItem(c).text() for c in range(page.table.columnCount())]
     assert "Units" not in headers
-    assert "Reflections" in headers
+    assert "Refl." in headers
     assert not page.table.showGrid()
     assert not page.table.verticalHeader().isVisible()
     assert not page.table.alternatingRowColors()
@@ -111,7 +112,7 @@ def test_placeholders_per_scan_type(qtbot: QtBot) -> None:
 
 def test_placeholders_follow_scan_type_change(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot, new_state("periodic"))
-    choose(combo_at(page, 0, 0), "Fixed energy (angle range)")
+    choose(combo_at(page, 0, 0), "Fixed energy")
     assert edit_at(page, 0, 1).placeholderText() == "energy (keV)"
 
 
@@ -165,7 +166,7 @@ def test_reflections_column(qtbot: QtBot) -> None:
 def test_scan_type_to_angle(qtbot: QtBot) -> None:
     state = new_state("periodic")
     page, rec = make_page(qtbot, state)
-    choose(combo_at(page, 0, 0), "Fixed energy (angle range)")
+    choose(combo_at(page, 0, 0), "Fixed energy")
     targets = rec.applied(state).targets
     assert targets is not None
     target = targets.targets[0]
@@ -237,3 +238,20 @@ def test_combine_combo_and_explanation(qtbot: QtBot) -> None:
     targets = rec.applied(state).targets
     assert targets is not None
     assert targets.combine == "average_merit"
+
+
+def test_table_fits_without_horizontal_scrolling(qtbot: QtBot) -> None:
+    from xstack.gui.main_window import MainWindow
+
+    window = MainWindow(confirm_close=False)
+    qtbot.addWidget(window)
+    window.resize(1400, 900)
+    window.show()
+    window.step_tabs.setCurrentIndex(0)
+    window.goal_page.add_angle.click()
+    qtbot.wait(50)
+    table = window.goal_page.table
+    total = sum(table.columnWidth(c) for c in range(table.columnCount()))
+    assert total <= table.viewport().width()
+    assert table.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    window.controller.undo_stack.setClean()

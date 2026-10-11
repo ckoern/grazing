@@ -242,6 +242,10 @@ QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabl
     color: {c["text_muted"]};
     border-color: {c["border"]};
 }}
+QTableView QLineEdit, QTableView QSpinBox, QTableView QDoubleSpinBox, QTableView QComboBox {{
+    padding: 2px 4px;
+    border-radius: 4px;
+}}
 QComboBox::drop-down {{
     border: none;
     width: 22px;

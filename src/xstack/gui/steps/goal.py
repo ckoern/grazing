@@ -27,10 +27,20 @@ from xstack.targets import AngleScan, EnergyScan, Target, TargetSet
 
 __all__ = ["GoalPage"]
 
-_COLUMNS = ("Scan", "Fixed", "From", "To", "Points", "Weight", "Polarization", "Reflections")
+_COLUMNS = ("Scan", "Fixed", "From", "To", "Points", "Weight", "Polarization", "Refl.")
 _SCAN, _FIXED, _FROM, _TO, _POINTS, _WEIGHT, _POL, _REFL = range(len(_COLUMNS))
-_FIXED_ANGLE = "Fixed angle (energy range)"
-_FIXED_ENERGY = "Fixed energy (angle range)"
+_COLUMN_WIDTHS = {
+    _FIXED: 86,
+    _FROM: 86,
+    _TO: 86,
+    _POINTS: 62,
+    _WEIGHT: 62,
+    _POL: 132,
+    _REFL: 58,
+}
+"""Fixed widths in px of the compact columns; the scan-type column takes the rest."""
+_FIXED_ANGLE = "Fixed angle"
+_FIXED_ENERGY = "Fixed energy"
 _KINDS = (_FIXED_ANGLE, _FIXED_ENERGY)
 _POLARIZATIONS = ("unpolarized", "s", "p")
 _PLACEHOLDERS = {
@@ -109,9 +119,18 @@ class GoalPage(StepPage):
         layout.addWidget(QLabel("<b>Targets</b> — where the mirror shall reflect"))
         self.table = QTableWidget(0, len(_COLUMNS))
         self.table.setHorizontalHeaderLabels(list(_COLUMNS))
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        header = self.table.horizontalHeader()
+        header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft)
+        header.setStretchLastSection(False)
+        header.setMinimumSectionSize(40)
+        header.setSectionResizeMode(_SCAN, QHeaderView.ResizeMode.Stretch)
+        for column, width in _COLUMN_WIDTHS.items():
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
+            self.table.setColumnWidth(column, width)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        header_item = self.table.horizontalHeaderItem(_REFL)
+        if header_item is not None:
+            header_item.setToolTip("Number of reflections n (the target reflectivity is Rⁿ)")
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.setFrameShape(QFrame.Shape.NoFrame)
@@ -176,6 +195,7 @@ class GoalPage(StepPage):
 
     def _line_edit(self, text: str, placeholder: str, tooltip: str) -> QLineEdit:
         edit = QLineEdit(text)
+        edit.setCursorPosition(0)
         edit.setPlaceholderText(placeholder)
         edit.setToolTip(tooltip)
         edit.setFrame(False)
@@ -204,6 +224,10 @@ class GoalPage(StepPage):
         for row, target in enumerate(targets):
             kind, fixed, lo, hi = _row_values(target)
             scan = QComboBox()
+            scan.setSizeAdjustPolicy(
+                QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+            )
+            scan.setMinimumContentsLength(10)
             scan.addItems(list(_KINDS))
             scan.setCurrentText(kind)
             scan.setToolTip(
@@ -213,7 +237,7 @@ class GoalPage(StepPage):
             scan.activated.connect(lambda _=0, w=scan: self._scan_changed(w))
             self.table.setCellWidget(row, _SCAN, scan)
             for column, value in ((_FIXED, fixed), (_FROM, lo), (_TO, hi)):
-                self.table.setCellWidget(row, column, self._line_edit(f"{value:.6g}", "", ""))
+                self.table.setCellWidget(row, column, self._line_edit(f"{value:.5g}", "", ""))
             self._set_placeholders(row, kind)
             self.table.setCellWidget(
                 row,
@@ -230,6 +254,10 @@ class GoalPage(StepPage):
                 ),
             )
             pol = QComboBox()
+            pol.setSizeAdjustPolicy(
+                QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+            )
+            pol.setMinimumContentsLength(6)
             pol.addItems(list(_POLARIZATIONS))
             pol.setCurrentText(target.polarization)
             pol.setToolTip("Polarization of the incident radiation")
@@ -253,8 +281,6 @@ class GoalPage(StepPage):
         height += sum(self.table.rowHeight(r) for r in range(self.table.rowCount()))
         if self.table.rowCount() == 0:
             height += self.table.verticalHeader().defaultSectionSize() * rows
-        # Room for the horizontal scroll bar, which appears in narrow docks.
-        height += self.table.horizontalScrollBar().sizeHint().height()
         self.table.setFixedHeight(height)
 
     def _text(self, row: int, column: int) -> str:
@@ -268,7 +294,7 @@ class GoalPage(StepPage):
     ) -> float:
         """Return a cell as SI value; a text equal to the shown rounding returns `shown`."""
         text = self._text(row, column).strip()
-        if shown is not None and text == f"{shown / scale:.6g}":
+        if shown is not None and text == f"{shown / scale:.5g}":
             return shown
         return float(text) * scale
 

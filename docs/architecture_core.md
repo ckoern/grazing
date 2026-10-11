@@ -141,7 +141,7 @@ energy range. A `MaterialLibrary` holds presets and user materials and memoizes 
 class Layer:
     material: Material
     thickness: float              # nm
-    roughness: float = 0.0        # σ of the interface *below* this layer (nm)
+    roughness: float = 0.0        # σ of the interface at the *top* of this layer (nm)
     tag: str = ""                 # provenance, e.g. "graded[17].H", "cap.L" — used for plots & recipes
 
 @dataclass(frozen=True)

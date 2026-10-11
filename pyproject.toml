@@ -36,6 +36,7 @@ packages = ["src/xstack"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "src/xstack"]
+pythonpath = ["."]
 addopts = ["-ra", "--strict-markers", "--benchmark-skip", "--doctest-modules"]
 markers = [
     "slow: long-running tests",
@@ -73,5 +74,5 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [[tool.mypy.overrides]]
-module = ["lmfit.*", "xraylib.*", "pyqtgraph.*"]
+module = ["lmfit.*", "xraylib.*", "pyqtgraph.*", "mpmath.*"]
 ignore_missing_imports = true

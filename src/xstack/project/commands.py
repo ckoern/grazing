@@ -21,8 +21,10 @@ from xstack.manufacturing.process import DepositionProcess
 from xstack.merit.base import FigureOfMerit
 from xstack.optim.events import CancellationToken, EventSink
 from xstack.optim.pipeline import Pipeline, PipelineResult
+from xstack.optim.problem import DesignProblem, Evaluation
 from xstack.parameters import ParameterSet
 from xstack.physics.models import ReflectivityModel
+from xstack.project.journal import Journal
 from xstack.project.project import Candidate, Command, Project, ProjectState
 from xstack.structure.coating import Coating, Mirror
 from xstack.targets import TargetSet
@@ -30,7 +32,9 @@ from xstack.targets import TargetSet
 __all__ = [
     "add_candidate",
     "add_constraint",
+    "apply_result",
     "promote_candidate",
+    "record_run",
     "remove_candidate",
     "remove_constraint",
     "rename_project",
@@ -321,6 +325,64 @@ def promote_candidate(name: str) -> Command:
     )
 
 
+def record_run(journal: Journal, result: PipelineResult) -> None:
+    """Add a journal entry summarizing a pipeline run.
+
+    Args:
+        journal: The journal.
+        result: The pipeline result.
+    """
+    summary = {
+        "stages": [
+            {
+                "name": s.stage.name,
+                "evaluations": s.result.evaluations,
+                "objective": s.result.best.objective,
+                "elapsed_s": round(s.result.elapsed, 3),
+            }
+            for s in result.stages
+        ],
+        "objective": result.final.objective,
+        "merit": result.final.merit,
+        "cancelled": result.cancelled,
+    }
+    journal.add(
+        "run",
+        f"Ran pipeline ({len(result.stages)} stages): objective {result.final.objective:.5g}"
+        + (" (cancelled)" if result.cancelled else ""),
+        **summary,
+    )
+
+
+def apply_result(
+    problem: DesignProblem,
+    parameters: ParameterSet,
+    evaluation: Evaluation,
+    candidate_name: str,
+    source: str,
+) -> Command:
+    """Make an optimized design the current design and store it as a candidate.
+
+    Args:
+        problem: The design problem that was optimized.
+        parameters: The optimized parameters.
+        evaluation: Evaluation of the optimized design.
+        candidate_name: Name of the stored candidate (made unique if necessary).
+        source: Origin of the design, e.g. ``"pipeline"`` or a stage name.
+
+    Returns:
+        The command.
+    """
+    mirror = problem.with_parameters(parameters).mirror
+    candidate = Candidate.from_evaluation(candidate_name, mirror, evaluation, source)
+
+    def transform(s: ProjectState) -> ProjectState:
+        stored = Candidate(**{**candidate.__dict__, "name": _unique_name(s, candidate.name)})
+        return s.evolve(mirror=mirror, candidates=(*s.candidates, stored))
+
+    return Command(f"Apply result {candidate_name!r}", transform)
+
+
 def run_pipeline(
     project: Project,
     pipeline: Pipeline | None = None,
@@ -346,36 +408,11 @@ def run_pipeline(
     Raises:
         ValueError: If the project does not define a complete design problem.
     """
-    state = project.state
-    problem = state.problem()
-    chosen = pipeline or state.pipeline or Pipeline.default(problem)
+    problem = project.state.problem()
+    chosen = pipeline or project.state.pipeline or Pipeline.default(problem)
     result = chosen.run(problem, events=events, cancel=cancel)
-    mirror = problem.with_parameters(result.parameters).mirror
-    summary = {
-        "stages": [
-            {
-                "name": s.stage.name,
-                "evaluations": s.result.evaluations,
-                "objective": s.result.best.objective,
-                "elapsed_s": round(s.result.elapsed, 3),
-            }
-            for s in result.stages
-        ],
-        "objective": result.final.objective,
-        "merit": result.final.merit,
-        "cancelled": result.cancelled,
-    }
-    project.journal.add(
-        "run",
-        f"Ran pipeline ({len(result.stages)} stages): objective {result.final.objective:.5g}"
-        + (" (cancelled)" if result.cancelled else ""),
-        **summary,
+    record_run(project.journal, result)
+    project.execute(
+        apply_result(problem, result.parameters, result.final, candidate_name, "pipeline")
     )
-    candidate = Candidate.from_evaluation(candidate_name, mirror, result.final, "pipeline")
-
-    def transform(s: ProjectState) -> ProjectState:
-        stored = Candidate(**{**candidate.__dict__, "name": _unique_name(s, candidate.name)})
-        return s.evolve(mirror=mirror, candidates=(*s.candidates, stored))
-
-    project.execute(Command(f"Apply pipeline result {candidate_name!r}", transform))
     return result

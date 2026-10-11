@@ -71,8 +71,10 @@ class TimePenalized(FigureOfMerit):
 
     type_name: ClassVar[str] = "time_penalized"
     merit: FigureOfMerit
-    weight: float = 0.1
-    reference_time: float = 3600.0
+    weight: float = field(default=0.1, metadata={"label": "time weight w"})
+    reference_time: float = field(
+        default=3600.0, metadata={"label": "reference time", "unit": "h", "scale": 1 / 3600}
+    )
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.weight <= 1.0:

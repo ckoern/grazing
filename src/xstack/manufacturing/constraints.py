@@ -115,8 +115,8 @@ class MinLayerThickness(Constraint):
     """
 
     type_name: ClassVar[str] = "min_layer_thickness"
-    minimum: float = 1.0
-    materials: tuple[str, ...] = ()
+    minimum: float = field(default=1.0, metadata={"unit": "nm"})
+    materials: tuple[str, ...] = field(default=(), metadata={"label": "materials (empty = all)"})
 
     def __post_init__(self) -> None:
         if not self.minimum > 0:
@@ -193,7 +193,7 @@ class MaxTotalThickness(Constraint):
     """
 
     type_name: ClassVar[str] = "max_total_thickness"
-    maximum: float = 1000.0
+    maximum: float = field(default=1000.0, metadata={"unit": "nm"})
 
     def __post_init__(self) -> None:
         if not self.maximum > 0:
@@ -226,7 +226,7 @@ class MaxLayers(Constraint):
     """
 
     type_name: ClassVar[str] = "max_layers"
-    maximum: int = 1000
+    maximum: int = field(default=1000, metadata={"label": "maximum layers"})
 
     def __post_init__(self) -> None:
         if self.maximum < 1:
@@ -257,7 +257,7 @@ class MaxCoatingTime(Constraint):
     """
 
     type_name: ClassVar[str] = "max_coating_time"
-    maximum: float = 86400.0
+    maximum: float = field(default=86400.0, metadata={"unit": "h", "scale": 1 / 3600})
 
     def __post_init__(self) -> None:
         if not self.maximum > 0:

@@ -7,6 +7,7 @@ Névot–Croce factor on every interface, so the comparison with roughness is lo
 """
 
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pytest
@@ -14,6 +15,7 @@ import pytest
 from xstack.materials import Material, MaterialLibrary
 from xstack.physics import reflectivity
 from xstack.structure import Mirror, Periodic
+from xstack.structure.coatings.bilayer import TopMaterial
 from xstack.units import HC
 
 DATA = Path(__file__).parent.parent / "data" / "cxro_multilayer"
@@ -50,9 +52,9 @@ def test_matches_cxro(name: str) -> None:
         N=n,
         d=d,
         gamma=gamma,
-        top=top,
+        top=cast(TopMaterial, top),
         sigma_H=sigma,
-        sigma_L=sigma,  # type: ignore[arg-type]
+        sigma_L=sigma,
     )
     stack = Mirror(coating, substrate, sigma).stack()
     r = reflectivity(stack, energy, theta, pol, library=LIBRARY)  # type: ignore[arg-type]

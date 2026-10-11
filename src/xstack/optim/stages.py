@@ -136,7 +136,9 @@ class BraggOutline(Optimizer):
     Γ is set to the Vinogradov–Zeldovich optimum and the number of bilayers is narrowed to a
     range around the saturation estimate. For depth-graded multilayers, ``d_max`` and ``d_min``
     are chosen to reflect the lower and upper end of the band (in energy or momentum transfer)
-    and Γ is set to the optimum. Only free parameters are changed; the bounds of free period
+    and Γ is set to the optimum. Γ estimates are moved into the window that the hard
+    constraints allow for the estimated period (e.g. a minimum layer thickness). Only free
+    parameters are changed; the bounds of free period
     parameters are narrowed to ±`margin` around the estimates (within the original bounds).
     Other coatings are left unchanged.
 
@@ -182,29 +184,29 @@ class BraggOutline(Optimizer):
         h, low = coating.material("H"), coating.material("L")
         values = params.evaluate()
         gamma_name = "gamma" if isinstance(coating, Periodic) else "gamma_top"
-        gamma = values[gamma_name]
-
-        def period(energy: float, angle: float) -> float:
-            wavelength = float(energy_to_wavelength(energy))
-            delta = 0.0
-            if self.refraction:
-                db_h = library.delta_beta(h, energy)
-                db_l = library.delta_beta(low, energy)
-                delta = float(bragg.mean_delta(db_h.real, db_l.real, gamma))
-            d = float(bragg.bragg_period(angle, wavelength, 1, delta))
-            return d if math.isfinite(d) else float(bragg.bragg_period(angle, wavelength))
-
         extremes = _target_extremes(problem.targets)
-        periods = np.array([period(e, a) for e, a, _ in extremes])
         energies = np.array([e for e, _, _ in extremes])
         e_centre = float(np.average(energies, weights=[w for _, _, w in extremes]))
         updates: dict[str, tuple[float, float | None, float | None]] = {}
 
         db_h, db_l = library.delta_beta(h, e_centre), library.delta_beta(low, e_centre)
-        if float(db_h.imag) > float(db_l.imag):
-            g_opt = bragg.optimal_gamma(float(db_h.imag), float(db_l.imag))
+        gamma = values[gamma_name]
+        if float(db_h.imag) > float(db_l.imag) and params[gamma_name].is_free:
+            gamma = bragg.optimal_gamma(float(db_h.imag), float(db_l.imag))
             for name in ("gamma", "gamma_top", "gamma_bottom"):
-                updates[name] = (g_opt, None, None)
+                updates[name] = (gamma, None, None)
+
+        def period(energy: float, angle: float) -> float:
+            wavelength = float(energy_to_wavelength(energy))
+            delta = 0.0
+            if self.refraction:
+                dh = library.delta_beta(h, energy)
+                dl = library.delta_beta(low, energy)
+                delta = float(bragg.mean_delta(dh.real, dl.real, gamma))
+            d = float(bragg.bragg_period(angle, wavelength, 1, delta))
+            return d if math.isfinite(d) else float(bragg.bragg_period(angle, wavelength))
+
+        periods = np.array([period(e, a) for e, a, _ in extremes])
 
         if isinstance(coating, Periodic):
             d = float(np.median(periods))
@@ -234,7 +236,23 @@ class BraggOutline(Optimizer):
             d_max, d_min = float(periods.max()), float(periods.min())
             updates["d_max"] = (d_max, d_max * (1 - self.margin), d_max * (1 + self.margin))
             updates["d_min"] = (d_min, d_min * (1 - self.margin), d_min * (1 + self.margin))
-        return _apply(params, updates)
+        estimated = _apply(params, updates)
+        return _apply(estimated, _constrained_gammas(problem, estimated, coating))
+
+
+def _constrained_gammas(
+    problem: DesignProblem, params: ParameterSet, coating: Periodic | DepthGraded
+) -> dict[str, tuple[float, float | None, float | None]]:
+    """Move Γ estimates into the window the hard constraints allow for the estimated period."""
+    period_name = "d" if isinstance(coating, Periodic) else "d_min"
+    fixed = params.replace(period_name, vary=False, expr=None)
+    trial = problem.with_parameters(fixed)
+    updates: dict[str, tuple[float, float | None, float | None]] = {}
+    for name, (lo, hi) in trial.bounds_hints().items():
+        if name in params and params[name].is_free and lo <= hi:
+            value = min(max(params[name].value, lo), hi)
+            updates[name] = (value, None, None)
+    return updates
 
 
 def _apply(

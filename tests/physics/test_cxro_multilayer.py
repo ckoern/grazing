@@ -44,7 +44,16 @@ def test_matches_cxro(name: str) -> None:
         energy, theta = np.full_like(x, fixed), np.radians(x)
     else:
         energy, theta = x, np.radians(fixed)
-    coating = Periodic.create(h, low, N=n, d=d, gamma=gamma, top=top, sigma_H=sigma, sigma_L=sigma)
+    coating = Periodic.create(
+        h,
+        low,
+        N=n,
+        d=d,
+        gamma=gamma,
+        top=top,
+        sigma_H=sigma,
+        sigma_L=sigma,  # type: ignore[arg-type]
+    )
     stack = Mirror(coating, substrate, sigma).stack()
     r = reflectivity(stack, energy, theta, pol, library=LIBRARY)  # type: ignore[arg-type]
     diff = r - expected

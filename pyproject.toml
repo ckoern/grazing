@@ -58,6 +58,7 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "PT011"]
 "src/xstack/structure/coatings/*" = ["N803"]
+"src/xstack/gui/**" = ["N802", "N815"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -67,7 +68,9 @@ warn_unreachable = true
 
 [[tool.mypy.overrides]]
 module = ["xstack.gui.*"]
-strict = false
+disallow_subclassing_any = false
+disallow_untyped_calls = false
+warn_return_any = false
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]
@@ -75,5 +78,5 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [[tool.mypy.overrides]]
-module = ["lmfit.*", "xraylib.*", "pyqtgraph.*", "mpmath.*", "scipy.*"]
+module = ["lmfit.*", "xraylib.*", "pyqtgraph.*", "mpmath.*", "scipy.*", "PySide6.*"]
 ignore_missing_imports = true

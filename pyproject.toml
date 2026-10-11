@@ -56,7 +56,8 @@ ignore = ["RUF001", "RUF002", "RUF003", "D105", "D107"]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["D"]
+"tests/**" = ["D", "PT011"]
+"src/xstack/structure/coatings/*" = ["N803"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -74,5 +75,5 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [[tool.mypy.overrides]]
-module = ["lmfit.*", "xraylib.*", "pyqtgraph.*", "mpmath.*"]
+module = ["lmfit.*", "xraylib.*", "pyqtgraph.*", "mpmath.*", "scipy.*"]
 ignore_missing_imports = true

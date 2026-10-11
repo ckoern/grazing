@@ -244,7 +244,7 @@ class TestValidation:
         ],
     )
     def test_value_errors(self, overrides: dict[str, object]) -> None:
-        with pytest.raises(ValueError):  # noqa: PT011
+        with pytest.raises(ValueError):
             self.call(**overrides)
 
     def test_theta_upper_bound_inclusive(self) -> None:

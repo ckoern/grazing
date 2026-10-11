@@ -19,7 +19,6 @@ __all__ = [
     "ConvergencePlot",
     "Curve",
     "DesignMapPlot",
-    "HistogramPlot",
     "LayerProfilePlot",
     "ReflectivityPlot",
     "bilayer_profile",
@@ -446,37 +445,3 @@ class DesignMapPlot(QWidget):
         x, y = values.get(self._names[0]), values.get(self._names[1])
         if x is not None and y is not None:
             self._marker.setData([x], [y])
-
-
-class HistogramPlot(QWidget):
-    """Histogram of sampled values with a marker for the nominal value.
-
-    Args:
-        parent: Parent widget.
-    """
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.plot = pg.PlotWidget()
-        self.plot.getAxis("bottom").enableAutoSIPrefix(False)
-        self.plot.setLabel("left", "Samples")
-        layout.addWidget(self.plot)
-
-    def set_samples(self, values: NDArray[np.float64], nominal: float, label: str) -> None:
-        """Show a histogram.
-
-        Args:
-            values: Sampled values.
-            nominal: Value of the unperturbed design.
-            label: Name of the quantity.
-        """
-        self.plot.clear()
-        self.plot.setLabel("bottom", label)
-        finite = values[np.isfinite(values)]
-        if finite.size == 0:
-            return
-        counts, edges = np.histogram(finite, bins=min(30, max(5, finite.size // 3)))
-        self.plot.plot(edges, counts, stepMode="center", fillLevel=0, brush=(31, 119, 180, 120))
-        self.plot.addItem(pg.InfiniteLine(nominal, pen=pg.mkPen(PALETTE[1], width=2)))

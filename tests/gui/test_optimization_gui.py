@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from pytestqt.qtbot import QtBot
 
 from xstack.gui.main_window import MainWindow
-from xstack.gui.plots import ConvergencePlot, DesignMapPlot, HistogramPlot
+from xstack.gui.plots import ConvergencePlot, DesignMapPlot
 from xstack.gui.steps import AnalyzePage, ScanPage
 from xstack.gui.workers import Job, JobRunner
 from xstack.optim.events import CancellationToken, ProgressEvent
@@ -110,13 +110,6 @@ def test_design_map_emits_selected_point(qtbot: QtBot) -> None:
         plot.select(2, 1)
     assert blocker.args[0] == {"a": 3.0, "b": 20.0}
     plot.set_scan(["a"], [x], values[:, 0], feasible[:, 0])
-
-
-def test_histogram_plot(qtbot: QtBot) -> None:
-    plot = HistogramPlot()
-    qtbot.addWidget(plot)
-    plot.set_samples(np.random.default_rng(0).normal(size=50), 0.0, "merit")
-    plot.set_samples(np.array([np.nan]), 0.0, "merit")
 
 
 def test_scan_page_axes_and_job(qtbot: QtBot) -> None:

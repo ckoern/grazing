@@ -49,7 +49,8 @@ class Pipeline:
     """An ordered sequence of stages.
 
     Each stage starts from the parameters found by the previous stage, including bounds that a
-    stage narrowed. The free/fixed settings of the parameters are kept throughout.
+    stage narrowed. The final parameters carry the values of the last stage with the bounds
+    and free/fixed settings of the start parameters.
 
     Attributes:
         stages: The stages in order.
@@ -87,6 +88,9 @@ class Pipeline:
             params = outcome.result.parameters
             if on_stage is not None:
                 on_stage(outcome)
+        initial = start if start is not None else problem.parameters
+        final_values = {n: v for n, v in params.value_dict().items() if initial[n].expr is None}
+        params = initial.with_values(final_values)
         final = problem.with_parameters(params).evaluate()
         cancelled = cancel is not None and cancel.cancelled
         return PipelineResult(tuple(results), params, final, cancelled)
@@ -114,7 +118,8 @@ class Pipeline:
         Args:
             problem: The design problem; used to choose the scan parameters.
             scan_points: Grid points per scanned parameter.
-            coarse_points: Target grid points in the scan and global stages.
+            coarse_points: Target grid points in the scan and global stages (at most the
+                number of points of the problem).
             global_iterations: Number of differential-evolution generations that the evaluation
                 budget of the global stage allows for.
             population: Differential-evolution population size multiplier.
@@ -129,10 +134,12 @@ class Pipeline:
             for n, p in params.items()
             if p.is_free and (n.rsplit(".", 1)[-1].startswith(("gamma", "cap_gamma")) or p.integer)
         )
+        target_points = min(t.points for t in problem.targets.targets)
+        coarse = min(coarse_points, problem.points or target_points)
         stages = [Stage("outline", BraggOutline(), model=KinematicModel(refraction=False))]
         if scan_names:
             stages.append(
-                Stage("scan", GridScan(points=scan_points), points=coarse_points, free=scan_names)
+                Stage("scan", GridScan(points=scan_points), points=coarse, free=scan_names)
             )
         de_options = (("popsize", population), ("seed", seed), ("polish", False))
         free_count = max(1, len(params.free_names()))
@@ -141,7 +148,7 @@ class Pipeline:
             Stage(
                 "global",
                 LmfitOptimizer("differential_evolution", budget, de_options),
-                points=coarse_points,
+                points=coarse,
             ),
             Stage("refine", LmfitOptimizer("least_squares")),
         ]

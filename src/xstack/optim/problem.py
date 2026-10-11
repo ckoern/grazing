@@ -87,7 +87,9 @@ class DesignProblem:
     points: int | None = None
     hard_penalty: float = 10.0
     soft_penalty: float = 1.0
-    library: MaterialLibrary | None = field(default=None, compare=False, hash=False)
+    library: MaterialLibrary | None = field(
+        default=None, compare=False, hash=False, metadata={"serialize": False}
+    )
 
     @property
     def parameters(self) -> ParameterSet:

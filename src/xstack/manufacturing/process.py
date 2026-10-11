@@ -1,6 +1,6 @@
 """Deposition process model: coating time of a stack."""
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 import numpy as np
@@ -45,11 +45,11 @@ class DepositionProcess:
     Layers of zero thickness are skipped and cost no time.
 
     Args:
-        rates: Deposition rate in nm/s by material name.
+        rates: Deposition rate in nm/s by material name, as mapping or (name, rate) pairs.
         overhead_per_layer: Time per layer independent of its thickness and material (e.g.
             pre-sputtering, shutter movement), in s.
         overhead_per_material: Additional time per layer of a given material, in s, by material
-            name.
+            name, as mapping or (name, time) pairs.
         fixed_overhead: Time per coating run independent of the stack, in s.
 
     Raises:
@@ -71,13 +71,15 @@ class DepositionProcess:
 
     def __init__(
         self,
-        rates: Mapping[str, float],
+        rates: Mapping[str, float] | Iterable[tuple[str, float]],
         overhead_per_layer: float = 0.0,
-        overhead_per_material: Mapping[str, float] | None = None,
+        overhead_per_material: Mapping[str, float] | Iterable[tuple[str, float]] | None = None,
         fixed_overhead: float = 0.0,
     ) -> None:
-        rate_items = tuple((str(k), float(v)) for k, v in rates.items())
-        material_items = tuple((str(k), float(v)) for k, v in (overhead_per_material or {}).items())
+        rate_items = tuple((str(k), float(v)) for k, v in dict(rates).items())
+        material_items = tuple(
+            (str(k), float(v)) for k, v in dict(overhead_per_material or {}).items()
+        )
         if any(v <= 0 for _, v in rate_items):
             raise ValueError("deposition rates must be positive")
         if overhead_per_layer < 0 or fixed_overhead < 0 or any(v < 0 for _, v in material_items):

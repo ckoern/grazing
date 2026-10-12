@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 )
 
 from xstack.gui.controller import ProjectController
+from xstack.gui.files import ask_save_path
 from xstack.gui.plots import (
     ConvergencePlot,
     Curve,
@@ -48,6 +49,8 @@ from xstack.gui.preview import (
     ToleranceCurves,
     compute_curves,
     compute_preview,
+    display_targets,
+    lowest_energy,
     tolerance_curves,
 )
 from xstack.gui.steps import (
@@ -75,6 +78,7 @@ from xstack.gui.widgets.candidate_dialog import CandidateParametersDialog
 from xstack.gui.widgets.design_comparison import DesignComparisonView
 from xstack.gui.widgets.tolerance_view import ToleranceView
 from xstack.gui.workers import Job, JobRunner, LatestRunner
+from xstack.io.reflectivity import write_reflectivity_csv
 from xstack.manufacturing.tolerance import ToleranceResult
 from xstack.optim.events import ProgressEvent
 from xstack.optim.pipeline import PipelineResult
@@ -92,6 +96,7 @@ from xstack.project.commands import (
     store_pipeline_result,
 )
 from xstack.project.templates import TEMPLATES
+from xstack.structure.coating import CoatingBuildError
 
 __all__ = ["WORKFLOW_STEPS", "MainWindow"]
 
@@ -109,6 +114,10 @@ WORKFLOW_STEPS = (
 """Steps of the design workflow, shown as tabs in this order."""
 
 PROJECT_FILTER = "xstack projects (*.xstack);;All files (*)"
+
+INPUT_DESIGN_LABEL = "input design"
+"""Label of the input design in the candidates list."""
+
 _MAX_RECENT = 8
 
 
@@ -679,6 +688,9 @@ class MainWindow(QMainWindow):
         self.overlays = [n for n in self.overlays if n in names]
         self.candidate_list.blockSignals(True)
         self.candidate_list.clear()
+        self.candidate_list.addItem(self._input_item())
+        if state.selected is None:
+            self.candidate_list.setCurrentRow(0)
         for name in names:
             item = QListWidgetItem(name)
             item.setData(Qt.ItemDataRole.UserRole, name)
@@ -695,6 +707,20 @@ class MainWindow(QMainWindow):
         self._show_layers()
         self._update_title()
         self._request_preview()
+
+    def _input_item(self) -> QListWidgetItem:
+        """Return the list entry of the input design (no candidate name)."""
+        item = QListWidgetItem(INPUT_DESIGN_LABEL)
+        item.setData(Qt.ItemDataRole.UserRole, None)
+        item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        item.setToolTip(
+            "The input design defined in the Coating step; always shown in the plots. "
+            "Selecting it deselects the candidates."
+        )
+        font = item.font()
+        font.setItalic(True)
+        item.setFont(font)
+        return item
 
     def _request_preview(self) -> None:
         state = self.controller.state
@@ -728,7 +754,7 @@ class MainWindow(QMainWindow):
 
         def label(name: str, i: int) -> str:
             target = targets[i] if i < len(targets) else None
-            suffix = f" – {target.name or f'target {i + 1}'}" if multiple and target else ""
+            suffix = f" – {target.label(i)}" if multiple and target else ""
             return name + suffix
 
         curves = [Curve(label("input design", i), r) for i, r in enumerate(preview.curves)]
@@ -766,7 +792,11 @@ class MainWindow(QMainWindow):
         if not isinstance(event, ProgressEvent):
             return
         self.convergence_plot.add_point(
-            event.task, event.evaluations, event.best_objective, event.best_merit
+            event.task,
+            event.evaluations,
+            event.best_objective,
+            event.best_merit,
+            event.best_quantities,
         )
         state = self._job_state
         values = dict(event.best_values)
@@ -907,7 +937,56 @@ class MainWindow(QMainWindow):
     def selected_candidates(self) -> list[str]:
         """Return the names of the candidates selected in the list, in list order."""
         rows = sorted(self.candidate_list.row(i) for i in self.candidate_list.selectedItems())
-        return [self.candidate_list.item(r).data(Qt.ItemDataRole.UserRole) for r in rows]
+        names = [self.candidate_list.item(r).data(Qt.ItemDataRole.UserRole) for r in rows]
+        return [n for n in names if n is not None]
+
+    def _input_is_current(self) -> bool:
+        item = self.candidate_list.currentItem()
+        return item is not None and item.data(Qt.ItemDataRole.UserRole) is None
+
+    def export_reflectivity(self, name: str | None = None, path: str | Path | None = None) -> bool:
+        """Write the reflectivity of one design over the plotted range to a CSV file.
+
+        Each target is exported on its plot range (see the plot range fields) with the
+        reflectivity R of one reflection and Rᴺ after the target's N reflections.
+
+        Args:
+            name: Candidate name; None exports the input design.
+            path: Output file; asks for a file name if None.
+
+        Returns:
+            Whether the file was written.
+        """
+        state = self.controller.state
+        try:
+            mirror = state.mirror if name is None else state.candidate(name).mirror
+        except KeyError:
+            mirror = None
+        if mirror is None or state.targets is None:
+            self._show_error("No design or no targets to export")
+            return False
+        try:
+            stack = mirror.stack()
+        except (CoatingBuildError, ValueError) as exc:
+            self._show_error(f"Cannot export: {exc}")
+            return False
+        floor = lowest_energy(frozenset(stack.media))
+        targets = display_targets(state.targets.targets, self.display_ranges, floor)
+        if path is None:
+            label = INPUT_DESIGN_LABEL if name is None else name
+            chosen = ask_save_path(
+                self, f"Export reflectivity of {label}", "CSV files (*.csv)", ".csv"
+            )
+            if chosen is None:
+                return False
+            path = chosen
+        try:
+            write_reflectivity_csv(path, stack, targets, state.model)
+        except (OSError, ValueError, KeyError) as exc:
+            self._show_error(f"Cannot export: {exc}")
+            return False
+        self.statusBar().showMessage(f"Exported reflectivity to {path}", 5000)
+        return True
 
     def _use_candidate(self) -> None:
         name = self._selected_candidate()
@@ -960,6 +1039,11 @@ class MainWindow(QMainWindow):
         show = menu.addAction("Show parameters…", lambda: self.show_candidate_parameters())
         for action in (use, rename, show):
             action.setEnabled(single)
+        export = menu.addAction(
+            "Export reflectivity…",
+            lambda: self.export_reflectivity(self._selected_candidate()),
+        )
+        export.setEnabled(single or (not names and self._input_is_current()))
         menu.addSeparator()
         count = max(len(names), 1 if single else 0)
         delete = menu.addAction(
@@ -981,6 +1065,8 @@ class MainWindow(QMainWindow):
 
     def _candidate_item_changed(self, item: QListWidgetItem) -> None:
         old = item.data(Qt.ItemDataRole.UserRole)
+        if old is None:
+            return
         if item.text() != old:
             if not self.controller.execute(rename_candidate(old, item.text().strip())):
                 self.candidate_list.blockSignals(True)
@@ -1099,10 +1185,10 @@ class MainWindow(QMainWindow):
             Whether the project was saved.
         """
         if path is None:
-            chosen, _ = QFileDialog.getSaveFileName(self, "Save project", "", PROJECT_FILTER)
-            if not chosen:
+            chosen = ask_save_path(self, "Save project", PROJECT_FILTER, ".xstack")
+            if chosen is None:
                 return False
-            path = chosen if chosen.endswith(".xstack") else chosen + ".xstack"
+            path = chosen
         saved = self.controller.save_project(path)
         if saved:
             self._add_recent(Path(path))

@@ -194,6 +194,17 @@ class TestResultFields:
 
 
 class TestEvents:
+    def test_events_carry_best_quantities(self) -> None:
+        events: list[ProgressEvent] = []
+        LmfitOptimizer("nelder", max_evaluations=30).run(make_problem(), events=events.append)
+        assert events
+        for event in events:
+            assert set(event.best_quantities) == {"mean reflectivity"}
+            assert 0.0 <= event.best_quantities["mean reflectivity"] <= 1.0
+        assert events[-1].best_quantities["mean reflectivity"] == pytest.approx(
+            1.0 - events[-1].best_merit
+        )
+
     def test_progress_events(self) -> None:
         events: list[ProgressEvent] = []
         LmfitOptimizer("nelder", max_evaluations=30).run(make_problem(), events=events.append)

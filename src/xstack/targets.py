@@ -132,6 +132,21 @@ class Target(ABC):
     def axis(self) -> Literal["energy", "angle"]:
         """The scanned variable."""
 
+    def label(self, index: int) -> str:
+        """Return the name of the target, or ``"target <index + 1>"`` if it has none.
+
+        Args:
+            index: Position of the target in its target set, starting at 0.
+
+        Returns:
+            The label.
+
+        Examples:
+            >>> EnergyScan(angle=0.01, energy_min=7e3, energy_max=9e3).label(0)
+            'target 1'
+        """
+        return self.name or f"target {index + 1}"
+
     @property
     @abstractmethod
     def scan_range(self) -> tuple[float, float]:

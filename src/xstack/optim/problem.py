@@ -187,6 +187,23 @@ class DesignProblem:
             dict(values or {}), merit + self._penalty(checked), merit, stack, results, time, checked
         )
 
+    def quantities(self, evaluation: Evaluation) -> dict[str, float]:
+        """Return the quantities rated by the figure of merit for an evaluated design.
+
+        Args:
+            evaluation: An evaluation of this problem.
+
+        Returns:
+            Values by label (see `FigureOfMerit.quantities`); empty if the design could not
+            be built.
+        """
+        if evaluation.stack is None or len(evaluation.results) != len(self.targets):
+            return {}
+        ctx = EvaluationContext(
+            evaluation.stack, self.targets, evaluation.results, evaluation.coating_time
+        )
+        return self.merit.quantities(ctx)
+
     def _penalty(self, checked: tuple[tuple[Constraint, ConstraintResult], ...]) -> float:
         soft = sum(r.violation**2 for c, r in checked if c.severity == "soft")
         hard = sum(r.violation for c, r in checked if c.severity == "hard" and not r.satisfied)

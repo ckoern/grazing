@@ -6,7 +6,7 @@ import pytest
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDockWidget
 
-from xstack.gui.main_window import WORKFLOW_STEPS, MainWindow
+from xstack.gui.main_window import INPUT_DESIGN_LABEL, WORKFLOW_STEPS, MainWindow
 from xstack.project import Candidate
 from xstack.project.commands import add_candidate, set_parameter
 
@@ -99,12 +99,13 @@ def test_recent_entry_opens_file(window: MainWindow, tmp_path: Path) -> None:
 
 
 def test_candidate_list(window: MainWindow) -> None:
-    assert window.candidate_list.count() == 0
+    assert window.candidate_list.count() == 1
+    assert window.candidate_list.item(0).text() == INPUT_DESIGN_LABEL
     mirror = window.controller.state.mirror
     assert mirror is not None
     window.controller.execute(add_candidate(Candidate("first", mirror)))
-    assert window.candidate_list.count() == 1
-    assert window.candidate_list.item(0).text() == "first"
+    assert window.candidate_list.count() == 2
+    assert window.candidate_list.item(1).text() == "first"
 
 
 def test_journal_grows(window: MainWindow) -> None:

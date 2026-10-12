@@ -23,14 +23,14 @@ from xstack.gui.steps.base import StepPage
 from xstack.gui.widgets.parameter_table import ParameterTable
 from xstack.materials import Material, default_library, get
 from xstack.parameters import ParameterSet
-from xstack.project import ProjectState
-from xstack.project.commands import set_coating, set_mirror
+from xstack.project import Command, ProjectState
+from xstack.project.commands import set_coating, set_mirror, set_parameter
 from xstack.structure.coating import Coating, Mirror
 from xstack.structure.coatings.graded import DepthGraded, grading_laws
 from xstack.structure.coatings.periodic import Periodic
 from xstack.structure.coatings.simple import NLayer, SingleLayer
 
-__all__ = ["CoatingPage", "convert_coating"]
+__all__ = ["CoatingPage", "convert_coating", "has_constant_gamma", "set_constant_gamma"]
 
 COATING_TYPES = {
     "periodic": "Periodic multilayer",
@@ -136,6 +136,41 @@ def convert_coating(old: Coating, type_name: str, **options: object) -> Coating:
     return _carry_over(new, old)
 
 
+def has_constant_gamma(coating: DepthGraded) -> bool:
+    """Return whether all graded bilayers of a coating share one Γ.
+
+    Args:
+        coating: The depth-graded coating.
+
+    Returns:
+        True if ``gamma_bottom`` is tied to ``gamma_top`` by an expression.
+    """
+    expr = coating.parameters["gamma_bottom"].expr
+    return expr is not None and expr.replace(" ", "") == "gamma_top"
+
+
+def set_constant_gamma(coating: DepthGraded, constant: bool) -> Command:
+    """Return a command that switches between one Γ and a linear Γ gradient.
+
+    With a constant Γ, ``gamma_bottom`` follows ``gamma_top`` through an expression. Without,
+    ``gamma_bottom`` starts at the current value, bounds and vary setting of ``gamma_top``.
+
+    Args:
+        coating: The current depth-graded coating.
+        constant: Use one Γ for all graded bilayers.
+
+    Returns:
+        The command.
+    """
+    if constant:
+        return set_parameter("gamma_bottom", expr="gamma_top", vary=False)
+    top = coating.parameters["gamma_top"]
+    value = coating.parameters.evaluate()["gamma_top"]
+    return set_parameter(
+        "gamma_bottom", expr=None, value=value, vary=top.vary, min=top.min, max=top.max
+    )
+
+
 def _restack(old: NLayer, materials: Sequence[Material], sources: Sequence[int | None]) -> NLayer:
     """Return a layer stack with new materials whose layers take over old parameter settings.
 
@@ -218,6 +253,13 @@ class CoatingPage(StepPage):
         )
         self.cap_check.toggled.connect(lambda _: self._change_options())
         form.addRow("", self.cap_check)
+        self.constant_gamma_check = QCheckBox("Same Γ for all graded bilayers")
+        self.constant_gamma_check.setToolTip(
+            "Use one Γ for all graded bilayers: gamma_bottom follows gamma_top. Uncheck to let "
+            "Γ change linearly from gamma_top to gamma_bottom."
+        )
+        self.constant_gamma_check.toggled.connect(self._change_constant_gamma)
+        form.addRow("", self.constant_gamma_check)
         self.roughness_spin = QDoubleSpinBox()
         self.roughness_spin.setRange(0.0, 100.0)
         self.roughness_spin.setDecimals(3)
@@ -299,9 +341,11 @@ class CoatingPage(StepPage):
             graded = isinstance(coating, DepthGraded)
             self.law_combo.setEnabled(graded)
             self.cap_check.setEnabled(graded)
+            self.constant_gamma_check.setEnabled(graded)
             if isinstance(coating, DepthGraded):
                 self.law_combo.setCurrentText(coating.law)
                 self.cap_check.setChecked(coating.cap)
+                self.constant_gamma_check.setChecked(has_constant_gamma(coating))
             self.layers_box.setVisible(isinstance(coating, NLayer))
             if isinstance(coating, NLayer):
                 self._show_layers(coating)
@@ -398,6 +442,13 @@ class CoatingPage(StepPage):
             self.commandRequested.emit(
                 set_mirror(dataclasses.replace(mirror, substrate_roughness=value))
             )
+
+    def _change_constant_gamma(self, checked: bool) -> None:
+        coating = self._coating
+        if self._loading or not isinstance(coating, DepthGraded):
+            return
+        if checked != has_constant_gamma(coating):
+            self.commandRequested.emit(set_constant_gamma(coating, checked))
 
     def _options(self, type_name: str) -> dict[str, object]:
         options: dict[str, object] = {}

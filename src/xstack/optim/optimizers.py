@@ -86,6 +86,7 @@ class Tracker:
         self.cancel = cancel
         self.total = total
         self.best: Evaluation | None = None
+        self._best_quantities: dict[str, float] = {}
         self.history: list[float] = []
         self.start = time.perf_counter()
         self._last_event = -math.inf
@@ -109,6 +110,7 @@ class Tracker:
         improved = self.best is None or evaluation.objective < self.best.objective
         if improved:
             self.best = evaluation
+            self._best_quantities = self.problem.quantities(evaluation)
         assert self.best is not None
         self.history.append(self.best.objective)
         now = self.elapsed
@@ -124,6 +126,7 @@ class Tracker:
                     dict(self.best.values),
                     now,
                     self.best.merit,
+                    dict(self._best_quantities),
                 )
             )
 

@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
-    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -22,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from xstack.gui.files import ask_save_path
 from xstack.gui.preview import ToleranceCurves, tolerance_curves
 from xstack.gui.steps.base import StepPage
 from xstack.gui.workers import Job
@@ -404,8 +404,8 @@ class AnalyzePage(StepPage):
             return False
         if path is None:
             pattern = "CSV files (*.csv)" if kind == "csv" else "JSON files (*.json)"
-            chosen, _ = QFileDialog.getSaveFileName(self, "Export recipe", "", pattern)
-            if not chosen:
+            chosen = ask_save_path(self, "Export recipe", pattern, f".{kind}")
+            if chosen is None:
                 return False
             path = chosen
         try:

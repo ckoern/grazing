@@ -130,6 +130,20 @@ class FigureOfMerit(ABC):
         """
         return np.array([np.sqrt(max(self.scalar(ctx), 0.0))])
 
+    def quantities(self, ctx: EvaluationContext) -> dict[str, float]:
+        """Return the quantities the figure of merit rates, for display.
+
+        For example, the figure of merit 1 − ⟨R⟩ rates the mean reflectivity ⟨R⟩.
+
+        Args:
+            ctx: The evaluation context.
+
+        Returns:
+            Values by label, e.g. ``{"mean reflectivity": 0.42}``; empty if the figure of merit
+            does not define any.
+        """
+        return {}
+
 
 @dataclass(frozen=True)
 class CurveMerit(FigureOfMerit):
@@ -137,7 +151,28 @@ class CurveMerit(FigureOfMerit):
 
     The scalar value is the curve-weighted sum of `curve_value`; the residuals are the
     concatenated `curve_residuals`, each scaled with the square root of the curve weight.
+    Subclasses that set `quantity_label` and implement `curve_quantity` report the
+    curve-weighted sum of `curve_quantity` as their quantity.
+
+    Attributes:
+        quantity_label: Label of the quantity rated per curve, or ``None``.
     """
+
+    quantity_label: ClassVar[str | None] = None
+
+    def curve_quantity(self, curve: Curve) -> float:
+        """Return the quantity rated for one curve, see `quantity_label`.
+
+        Args:
+            curve: The curve.
+
+        Returns:
+            The quantity.
+
+        Raises:
+            NotImplementedError: If the class defines no quantity.
+        """
+        raise NotImplementedError(f"{type(self).__name__} defines no quantity")
 
     @abstractmethod
     def curve_value(self, curve: Curve) -> float:
@@ -182,6 +217,20 @@ class CurveMerit(FigureOfMerit):
             One-dimensional residual vector.
         """
         return np.concatenate([np.sqrt(c.weight) * self.curve_residuals(c) for c in ctx.curves()])
+
+    def quantities(self, ctx: EvaluationContext) -> dict[str, float]:
+        """Return the curve-weighted sum of `curve_quantity` under `quantity_label`.
+
+        Args:
+            ctx: The evaluation context.
+
+        Returns:
+            Values by label; empty if `quantity_label` is not set.
+        """
+        if self.quantity_label is None:
+            return {}
+        value = sum(c.weight * self.curve_quantity(c) for c in ctx.curves())
+        return {self.quantity_label: float(value)}
 
 
 merits: Registry[type[FigureOfMerit]] = Registry("figure of merit")

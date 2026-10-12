@@ -331,3 +331,19 @@ def test_evaluate_values_outside_bounds_is_unbuildable() -> None:
     assert evaluation.stack is None
     assert evaluation.error is not None
     assert evaluation.objective == pytest.approx(2.0 * problem.hard_penalty)
+
+
+class TestQuantities:
+    def test_mean_reflectivity_of_evaluation(self) -> None:
+        problem = make_problem()
+        evaluation = problem.evaluate()
+        q = problem.quantities(evaluation)
+        assert set(q) == {"mean reflectivity"}
+        assert q["mean reflectivity"] == pytest.approx(1.0 - evaluation.merit)
+
+    def test_unbuildable_design_gives_empty(self) -> None:
+        problem = make_problem()
+        name = next(n for n, p in problem.parameters.items() if np.isfinite(p.max))
+        evaluation = problem.evaluate({name: problem.parameters[name].max + 1.0})
+        assert evaluation.stack is None
+        assert problem.quantities(evaluation) == {}

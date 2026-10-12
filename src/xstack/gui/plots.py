@@ -1,7 +1,7 @@
 """Plot widgets based on pyqtgraph."""
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -248,15 +248,26 @@ class LayerProfilePlot(QWidget):
 
 
 class ConvergencePlot(QWidget):
-    """Progress of an optimization versus the number of evaluations, one curve per stage.
+    """Progress of an optimization versus the number of evaluations, one color per stage.
 
     The upper panel shows the best objective found so far (figure of merit plus constraint
-    penalties; the optimizers minimize it), the lower panel the figure of merit of that best
-    design without penalties.
+    penalties; the optimizers minimize it). The lower panel shows the quantities that the
+    figure of merit rates for that best design, e.g. the mean reflectivity, one line style per
+    quantity. Figures of merit without quantities are shown as such.
 
     Args:
         parent: Parent widget.
     """
+
+    MERIT_LABEL = "figure of merit"
+    """Label of the lower-panel curve for figures of merit without quantities."""
+
+    _STYLES = (
+        pg.QtCore.Qt.PenStyle.SolidLine,
+        pg.QtCore.Qt.PenStyle.DashLine,
+        pg.QtCore.Qt.PenStyle.DotLine,
+        pg.QtCore.Qt.PenStyle.DashDotLine,
+    )
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -268,28 +279,43 @@ class ConvergencePlot(QWidget):
         self.objective_plot.setLabel("left", "Best objective (FOM + penalties)")
         self.objective_plot.setLogMode(y=True)
         self.merit_plot = self.graphics.addPlot(row=1, col=0)
-        self.merit_plot.setLabel("left", "Figure of merit of best design")
         self.merit_plot.setXLink(self.objective_plot)
         for plot in (self.objective_plot, self.merit_plot):
             plot.setLabel("bottom", "Evaluations")
             plot.getAxis("left").enableAutoSIPrefix(False)
             plot.showGrid(x=True, y=True, alpha=0.15)
         self.objective_plot.addLegend(offset=(-10, 10))
-        self._data: dict[str, tuple[list[float], list[float], list[float]]] = {}
-        self._curves: dict[str, tuple[pg.PlotDataItem, pg.PlotDataItem]] = {}
+        self.merit_plot.addLegend(offset=(-10, 10))
+        self._data: dict[str, tuple[list[float], list[float]]] = {}
+        self._objective_curves: dict[str, pg.PlotDataItem] = {}
+        self._quantity_data: dict[tuple[str, str], tuple[list[float], list[float]]] = {}
+        self._quantity_curves: dict[tuple[str, str], pg.PlotDataItem] = {}
+        self._quantities: list[str] = []
+        self._update_merit_label()
 
     def clear(self) -> None:
         """Remove all curves."""
-        for objective, merit in self._curves.values():
-            self.objective_plot.removeItem(objective)
-            self.merit_plot.removeItem(merit)
-        if self.objective_plot.legend is not None:
-            self.objective_plot.legend.clear()
+        for curve in self._objective_curves.values():
+            self.objective_plot.removeItem(curve)
+        for curve in self._quantity_curves.values():
+            self.merit_plot.removeItem(curve)
+        for plot in (self.objective_plot, self.merit_plot):
+            if plot.legend is not None:
+                plot.legend.clear()
         self._data.clear()
-        self._curves.clear()
+        self._objective_curves.clear()
+        self._quantity_data.clear()
+        self._quantity_curves.clear()
+        self._quantities.clear()
+        self._update_merit_label()
 
     def add_point(
-        self, task: str, evaluations: int, best: float, merit: float = float("nan")
+        self,
+        task: str,
+        evaluations: int,
+        best: float,
+        merit: float = float("nan"),
+        quantities: Mapping[str, float] | None = None,
     ) -> None:
         """Append a point to the curves of a task.
 
@@ -298,27 +324,59 @@ class ConvergencePlot(QWidget):
             evaluations: Number of evaluations so far.
             best: Best objective so far (positive).
             merit: Figure of merit of the best design so far.
+            quantities: Quantities rated by the figure of merit for the best design so far,
+                by label. Without quantities, the lower panel shows `merit`.
         """
-        xs, objectives, merits = self._data.setdefault(task, ([], [], []))
+        xs, objectives = self._data.setdefault(task, ([], []))
         xs.append(float(evaluations))
         objectives.append(max(float(best), 1e-12))
-        merits.append(float(merit))
-        if task not in self._curves:
-            color = PALETTE[len(self._curves) % len(PALETTE)]
-            pen = pg.mkPen(color, width=2)
-            self._curves[task] = (
-                self.objective_plot.plot(pen=pen, name=task),
-                self.merit_plot.plot(pen=pen),
+        if task not in self._objective_curves:
+            pen = pg.mkPen(self._color(task), width=2)
+            self._objective_curves[task] = self.objective_plot.plot(pen=pen, name=task)
+        self._objective_curves[task].setData(xs, objectives)
+        values = dict(quantities) if quantities else {self.MERIT_LABEL: float(merit)}
+        for label, value in values.items():
+            self._add_quantity_point(task, label, float(evaluations), value)
+
+    def _color(self, task: str) -> Any:
+        return PALETTE[list(self._data).index(task) % len(PALETTE)]
+
+    def _add_quantity_point(self, task: str, label: str, x: float, value: float) -> None:
+        if label not in self._quantities:
+            self._quantities.append(label)
+            style = self._STYLES[(len(self._quantities) - 1) % len(self._STYLES)]
+            self.merit_plot.legend.addItem(
+                pg.PlotDataItem(pen=pg.mkPen(COLORS["text_muted"], width=2, style=style)), label
             )
-        objective_curve, merit_curve = self._curves[task]
-        objective_curve.setData(xs, objectives)
-        merit_x = [x for x, m in zip(xs, merits, strict=True) if np.isfinite(m)]
-        merit_y = [m for m in merits if np.isfinite(m)]
-        merit_curve.setData(merit_x, merit_y)
+            self._update_merit_label()
+        key = (task, label)
+        xs, ys = self._quantity_data.setdefault(key, ([], []))
+        if not np.isfinite(value):
+            return
+        xs.append(x)
+        ys.append(value)
+        if key not in self._quantity_curves:
+            style = self._STYLES[self._quantities.index(label) % len(self._STYLES)]
+            pen = pg.mkPen(self._color(task), width=2, style=style)
+            self._quantity_curves[key] = self.merit_plot.plot(pen=pen)
+        self._quantity_curves[key].setData(xs, ys)
+
+    def _update_merit_label(self) -> None:
+        if len(self._quantities) == 1:
+            label = f"{self._quantities[0][0].upper()}{self._quantities[0][1:]} of best design"
+        else:
+            label = "Best design"
+        self.merit_plot.setLabel("left", label)
+        if self.merit_plot.legend is not None:
+            self.merit_plot.legend.setVisible(len(self._quantities) > 1)
 
     def tasks(self) -> tuple[str, ...]:
         """Return the names of the tasks shown."""
         return tuple(self._data)
+
+    def quantities(self) -> tuple[str, ...]:
+        """Return the labels of the quantities shown in the lower panel."""
+        return tuple(self._quantities)
 
 
 class DesignMapPlot(QWidget):

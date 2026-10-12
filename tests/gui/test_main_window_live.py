@@ -66,7 +66,7 @@ def test_page_error_shown_in_status_bar(window: MainWindow) -> None:
 def test_page_command_updates_project(qtbot: QtBot, window: MainWindow) -> None:
     wait_for_preview(qtbot, window)
     page = window.goal_page
-    edit = page.table.cellWidget(0, 3)
+    edit = page.table.cellWidget(0, 4)
     assert isinstance(edit, QLineEdit)
     edit.setText("8.4")
     edit.editingFinished.emit()

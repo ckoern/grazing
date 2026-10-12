@@ -53,6 +53,20 @@ class WeightedSum(FigureOfMerit):
         """
         return np.concatenate([np.sqrt(w) * m.residuals(ctx) for m, w in self.terms])
 
+    def quantities(self, ctx: EvaluationContext) -> dict[str, float]:
+        """Return the quantities of all terms (a quantity shared by terms appears once).
+
+        Args:
+            ctx: The evaluation context.
+
+        Returns:
+            Values by label, in the order of the terms.
+        """
+        result: dict[str, float] = {}
+        for merit, _ in self.terms:
+            result.update(merit.quantities(ctx))
+        return result
+
 
 @register_merit
 @dataclass(frozen=True)
@@ -115,3 +129,14 @@ class TimePenalized(FigureOfMerit):
         """
         time = np.sqrt(self.weight * self._time_term(ctx))
         return np.concatenate([np.sqrt(1.0 - self.weight) * self.merit.residuals(ctx), [time]])
+
+    def quantities(self, ctx: EvaluationContext) -> dict[str, float]:
+        """Return the quantities of the optical figure of merit F.
+
+        Args:
+            ctx: The evaluation context.
+
+        Returns:
+            Values by label.
+        """
+        return self.merit.quantities(ctx)

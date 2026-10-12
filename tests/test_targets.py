@@ -300,3 +300,12 @@ class TestReflections:
         one = model.evaluate(stack, angle_scan(points=7, reflections=1))
         two = model.evaluate(stack, angle_scan(points=7, reflections=2))
         np.testing.assert_allclose(two.reflectivity, one.reflectivity**2, rtol=1e-12)
+
+
+class TestLabel:
+    def test_named_target_returns_name(self) -> None:
+        assert energy_scan(name="Cu K").label(3) == "Cu K"
+
+    def test_unnamed_target_is_numbered_from_one(self) -> None:
+        assert energy_scan().label(0) == "target 1"
+        assert angle_scan().label(4) == "target 5"

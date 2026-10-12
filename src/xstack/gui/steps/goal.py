@@ -27,8 +27,8 @@ from xstack.targets import AngleScan, EnergyScan, Target, TargetSet
 
 __all__ = ["GoalPage"]
 
-_COLUMNS = ("Scan", "Fixed", "From", "To", "Points", "Weight", "Polarization", "Refl.")
-_SCAN, _FIXED, _FROM, _TO, _POINTS, _WEIGHT, _POL, _REFL = range(len(_COLUMNS))
+_COLUMNS = ("Name", "Scan", "Fixed", "From", "To", "Points", "Weight", "Polarization", "Refl.")
+_NAME, _SCAN, _FIXED, _FROM, _TO, _POINTS, _WEIGHT, _POL, _REFL = range(len(_COLUMNS))
 _COLUMN_WIDTHS = {
     _FIXED: 86,
     _FROM: 86,
@@ -38,7 +38,7 @@ _COLUMN_WIDTHS = {
     _POL: 132,
     _REFL: 58,
 }
-"""Fixed widths in px of the compact columns; the scan-type column takes the rest."""
+"""Fixed widths in px of the compact columns; the name and scan-type columns share the rest."""
 _FIXED_ANGLE = "Fixed angle"
 _FIXED_ENERGY = "Fixed energy"
 _KINDS = (_FIXED_ANGLE, _FIXED_ENERGY)
@@ -82,7 +82,7 @@ class GoalPage(StepPage):
     """Table of targets (fixed-angle or fixed-energy scans) and the combine mode.
 
     Energies are shown in keV and angles in degrees. Settings of a target that are not in the
-    table (profile, spectrum, resolution, name) are kept when the row is edited. Edits are
+    table (profile, spectrum, resolution) are kept when the row is edited. Edits are
     applied when a field is finished, a selection changes or a spin box value changes.
 
     Args:
@@ -103,7 +103,9 @@ class GoalPage(StepPage):
         "A <b>target</b> describes where the mirror shall reflect. It is either a "
         "<i>fixed-angle</i> target (an energy range at one grazing angle) or a "
         "<i>fixed-energy</i> target (an angle range at one photon energy); energies are in keV "
-        "and angles in degrees. Each target has a <b>weight</b> relative to the others, a "
+        "and angles in degrees. An optional <b>name</b> labels the target in plots and "
+        "exported files (unnamed targets are called “target 1”, “target 2”, …). "
+        "Each target has a <b>weight</b> relative to the others, a "
         "<b>polarization</b> (unpolarized, s or p) and a number of <b>reflections</b> n, so "
         "that its reflectivity is R<sup>n</sup>, e.g. 2 for a double-reflection telescope. "
         "The targets define the energies and angles on which the design is evaluated in the "
@@ -123,6 +125,7 @@ class GoalPage(StepPage):
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft)
         header.setStretchLastSection(False)
         header.setMinimumSectionSize(40)
+        header.setSectionResizeMode(_NAME, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(_SCAN, QHeaderView.ResizeMode.Stretch)
         for column, width in _COLUMN_WIDTHS.items():
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
@@ -223,6 +226,15 @@ class GoalPage(StepPage):
         self.table.setRowCount(len(targets))
         for row, target in enumerate(targets):
             kind, fixed, lo, hi = _row_values(target)
+            self.table.setCellWidget(
+                row,
+                _NAME,
+                self._line_edit(
+                    target.name,
+                    target.label(row),
+                    "Name of the target in plots and exported files (optional)",
+                ),
+            )
             scan = QComboBox()
             scan.setSizeAdjustPolicy(
                 QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
@@ -309,6 +321,7 @@ class GoalPage(StepPage):
         ):
             raise ValueError("table row is incomplete")
         common = {
+            "name": self._text(row, _NAME).strip(),
             "points": int(self._number(row, _POINTS)),
             "weight": self._number(row, _WEIGHT, 1.0, previous.weight if previous else None),
             "polarization": pol.currentText(),

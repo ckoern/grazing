@@ -4,7 +4,14 @@ import numpy as np
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.gui.plots import Curve, LayerProfilePlot, ReflectivityPlot, bilayer_profile, scan_axis
+from xstack.gui.plots import (
+    ConvergencePlot,
+    Curve,
+    LayerProfilePlot,
+    ReflectivityPlot,
+    bilayer_profile,
+    scan_axis,
+)
 from xstack.materials import get
 from xstack.project.templates import new_state
 from xstack.structure.coating import Mirror
@@ -122,3 +129,64 @@ def test_layer_profile_plot(qtbot: QtBot) -> None:
         assert state.mirror is not None
         plot.set_stack(state.mirror.stack())
     plot.set_stack(None)
+
+
+def test_convergence_plot_single_quantity(qtbot: QtBot) -> None:
+    plot = ConvergencePlot()
+    qtbot.addWidget(plot)
+    for task in ("global", "refine"):
+        plot.add_point(task, 1, 0.5, 0.4, {"mean reflectivity": 0.6})
+        plot.add_point(task, 2, 0.4, 0.3, {"mean reflectivity": 0.7})
+    assert plot.quantities() == ("mean reflectivity",)
+    assert len(plot.merit_plot.listDataItems()) == 2
+    assert plot.merit_plot.getAxis("left").labelText == "Mean reflectivity of best design"
+    assert not plot.merit_plot.legend.isVisible()
+
+
+def test_convergence_plot_two_quantities(qtbot: QtBot) -> None:
+    plot = ConvergencePlot()
+    qtbot.addWidget(plot)
+    plot.show()
+    plot.add_point("t", 1, 0.5, 0.4, {"mean reflectivity": 0.6, "peak reflectivity": 0.9})
+    plot.add_point("t", 2, 0.4, 0.3, {"mean reflectivity": 0.7, "peak reflectivity": 0.95})
+    plot.add_point("u", 1, 0.5, 0.4, {"mean reflectivity": 0.6, "peak reflectivity": 0.9})
+    assert plot.quantities() == ("mean reflectivity", "peak reflectivity")
+    assert len(plot.merit_plot.listDataItems()) == 4
+    assert plot.merit_plot.getAxis("left").labelText == "Best design"
+    assert plot.merit_plot.legend.isVisible()
+    styles = {item.opts["pen"].style() for item in plot.merit_plot.listDataItems()}
+    assert len(styles) == 2
+
+
+def test_convergence_plot_fallback_without_quantities(qtbot: QtBot) -> None:
+    plot = ConvergencePlot()
+    qtbot.addWidget(plot)
+    plot.add_point("t", 1, 0.5, 0.4)
+    assert plot.quantities() == (ConvergencePlot.MERIT_LABEL,)
+    assert len(plot.merit_plot.listDataItems()) == 1
+
+
+def test_convergence_plot_skips_nan_quantities(qtbot: QtBot) -> None:
+    plot = ConvergencePlot()
+    qtbot.addWidget(plot)
+    plot.add_point("t", 1, 0.5, quantities={"q": 0.1})
+    plot.add_point("t", 2, 0.4, quantities={"q": float("nan")})
+    plot.add_point("t", 3, 0.3, quantities={"q": 0.3})
+    (item,) = plot.merit_plot.listDataItems()
+    np.testing.assert_allclose(item.xData, [1.0, 3.0])
+    np.testing.assert_allclose(item.yData, [0.1, 0.3])
+
+
+def test_convergence_plot_clear_resets_everything(qtbot: QtBot) -> None:
+    plot = ConvergencePlot()
+    qtbot.addWidget(plot)
+    plot.add_point("t", 1, 0.5, quantities={"a": 0.1, "b": 0.2})
+    plot.clear()
+    assert plot.tasks() == ()
+    assert plot.quantities() == ()
+    assert plot.objective_plot.listDataItems() == []
+    assert plot.merit_plot.listDataItems() == []
+    assert plot.merit_plot.getAxis("left").labelText == "Best design"
+    plot.add_point("t", 1, 0.5, quantities={"a": 0.1})
+    assert plot.quantities() == ("a",)
+    assert plot.merit_plot.getAxis("left").labelText == "A of best design"

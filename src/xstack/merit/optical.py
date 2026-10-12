@@ -26,6 +26,18 @@ class MeanReflectivity(CurveMerit):
     """
 
     type_name: ClassVar[str] = "mean_reflectivity"
+    quantity_label: ClassVar[str | None] = "mean reflectivity"
+
+    def curve_quantity(self, curve: Curve) -> float:
+        """Return the weighted mean reflectivity ⟨R⟩.
+
+        Args:
+            curve: The curve.
+
+        Returns:
+            The quantity.
+        """
+        return curve.mean()
 
     def curve_value(self, curve: Curve) -> float:
         """Return 1 − mean reflectivity of one curve.
@@ -63,6 +75,7 @@ class SoftMinReflectivity(CurveMerit):
     """
 
     type_name: ClassVar[str] = "soft_min_reflectivity"
+    quantity_label: ClassVar[str | None] = "minimum reflectivity"
     softness: float = 0.01
 
     def __post_init__(self) -> None:
@@ -75,6 +88,17 @@ class SoftMinReflectivity(CurveMerit):
         e = curve.weights * np.exp(z - shift)
         total = e.sum()
         return float(-self.softness * (np.log(total) + shift)), e / total
+
+    def curve_quantity(self, curve: Curve) -> float:
+        """Return the minimum reflectivity.
+
+        Args:
+            curve: The curve.
+
+        Returns:
+            The quantity.
+        """
+        return float(curve.reflectivity.min())
 
     def curve_value(self, curve: Curve) -> float:
         """Return 1 − soft minimum of the reflectivity of one curve.
@@ -113,6 +137,7 @@ class ProfileDeviation(CurveMerit):
     """
 
     type_name: ClassVar[str] = "profile_deviation"
+    quantity_label: ClassVar[str | None] = "RMS deviation from profile"
     mode: Literal["two_sided", "below"] = "two_sided"
 
     def __post_init__(self) -> None:
@@ -124,6 +149,17 @@ class ProfileDeviation(CurveMerit):
             raise ValueError("ProfileDeviation requires targets with a profile")
         diff = curve.reflectivity - curve.profile
         return np.minimum(diff, 0.0) if self.mode == "below" else diff
+
+    def curve_quantity(self, curve: Curve) -> float:
+        """Return the weighted RMS deviation from the profile.
+
+        Args:
+            curve: The curve.
+
+        Returns:
+            The quantity.
+        """
+        return self.curve_value(curve)
 
     def curve_value(self, curve: Curve) -> float:
         """Return the weighted RMS deviation from the profile.
@@ -164,6 +200,18 @@ class Flatness(CurveMerit):
     """
 
     type_name: ClassVar[str] = "flatness"
+    quantity_label: ClassVar[str | None] = "relative standard deviation"
+
+    def curve_quantity(self, curve: Curve) -> float:
+        """Return the relative standard deviation of the reflectivity.
+
+        Args:
+            curve: The curve.
+
+        Returns:
+            The quantity.
+        """
+        return self.curve_value(curve)
 
     def curve_value(self, curve: Curve) -> float:
         """Return the relative standard deviation of the reflectivity.
@@ -198,6 +246,18 @@ class PeakReflectivity(CurveMerit):
     """
 
     type_name: ClassVar[str] = "peak_reflectivity"
+    quantity_label: ClassVar[str | None] = "peak reflectivity"
+
+    def curve_quantity(self, curve: Curve) -> float:
+        """Return the maximum reflectivity.
+
+        Args:
+            curve: The curve.
+
+        Returns:
+            The quantity.
+        """
+        return float(curve.reflectivity.max())
 
     def curve_value(self, curve: Curve) -> float:
         """Return 1 − the maximum reflectivity.

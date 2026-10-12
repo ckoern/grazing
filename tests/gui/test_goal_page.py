@@ -74,11 +74,11 @@ def test_help_text_present() -> None:
 def test_shows_values_and_scan_names(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot, new_state("periodic"))
     assert page.table.rowCount() == 1
-    assert combo_at(page, 0, 0).currentText() == "Fixed angle"
-    assert [edit_at(page, 0, c).text() for c in (1, 2, 3)] == ["1.1", "7.9", "8.2"]
+    assert combo_at(page, 0, 1).currentText() == "Fixed angle"
+    assert [edit_at(page, 0, c).text() for c in (2, 3, 4)] == ["1.1", "7.9", "8.2"]
     angle, _ = make_page(qtbot, new_state("single_layer"))
-    assert combo_at(angle, 0, 0).currentText() == "Fixed energy"
-    assert edit_at(angle, 0, 1).text() == "8.048"
+    assert combo_at(angle, 0, 1).currentText() == "Fixed energy"
+    assert edit_at(angle, 0, 2).text() == "8.048"
 
 
 def test_no_units_column_and_compact_style(qtbot: QtBot) -> None:
@@ -95,15 +95,15 @@ def test_no_units_column_and_compact_style(qtbot: QtBot) -> None:
 
 def test_placeholders_per_scan_type(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot, new_state("periodic"))
-    assert [edit_at(page, 0, c).placeholderText() for c in (1, 2, 3)] == [
+    assert [edit_at(page, 0, c).placeholderText() for c in (2, 3, 4)] == [
         "angle (deg)",
         "min energy (keV)",
         "max energy (keV)",
     ]
-    assert edit_at(page, 0, 4).placeholderText() == "points"
-    assert edit_at(page, 0, 5).placeholderText() == "weight"
+    assert edit_at(page, 0, 5).placeholderText() == "points"
+    assert edit_at(page, 0, 6).placeholderText() == "weight"
     angle, _ = make_page(qtbot, new_state("single_layer"))
-    assert [edit_at(angle, 0, c).placeholderText() for c in (1, 2, 3)] == [
+    assert [edit_at(angle, 0, c).placeholderText() for c in (2, 3, 4)] == [
         "energy (keV)",
         "min angle (deg)",
         "max angle (deg)",
@@ -112,8 +112,8 @@ def test_placeholders_per_scan_type(qtbot: QtBot) -> None:
 
 def test_placeholders_follow_scan_type_change(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot, new_state("periodic"))
-    choose(combo_at(page, 0, 0), "Fixed energy")
-    assert edit_at(page, 0, 1).placeholderText() == "energy (keV)"
+    choose(combo_at(page, 0, 1), "Fixed energy")
+    assert edit_at(page, 0, 2).placeholderText() == "energy (keV)"
 
 
 def test_tooltips_present(qtbot: QtBot) -> None:
@@ -129,7 +129,7 @@ def test_tooltips_present(qtbot: QtBot) -> None:
 def test_edit_to_converts_and_preserves(qtbot: QtBot) -> None:
     state = new_state("periodic").evolve(targets=TargetSet(energy_target()))
     page, rec = make_page(qtbot, state)
-    finish_edit(edit_at(page, 0, 3), "8.5")
+    finish_edit(edit_at(page, 0, 4), "8.5")
     new = rec.applied(state).targets
     assert new is not None
     target = new.targets[0]
@@ -144,7 +144,7 @@ def test_edit_to_converts_and_preserves(qtbot: QtBot) -> None:
 def test_unchanged_edit_emits_nothing(qtbot: QtBot) -> None:
     state = new_state("periodic").evolve(targets=TargetSet(energy_target()))
     page, rec = make_page(qtbot, state)
-    for column in (1, 2, 3, 4, 5):
+    for column in (0, 2, 3, 4, 5, 6):
         edit_at(page, 0, column).editingFinished.emit()
     assert not rec.commands
 
@@ -152,7 +152,7 @@ def test_unchanged_edit_emits_nothing(qtbot: QtBot) -> None:
 def test_reflections_column(qtbot: QtBot) -> None:
     state = new_state("periodic").evolve(targets=TargetSet(energy_target()))
     page, rec = make_page(qtbot, state)
-    spin = page.table.cellWidget(0, 7)
+    spin = page.table.cellWidget(0, 8)
     assert isinstance(spin, QSpinBox)
     assert (spin.minimum(), spin.maximum(), spin.value()) == (1, 4, 1)
     assert "R²" in spin.toolTip()
@@ -166,7 +166,7 @@ def test_reflections_column(qtbot: QtBot) -> None:
 def test_scan_type_to_angle(qtbot: QtBot) -> None:
     state = new_state("periodic")
     page, rec = make_page(qtbot, state)
-    choose(combo_at(page, 0, 0), "Fixed energy")
+    choose(combo_at(page, 0, 1), "Fixed energy")
     targets = rec.applied(state).targets
     assert targets is not None
     target = targets.targets[0]
@@ -177,10 +177,10 @@ def test_scan_type_to_angle(qtbot: QtBot) -> None:
 
 def test_invalid_text(qtbot: QtBot) -> None:
     page, rec = make_page(qtbot, new_state("periodic"))
-    finish_edit(edit_at(page, 0, 3), "abc")
+    finish_edit(edit_at(page, 0, 4), "abc")
     assert not rec.commands
     assert len(rec.errors) == 1
-    assert edit_at(page, 0, 3).text() == "8.2"
+    assert edit_at(page, 0, 4).text() == "8.2"
 
 
 def test_add_scans_and_remove(qtbot: QtBot) -> None:
@@ -201,7 +201,7 @@ def test_add_scans_and_remove(qtbot: QtBot) -> None:
 
     page.set_state(added)
     rec.commands.clear()
-    page.table.setCurrentCell(1, 1)
+    page.table.setCurrentCell(1, 2)
     page.remove.click()
     removed = rec.applied(added).targets
     assert removed is not None
@@ -255,3 +255,42 @@ def test_table_fits_without_horizontal_scrolling(qtbot: QtBot) -> None:
     assert total <= table.viewport().width()
     assert table.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     window.controller.undo_stack.setClean()
+
+
+def test_name_column_shows_name_and_placeholder(qtbot: QtBot) -> None:
+    state = new_state("periodic").evolve(
+        targets=TargetSet(
+            (energy_target(), EnergyScan(angle=0.01, energy_min=1e3, energy_max=2e3)),
+            combine="average_merit",
+        )
+    )
+    page, _ = make_page(qtbot, state)
+    assert page.table.horizontalHeaderItem(0).text() == "Name"
+    assert edit_at(page, 0, 0).text() == "mine"
+    assert edit_at(page, 0, 0).placeholderText() == "mine"
+    assert edit_at(page, 1, 0).text() == ""
+    assert edit_at(page, 1, 0).placeholderText() == "target 2"
+
+
+def test_name_edit_sets_name_and_preserves_settings(qtbot: QtBot) -> None:
+    state = new_state("periodic").evolve(targets=TargetSet(energy_target()))
+    page, rec = make_page(qtbot, state)
+    finish_edit(edit_at(page, 0, 0), "  Cu K  ")
+    new = rec.applied(state).targets
+    assert new is not None
+    target = new.targets[0]
+    assert isinstance(target, EnergyScan)
+    assert target.name == "Cu K"
+    assert target.resolution == 2.5
+    assert target.energy_min == pytest.approx(7900.0)
+    assert target.energy_max == pytest.approx(8200.0)
+    assert target.angle == pytest.approx(1.1 * DEG)
+
+
+def test_clearing_name(qtbot: QtBot) -> None:
+    state = new_state("periodic").evolve(targets=TargetSet(energy_target()))
+    page, rec = make_page(qtbot, state)
+    finish_edit(edit_at(page, 0, 0), "")
+    new = rec.applied(state).targets
+    assert new is not None
+    assert new.targets[0].name == ""

@@ -312,6 +312,7 @@ class FigureOfMerit(ABC):
     type_name: ClassVar[str]
     def scalar(self, ctx: EvaluationContext) -> float: ...           # lower = better
     def residuals(self, ctx: EvaluationContext) -> NDArray[np.float64]: ...  # for least squares
+    def quantities(self, ctx: EvaluationContext) -> dict[str, float]: ...    # rated values, for display
 
 @dataclass(frozen=True)
 class EvaluationContext:

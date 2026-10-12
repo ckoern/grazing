@@ -57,7 +57,7 @@ def set_range(window: MainWindow, axis: str, low: str, high: str) -> None:
 
 
 def item_names(window: MainWindow) -> list[str]:
-    return [window.candidate_list.item(i).text() for i in range(window.candidate_list.count())]
+    return [window.candidate_list.item(i).text() for i in range(1, window.candidate_list.count())]
 
 
 # Navigation
@@ -177,7 +177,7 @@ def test_store_select_and_details(qtbot: QtBot, window: MainWindow) -> None:
     assert [c.name for c in state.candidates] == ["mine"]
     assert state.candidates[0].mirror == state.mirror
     assert state.selected is None
-    window.candidate_list.setCurrentRow(0)
+    window.candidate_list.setCurrentRow(1)
     assert window.controller.state.selected == "mine"
     assert "mine" in window.candidate_details.text()
     window.controller.undo_stack.setClean()
@@ -187,19 +187,19 @@ def test_selected_candidate_overlay_is_automatic(qtbot: QtBot, window: MainWindo
     wait_for_preview(qtbot, window)
     window.store_candidate("mine")
     first = window.preview
-    window.candidate_list.setCurrentRow(0)
+    window.candidate_list.setCurrentRow(1)
     wait_for_preview(qtbot, window, first)
     assert window.preview is not None
     assert [n for n, _ in window.preview.overlays] == ["mine"]
     assert window.overlays == []
-    assert window.candidate_list.item(0).checkState() == Qt.CheckState.Unchecked
+    assert window.candidate_list.item(1).checkState() == Qt.CheckState.Unchecked
     window.controller.undo_stack.setClean()
 
 
 def test_rename_candidate_keeps_selection(qtbot: QtBot, window: MainWindow) -> None:
     window.store_candidate("mine")
-    window.candidate_list.setCurrentRow(0)
-    window.candidate_list.item(0).setText("renamed")
+    window.candidate_list.setCurrentRow(1)
+    window.candidate_list.item(1).setText("renamed")
     state = window.controller.state
     assert [c.name for c in state.candidates] == ["renamed"]
     assert state.selected == "renamed"
@@ -212,7 +212,7 @@ def test_rename_candidate_keeps_selection(qtbot: QtBot, window: MainWindow) -> N
 def test_rename_to_existing_name_is_rejected(qtbot: QtBot, window: MainWindow) -> None:
     window.store_candidate("one")
     window.store_candidate("two")
-    window.candidate_list.item(1).setText("one")
+    window.candidate_list.item(2).setText("one")
     assert [c.name for c in window.controller.state.candidates] == ["one", "two"]
     assert item_names(window) == ["one", "two"]
     window.controller.undo_stack.setClean()
@@ -222,7 +222,7 @@ def test_use_as_start_copies_candidate(qtbot: QtBot, window: MainWindow) -> None
     window.store_candidate("mine")
     set_d(window, 4.5)
     assert d_value(window) == pytest.approx(4.5)
-    window.candidate_list.setCurrentRow(0)
+    window.candidate_list.setCurrentRow(1)
     window.use_button.click()
     assert d_value(window) == pytest.approx(4.0)
     assert window.controller.state.mirror == window.controller.state.candidates[0].mirror
@@ -231,13 +231,16 @@ def test_use_as_start_copies_candidate(qtbot: QtBot, window: MainWindow) -> None
 
 def test_delete_clears_selection(qtbot: QtBot, window: MainWindow) -> None:
     window.store_candidate("mine")
-    window.candidate_list.setCurrentRow(0)
+    window.candidate_list.setCurrentRow(1)
     assert window.controller.state.selected == "mine"
     window.delete_button.click()
     state = window.controller.state
     assert state.candidates == ()
     assert state.selected is None
-    assert window.candidate_list.count() == 0
+    assert window.candidate_list.count() == 1
+    current = window.candidate_list.currentItem()
+    assert current is not None
+    assert current.data(Qt.ItemDataRole.UserRole) is None
     window.controller.undo_stack.setClean()
 
 
@@ -279,10 +282,12 @@ def test_live_best_curves_during_job(qtbot: QtBot, window: MainWindow) -> None:
         best_values={"d": 4.2},
         elapsed=0.1,
         best_merit=0.4,
+        best_quantities={"mean reflectivity": 0.6},
     )
     window._job_progress(event)
     qtbot.waitUntil(lambda: bool(window.live_curves), timeout=10000)
     assert "stage one" in window.convergence_plot.tasks()
+    assert window.convergence_plot.quantities() == ("mean reflectivity",)
     items = window.reflectivity_plot.plot_items()["energy"].listDataItems()
     assert len(items) >= 2
     window.stop_action.trigger()
@@ -327,7 +332,7 @@ def test_analyze_selected_candidate_export(
 
     window.store_candidate("mine")
     set_d(window, 4.5)
-    window.candidate_list.setCurrentRow(0)
+    window.candidate_list.setCurrentRow(1)
     assert "mine" in page.design_combo.itemText(1)
     candidate = window.controller.state.candidates[0]
     assert page.design() == candidate.mirror

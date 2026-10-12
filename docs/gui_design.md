@@ -56,12 +56,18 @@ Journal and History docks).
 
 ### 2.1 Left dock: Candidates
 
-The list shows the stored designs.
+The list shows the input design (first entry, in italics) and the stored designs.
 
+- Click the input design entry to deselect all candidates.
 - Click a candidate to select it. The selected candidate is shown and analyzed next to the input design
   (selection is a command, so it is undoable).
 - Check a candidate to overlay it in the reflectivity plot.
 - Double-click to rename it.
+- The context menu (right-click) offers *Use as start design*, *Rename*, *Show parameters…*, *Export
+  reflectivity…* and *Delete*. *Export reflectivity…* also works for the input design entry. It writes a
+  CSV file with the reflectivity of that design over the plot range of every target. The file has one row
+  per grid point and the columns `target`, `axis`, `reflections` (N), `energy_keV`, `angle_deg`,
+  `reflectivity` (one reflection) and `reflectivity^N` (N reflections).
 - **Store input…** stores the input design under a name you enter.
 - **Use as start** copies the selected candidate into the input design.
 - **Delete** removes the selected candidate.
@@ -79,8 +85,9 @@ with the explanation of the step, the page in a scroll area, and **← Back** an
 buttons (the first step has no Back, the last has no Next). The primary action of each step is the
 primary button variant.
 
-- **Goal**: table of targets with the columns Scan, Fixed, From, To, Points, Weight, Polarization,
-  Reflections. Scan is either *Fixed angle (energy range)* or *Fixed energy (angle range)*. Energies are
+- **Goal**: table of targets with the columns Name, Scan, Fixed, From, To, Points, Weight,
+  Polarization, Reflections. Name is optional; unnamed targets are labeled “target 1”, “target 2”, …
+  in plots and exported files. Scan is either *Fixed angle (energy range)* or *Fixed energy (angle range)*. Energies are
   in keV and angles in degrees. Polarization is unpolarized, s, or p. Reflections is n in Rⁿ. Buttons:
   *Add fixed-angle target*, *Add fixed-energy target*, *Remove*. **Combine targets** selects
   *Average reflectivity* (curves averaged, one figure of merit) or *Average figure of merit* (one figure
@@ -90,7 +97,8 @@ primary button variant.
   for the materials in use.
 - **Coating**: coating type (Periodic multilayer, Depth-graded multilayer, Single layer, Layer stack (N
   layers)); top layer of each bilayer (absorber H or spacer L); grading law for depth-graded coatings; a
-  cap bilayer with its own period and Γ; substrate roughness. The N-layer stack has a layer table with
+  cap bilayer with its own period and Γ; *Same Γ for all graded bilayers* (ties `gamma_bottom` to
+  `gamma_top` by an expression; unchecked, Γ changes linearly with depth); substrate roughness. The N-layer stack has a layer table with
   *Add layer* and *Remove layer*. Below is the parameter table: columns Parameter, Value, Unit, Vary, Min,
   Max, Expression, Description. A parameter with *Vary* checked is explored between Min and Max; an
   expression computes it from other parameters.
@@ -154,7 +162,7 @@ primary button variant.
 | Layer profile | *Show:* input design or selected candidate. Thickness of each layer by index, bars colored by material. For designs with bilayers, the period d and Γ per bilayer. |
 | Parameters | Coating parameters of the selected candidate compared with the input design. Columns Parameter, Unit, Input, Selected, Change; free parameters are marked, differing values are bold. A summary gives the figure of merit, objective, coating time and structure of both designs. *Use as start design* sets the input design to the candidate; *Copy selected value to input* sets one parameter of the input design (bounds are widened if needed). |
 | Design map | Result of the design-space scan: the figure of merit over one or two parameters. Infeasible points are grey. Clicking a cell sets the start values of the input design. |
-| Convergence | Two panels for the current or last run: best objective (FOM plus penalties, log scale) and figure of merit of the best design, against evaluations, one trace per stage. |
+| Convergence | Two panels for the current or last run: best objective (FOM plus penalties, log scale), and the quantities the figure of merit rates for the best design (e.g. mean reflectivity; both quantities for a combination of two figures of merit, distinguished by line style; the figure of merit itself if it defines none), against evaluations, one color per stage. |
 | Tolerance | Histogram of the figure of merit over all samples, with the nominal value and dashed 10 % and 90 % lines. Below it, the reflectivity of all Monte Carlo samples is overlaid as semi-transparent lines (at most 200), with the nominal curve and a 10–90 % band. |
 
 ### 2.4 Bottom docks
@@ -208,6 +216,7 @@ src/xstack/gui/
   controller.py          # ProjectController (owns Project and QUndoStack), CommandAdapter
   main_window.py         # MainWindow: docks, splitter, workflow and plot tabs, actions, menus, settings
   forms.py               # DataclassForm: editor generated from dataclass fields
+  files.py               # ask_save_path, with_suffix: save dialogs that append the file extension
   plots.py               # pyqtgraph widgets: ReflectivityPlot, LayerProfilePlot, DesignMapPlot,
                          #   ConvergencePlot; scan_axis, bilayer_profile
   preview.py             # compute_preview, compute_curves: calculations for the live views
@@ -219,7 +228,7 @@ src/xstack/gui/
     base.py              # StepPage: base of all pages, signals and set_state/set_preview
     goal.py              # GoalPage
     materials.py         # MaterialsPage, MaterialDialog
-    coating.py           # CoatingPage, convert_coating
+    coating.py           # CoatingPage, convert_coating, has_constant_gamma, set_constant_gamma
     estimate.py          # EstimatePage: Bragg-law estimates (plain and refraction-corrected)
     constraints.py       # ConstraintsPage
     process.py           # ProcessPage

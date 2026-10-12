@@ -405,3 +405,63 @@ class TestRegistry:
             MeanReflectivity().type_name = "x"  # type: ignore[misc]
         with pytest.raises(dataclasses.FrozenInstanceError):
             SoftMinReflectivity().softness = 1.0  # type: ignore[misc]
+
+
+class TestQuantities:
+    def test_base_default_is_empty(self) -> None:
+        assert CallableMerit(lambda ctx: 4.0).quantities(single()) == {}
+
+    def test_mean_reflectivity(self) -> None:
+        q = MeanReflectivity().quantities(single(R1))
+        assert q == {"mean reflectivity": pytest.approx(float(np.dot(W_TRAPEZOID, R1)))}
+
+    def test_soft_min_is_minimum(self) -> None:
+        assert SoftMinReflectivity().quantities(single(R1)) == {
+            "minimum reflectivity": pytest.approx(0.2)
+        }
+
+    def test_peak(self) -> None:
+        assert PeakReflectivity().quantities(single(R1)) == {
+            "peak reflectivity": pytest.approx(1.0)
+        }
+
+    def test_profile_deviation_equals_value(self) -> None:
+        ctx = single(R1, profile=Profile.constant(0.5))
+        merit = ProfileDeviation()
+        assert merit.quantities(ctx) == {
+            "RMS deviation from profile": pytest.approx(merit.scalar(ctx))
+        }
+
+    def test_flatness_equals_value(self) -> None:
+        ctx = single(R1)
+        assert Flatness().quantities(ctx) == {
+            "relative standard deviation": pytest.approx(Flatness().scalar(ctx))
+        }
+
+    def test_average_merit_with_weights(self) -> None:
+        ctx = context([scan(1.0), scan(3.0)], [R1, R2], combine="average_merit")
+        mean1 = float(np.dot(W_TRAPEZOID, R1))
+        mean2 = float(np.dot(W_TRAPEZOID, R2))
+        expected = 0.25 * mean1 + 0.75 * mean2
+        assert MeanReflectivity().quantities(ctx)["mean reflectivity"] == pytest.approx(expected)
+        assert PeakReflectivity().quantities(ctx)["peak reflectivity"] == pytest.approx(
+            0.25 * 1.0 + 0.75 * 1.0
+        )
+        assert SoftMinReflectivity().quantities(ctx)["minimum reflectivity"] == pytest.approx(
+            0.25 * 0.2 + 0.75 * 0.0, abs=1e-6
+        )
+
+    def test_weighted_sum_merges_in_order(self) -> None:
+        ws = WeightedSum(((PeakReflectivity(), 1.0), (MeanReflectivity(), 2.0)))
+        q = ws.quantities(single(R1))
+        assert list(q) == ["peak reflectivity", "mean reflectivity"]
+
+    def test_weighted_sum_skips_terms_without_quantities(self) -> None:
+        ws = WeightedSum(((CallableMerit(lambda ctx: 1.0), 1.0), (MeanReflectivity(), 1.0)))
+        assert list(ws.quantities(single(R1))) == ["mean reflectivity"]
+
+    def test_time_penalized_delegates(self) -> None:
+        inner = PeakReflectivity()
+        merit = TimePenalized(inner, weight=0.5, reference_time=100.0)
+        ctx = context([scan()], [R1], coating_time=50.0)
+        assert merit.quantities(ctx) == inner.quantities(ctx)

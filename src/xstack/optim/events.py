@@ -2,7 +2,7 @@
 
 import threading
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 __all__ = ["CancellationToken", "EventSink", "ProgressEvent"]
 
@@ -21,6 +21,8 @@ class ProgressEvent:
         elapsed: Elapsed time in s.
         best_merit: Figure of merit (without penalties) of the best design so far; ``nan`` if
             that design could not be built.
+        best_quantities: Quantities rated by the figure of merit for the best design so far,
+            by label (see `xstack.merit.FigureOfMerit.quantities`).
     """
 
     task: str
@@ -31,6 +33,7 @@ class ProgressEvent:
     best_values: Mapping[str, float]
     elapsed: float
     best_merit: float = float("nan")
+    best_quantities: Mapping[str, float] = field(default_factory=dict)
 
 
 type EventSink = Callable[[ProgressEvent], None]

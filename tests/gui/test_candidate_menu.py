@@ -44,8 +44,8 @@ def test_candidate_list_allows_extended_selection(stored: MainWindow) -> None:
 def test_selected_candidates_and_bulk_delete(stored: MainWindow) -> None:
     window = stored
     count = window.controller.undo_stack.count()
-    window.candidate_list.item(0).setSelected(True)
-    window.candidate_list.item(2).setSelected(True)
+    window.candidate_list.item(1).setSelected(True)
+    window.candidate_list.item(3).setSelected(True)
     assert window.selected_candidates() == ["a", "c"]
 
     window.delete_button.click()
@@ -59,14 +59,15 @@ def test_selected_candidates_and_bulk_delete(stored: MainWindow) -> None:
 
 def test_menu_for_single_current_candidate(stored: MainWindow) -> None:
     window = stored
-    window.candidate_list.setCurrentRow(1)
-    window.candidate_list.item(1).setSelected(True)
+    window.candidate_list.setCurrentRow(2)
+    window.candidate_list.item(2).setSelected(True)
     menu = window.candidate_menu()
     states = action_texts(menu)
     assert states == {
         "Use as start design": True,
         "Rename": True,
         "Show parameters…": True,
+        "Export reflectivity…": True,
         "Delete": True,
     }
     menu.deleteLater()
@@ -75,10 +76,11 @@ def test_menu_for_single_current_candidate(stored: MainWindow) -> None:
 
 def test_menu_for_two_selected_candidates(stored: MainWindow) -> None:
     window = stored
-    window.candidate_list.item(0).setSelected(True)
-    window.candidate_list.item(2).setSelected(True)
+    window.candidate_list.item(1).setSelected(True)
+    window.candidate_list.item(3).setSelected(True)
     menu = window.candidate_menu()
     states = action_texts(menu)
+    assert states["Export reflectivity…"] is False
     assert states["Use as start design"] is False
     assert states["Rename"] is False
     assert states["Show parameters…"] is False
@@ -93,7 +95,7 @@ def test_use_as_start_design_copies_candidate(stored: MainWindow) -> None:
     set_d(window, 4.5)
     state = window.controller.state
     assert state.mirror != state.candidates[0].mirror
-    window.candidate_list.setCurrentRow(0)
+    window.candidate_list.setCurrentRow(1)
     menu = window.candidate_menu()
     find_action(menu, "Use as start design").trigger()
     state = window.controller.state

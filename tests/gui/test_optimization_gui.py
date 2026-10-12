@@ -222,15 +222,15 @@ def test_window_candidates_store_use_delete_and_overlay(qtbot: QtBot, window: Ma
         window.parameter_table.table_model.index(1, 1), "4.5"
     )
     assert d_value(window) == pytest.approx(4.5)
-    window.candidate_list.setCurrentRow(0)
+    window.candidate_list.setCurrentRow(1)
     window.use_button.click()
     assert d_value(window) == pytest.approx(4.0)
-    window.candidate_list.item(0).setCheckState(Qt.CheckState.Checked)
+    window.candidate_list.item(1).setCheckState(Qt.CheckState.Checked)
     assert window.overlays == ["first"]
     qtbot.waitUntil(
         lambda: window.preview is not None and len(window.preview.overlays) == 1, timeout=10000
     )
-    window.candidate_list.setCurrentRow(0)
+    window.candidate_list.setCurrentRow(1)
     window.delete_button.click()
     assert window.controller.state.candidates == ()
     assert window.overlays == []

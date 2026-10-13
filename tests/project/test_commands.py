@@ -1,5 +1,7 @@
 """Tests for the project commands."""
 
+from pathlib import Path
+
 import pytest
 
 from xstack import materials
@@ -346,3 +348,14 @@ class TestRunPipeline:
         with pytest.raises(ValueError, match="targets"):
             commands.run_pipeline(project, fast_pipeline())
         assert len(project.journal) == 0
+
+
+def test_rename_project_undo_and_round_trip(tmp_path: Path) -> None:
+    project = Project()
+    project.execute(commands.rename_project("mirror A"))
+    assert project.state.name == "mirror A"
+    path = tmp_path / "named.xstack"
+    project.save(path)
+    assert Project.load(path).state.name == "mirror A"
+    project.undo()
+    assert project.state.name == "untitled"

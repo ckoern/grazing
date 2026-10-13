@@ -92,6 +92,7 @@ from xstack.project.commands import (
     record_run,
     remove_candidates,
     rename_candidate,
+    rename_project,
     select_candidate,
     store_pipeline_result,
 )
@@ -251,6 +252,12 @@ class MainWindow(QMainWindow):
         panel.setObjectName("step_panel")
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(8, 8, 4, 8)
+        self.name_edit = QLineEdit()
+        self.name_edit.setObjectName("project_name")
+        self.name_edit.setToolTip("Project name (press Enter to apply)")
+        self.name_edit.setStyleSheet("font-size: 13pt; font-weight: 600;")
+        self.name_edit.editingFinished.connect(self._commit_project_name)
+        layout.addWidget(self.name_edit)
         self.design_label = QLabel()
         self.design_label.setObjectName("design_header")
         self.design_label.setWordWrap(True)
@@ -561,6 +568,8 @@ class MainWindow(QMainWindow):
         self.save_as_action = QAction("Save &as…", self)
         self.save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)
         self.save_as_action.triggered.connect(lambda: self.save_project_as())
+        self.rename_action = QAction("&Rename project…", self)
+        self.rename_action.triggered.connect(lambda: self.rename_project())
         self.quit_action = QAction("&Quit", self)
         self.quit_action.setShortcut(QKeySequence.StandardKey.Quit)
         self.quit_action.triggered.connect(self.close)
@@ -586,6 +595,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.save_action)
         file_menu.addAction(self.save_as_action)
+        file_menu.addAction(self.rename_action)
         file_menu.addSeparator()
         file_menu.addAction(self.quit_action)
         edit_menu = self.menuBar().addMenu("&Edit")
@@ -668,6 +678,8 @@ class MainWindow(QMainWindow):
         self.delete_button.clicked.connect(self._delete_candidate)
 
     def _on_state_changed(self, state: ProjectState) -> None:
+        if self.name_edit.text() != state.name:
+            self.name_edit.setText(state.name)
         if state.mirror is None:
             self.design_label.setText("No design defined.")
             self.parameter_table.setEnabled(False)
@@ -675,7 +687,6 @@ class MainWindow(QMainWindow):
             coating = state.mirror.coating
             materials = " · ".join(f"{r}: {m.name}" for r, m in coating.materials.items())
             self.design_label.setText(
-                f"<span style='font-size:13pt; font-weight:600'>{state.name}</span><br>"
                 f"<span style='color:{COLORS['text_muted']}'>Input design: "
                 f"<b>{type(coating).__name__}</b> · {materials} · substrate "
                 f"{state.mirror.substrate.name}</span>"
@@ -1088,6 +1099,26 @@ class MainWindow(QMainWindow):
 
     def _show_error(self, message: str) -> None:
         self.statusBar().showMessage(message, 8000)
+
+    def _commit_project_name(self) -> None:
+        """Apply the text of the name field as the project name; empty names are rejected."""
+        name = self.name_edit.text().strip()
+        current = self.controller.state.name
+        if not name:
+            self.name_edit.setText(current)
+            return
+        if name != current:
+            self.controller.execute(rename_project(name))
+        self.name_edit.setText(name)
+
+    def rename_project(self) -> None:
+        """Ask for a new project name and apply it."""
+        text, accepted = QInputDialog.getText(
+            self, "Rename project", "Project name:", text=self.controller.state.name
+        )
+        if accepted:
+            self.name_edit.setText(text)
+            self._commit_project_name()
 
     def _update_title(self) -> None:
         path = self.controller.path

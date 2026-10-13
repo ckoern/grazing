@@ -259,5 +259,7 @@ src/xstack/gui/
 - Opening, saving, and saving as use file dialogs. Closing or opening another project asks to save
   unsaved changes. The window title shows the project name, the file name, and a modified marker
   (`QUndoStack` clean state).
+- The project name is edited in the name field above the design summary (applied on Enter or focus loss)
+  or with File > Rename project…. Both use the undoable `rename_project` command. Empty names are rejected.
 - The Open recent menu lists the last 8 files.
 - The undo stack is not saved. The journal is.

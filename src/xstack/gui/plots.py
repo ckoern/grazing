@@ -673,7 +673,7 @@ class TradeoffPlot(QWidget):
             group = infeasible if not point.feasible else replaced if point.replaced else feasible
             group.append((x, y, index))
             if np.isinf(point.limit):
-                self._annotate("no limit", x, y, text, (0.0, 1.2))
+                self._annotate("no limit", x, y, text, (1.0, 1.2))
         front = sorted([*feasible, *replaced])
         if front:
             line = pg.PlotDataItem(
@@ -705,7 +705,7 @@ class TradeoffPlot(QWidget):
             x=[x], y=[y], symbol="o", size=18, brush=None, pen=pg.mkPen(PALETTE[1], width=2)
         )
         self._add(self.main_plot, ring)
-        self._annotate("knee", x, y, PALETTE[1], (-0.3, -0.5))
+        self._annotate("knee", x, y, PALETTE[1], (-0.3, 1.4))
 
     def _draw_references(self, references: Sequence[ReferenceDesign]) -> None:
         shown = [r for r in references if np.isfinite(r.coating_time) and np.isfinite(r.merit)]

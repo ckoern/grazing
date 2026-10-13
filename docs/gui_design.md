@@ -74,8 +74,10 @@ The list shows the input design (first entry, in italics) and the stored designs
 - A details label below the buttons shows the name, source, figure of merit, objective, coating time and
   creation time of the selected candidate.
 
-An optimization run stores its final design as `run N` and each stage result as `run N · <stage>`. The
-final design is selected. Estimates are stored as `estimate (plain)` or `estimate (refraction)`.
+An optimization run stores only its final design as `run N`: for a full pipeline run the result of the last
+stage, for a single stage run the result of that stage. The stored candidate is selected. In the candidate
+list, Shift-click selects a range and Ctrl-click toggles single entries; selecting a candidate keeps the
+scroll position and the multi-selection. Estimates are stored as `estimate (plain)` or `estimate (refraction)`.
 
 ### 2.2 Workflow panel
 

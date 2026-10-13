@@ -204,8 +204,8 @@ def test_window_pipeline_run_stores_candidates(qtbot: QtBot, window: MainWindow)
     assert window.convergence_plot.tasks()
     state = window.controller.state
     names = [c.name for c in state.candidates]
-    stages = [s.name for s in window.optimize_page.pipeline(state.problem()).stages]
-    assert names == [f"run 1 · {stage}" for stage in stages] + ["run 1"]
+    assert names == ["run 1"]
+    assert state.candidate("run 1").source == "pipeline"
     assert state.selected == "run 1"
     assert state.mirror == input_design
     assert window.controller.project.journal.entries("run")

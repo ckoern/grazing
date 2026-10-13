@@ -505,10 +505,9 @@ class Project:
 - **Input design and candidates.** `ProjectState.mirror` is the input design. It is only changed by
   commands such as `set_mirror`, `set_parameter`, and `promote_candidate`. Optimization results never
   change it. They are stored as `Candidate`s by `store_results(problem, [(name, parameters, evaluation,
-  source), …])`, which also selects the last one. `store_pipeline_result(problem, result, name,
-  stage_evaluations)` stores the final design as `name` and each stage result as `"<name> · <stage>"`.
-  `evaluate_stages(problem, result)` evaluates every stage result with the full problem so that they are
-  comparable.
+  source), …])`, which also selects the last one. `store_pipeline_result(problem, result, name)`
+  stores only the final design as `name`; the source is `"pipeline"`. `evaluate_stages(problem, result)` evaluates every stage result with the full
+  problem so that they are comparable (used for the results table).
 - **Running a pipeline.** `run_pipeline(project, pipeline=None, events=None, cancel=None,
   candidate_name="optimized")` runs the pipeline on the project's problem, records the run in the journal,
   and stores the final design as a selected candidate in one undoable step.

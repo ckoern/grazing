@@ -1,5 +1,6 @@
 """Tests for `xstack.gui.steps.estimate.EstimatePage`."""
 
+import dataclasses
 import math
 
 import pytest
@@ -8,7 +9,7 @@ from pytestqt.qtbot import QtBot
 from xstack.gui.steps.estimate import EstimatePage
 from xstack.project import Command, ProjectState
 from xstack.project.templates import new_state
-from xstack.targets import EnergyScan
+from xstack.targets import EnergyScan, TargetSet
 from xstack.units import energy_to_wavelength
 
 pytestmark = pytest.mark.gui
@@ -130,3 +131,52 @@ def test_invalid_state_reports_error(qtbot: QtBot) -> None:
     page.estimate_button.click()
     assert len(rec.errors) == 1
     assert page.estimates == {}
+
+
+def two_target_state() -> ProjectState:
+    state = new_state("periodic")
+    assert state.targets is not None
+    first = state.targets.targets[0]
+    assert isinstance(first, EnergyScan)
+    second = dataclasses.replace(
+        first, energy_min=2 * first.energy_min, energy_max=2 * first.energy_max
+    )
+    return state.evolve(targets=TargetSet((first, second), "average_merit"))
+
+
+def test_target_selector_hidden_for_single_target(qtbot: QtBot) -> None:
+    page, _ = make_page(qtbot, new_state("periodic"))
+    page.show()
+    assert not page.target_combo.isVisible()
+
+
+def test_target_selector_lists_targets(qtbot: QtBot) -> None:
+    page, _ = make_page(qtbot, two_target_state())
+    page.show()
+    assert page.target_combo.isVisible()
+    assert page.target_combo.itemText(0) == "All targets"
+    assert page.target_combo.itemData(0) is None
+    assert [page.target_combo.itemData(i) for i in (1, 2)] == [0, 1]
+    assert "Target" in EstimatePage.help_text
+
+
+def test_target_selection_changes_estimate(qtbot: QtBot) -> None:
+    page, _ = make_page(qtbot, two_target_state())
+    page.estimate()
+    pooled = page.estimates["plain"].parameters["d"].value
+    page.target_combo.setCurrentIndex(1)
+    page.estimate()
+    first = page.estimates["plain"].parameters["d"].value
+    page.target_combo.setCurrentIndex(2)
+    page.estimate()
+    second = page.estimates["plain"].parameters["d"].value
+    assert second == pytest.approx(first / 2, rel=0.05)
+    assert pooled not in (first, second)
+
+
+def test_target_selection_kept_on_state_update(qtbot: QtBot) -> None:
+    state = two_target_state()
+    page, _ = make_page(qtbot, state)
+    page.target_combo.setCurrentIndex(2)
+    page.set_state(state)
+    assert page.target_combo.currentData() == 1

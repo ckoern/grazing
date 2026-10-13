@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
+    QComboBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -63,7 +64,9 @@ class EstimatePage(StepPage):
         "mean refractive index, which matters at small angles and low energies. Only free "
         "parameters are estimated. Applying an estimate sets the <b>start values</b> of the "
         "input design (and optionally narrows the bounds) which the Scan and Optimize steps "
-        "use. Other coating types are not estimated."
+        "use. Other coating types are not estimated. With several targets, the estimate pools all "
+        "of them by default; choose a single <b>Target</b> if they differ much in energy or "
+        "angle."
     )
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -88,8 +91,19 @@ class EstimatePage(StepPage):
             "parameters of the current design."
         )
         self.estimate_button.clicked.connect(self.estimate)
+        self.target_label = QLabel("Target:")
+        self.target_combo = QComboBox()
+        self.target_combo.addItem("All targets", None)
+        tip = (
+            "Target the estimate is based on. 'All targets' pools the ends and centres of every "
+            "target, which is only meaningful if they have similar energies and angles."
+        )
+        self.target_label.setToolTip(tip)
+        self.target_combo.setToolTip(tip)
         row = QHBoxLayout()
         row.addWidget(self.estimate_button)
+        row.addWidget(self.target_label)
+        row.addWidget(self.target_combo)
         row.addStretch()
         layout.addLayout(row)
 
@@ -163,6 +177,7 @@ class EstimatePage(StepPage):
             state: The current project state.
         """
         self._state = state
+        self._refresh_targets()
         if not self._supported():
             self.estimates = {}
         self._refresh()
@@ -177,9 +192,10 @@ class EstimatePage(StepPage):
             return
         try:
             problem = self._state.problem()
+            target = self.target_combo.currentData()
             estimates = {
-                "plain": BraggOutline(refraction=False).run(problem),
-                "refraction": BraggOutline(refraction=True).run(problem),
+                "plain": BraggOutline(refraction=False, target=target).run(problem),
+                "refraction": BraggOutline(refraction=True, target=target).run(problem),
             }
         except ValueError as exc:
             self.errorOccurred.emit(f"Cannot estimate: {exc}")
@@ -217,6 +233,21 @@ class EstimatePage(StepPage):
         result = self.estimates[kind]
         entry = (f"estimate ({kind})", result.parameters, result.best, "estimate")
         self.commandRequested.emit(store_results(self._problem, [entry]))
+
+    def _refresh_targets(self) -> None:
+        """Fill the target selector from the project's targets; keep the selection if possible."""
+        targets = self._state.targets if self._state is not None else None
+        labels = [t.label(i) for i, t in enumerate(targets.targets)] if targets else []
+        items = [("All targets", None)] + [(label, i) for i, label in enumerate(labels)]
+        combo = self.target_combo
+        if [combo.itemText(i) for i in range(combo.count())] != [t for t, _ in items]:
+            current = combo.currentData()
+            combo.clear()
+            for text, data in items:
+                combo.addItem(text, data)
+            combo.setCurrentIndex(max(combo.findData(current), 0))
+        combo.setVisible(len(labels) > 1)
+        self.target_label.setVisible(len(labels) > 1)
 
     def _chosen(self) -> str:
         return "plain" if self.plain_radio.isChecked() else "refraction"

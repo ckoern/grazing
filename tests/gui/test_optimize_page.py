@@ -1,5 +1,6 @@
 """Tests of the Optimize workflow page."""
 
+import dataclasses
 from typing import Any
 
 import pytest
@@ -20,10 +21,12 @@ from xstack.merit.base import CallableMerit
 from xstack.optim.events import CancellationToken
 from xstack.optim.optimizers import LmfitOptimizer
 from xstack.optim.scan import GridScan
+from xstack.optim.stages import BraggOutline
 from xstack.parameters import free
 from xstack.project.commands import set_mirror
 from xstack.project.templates import new_state
 from xstack.structure import Mirror, Periodic
+from xstack.targets import EnergyScan, TargetSet
 
 pytestmark = pytest.mark.gui
 
@@ -191,6 +194,49 @@ def test_stage_settings_reach_pipeline(page: OptimizePage) -> None:
     assert glob.max_evaluations == 55
     assert dict(glob.options)["popsize"] == page.population.value()
     assert rows["outline"].method is None
+
+
+def two_target_state() -> Any:
+    state = small_state()
+    first = state.targets.targets[0]
+    assert isinstance(first, EnergyScan)
+    second = dataclasses.replace(
+        first, energy_min=2 * first.energy_min, energy_max=2 * first.energy_max
+    )
+    return state.evolve(targets=TargetSet((first, second), "average_merit"))
+
+
+def outline_target(page: OptimizePage, state: Any) -> Any:
+    stage = {s.name: s for s in page.pipeline(state.problem()).stages}["outline"]
+    assert isinstance(stage.optimizer, BraggOutline)
+    return stage.optimizer.target
+
+
+def test_bragg_target_choice_disabled_for_single_target(page: OptimizePage) -> None:
+    combo = page._rows["outline"].target
+    assert combo is not None
+    assert not combo.isEnabled()
+    assert outline_target(page, small_state()) is None
+
+
+def test_bragg_target_choice_reaches_pipeline(page: OptimizePage) -> None:
+    state = two_target_state()
+    page.set_state(state)
+    combo = page._rows["outline"].target
+    assert combo is not None
+    assert combo.isEnabled()
+    assert combo.itemText(0) == "Bragg law: all targets"
+    assert combo.count() == 3
+    assert outline_target(page, state) is None
+    combo.setCurrentIndex(2)
+    assert outline_target(page, state) == 1
+    page.set_state(state)
+    assert combo.currentData() == 1
+    page.set_state(small_state())
+    assert combo.count() == 2
+    assert combo.currentData() is None
+    assert not combo.isEnabled()
+    assert outline_target(page, small_state()) is None
 
 
 def test_global_settings_reach_pipeline(page: OptimizePage) -> None:

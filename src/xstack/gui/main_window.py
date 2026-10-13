@@ -4,7 +4,7 @@ import functools
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QPoint, QSettings, Qt
+from PySide6.QtCore import QItemSelectionModel, QPoint, QSettings, Qt
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence, QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -82,7 +82,7 @@ from xstack.io.reflectivity import write_reflectivity_csv
 from xstack.manufacturing.tolerance import ToleranceResult
 from xstack.optim.events import ProgressEvent
 from xstack.optim.pipeline import PipelineResult
-from xstack.optim.problem import DesignProblem, Evaluation
+from xstack.optim.problem import DesignProblem
 from xstack.optim.scan import ScanResult
 from xstack.physics.models import ReflectivityResult
 from xstack.project import Candidate, ProjectState
@@ -421,10 +421,12 @@ class MainWindow(QMainWindow):
     def _build_docks(self) -> None:
         self.candidate_list = QListWidget()
         self.candidate_list.setToolTip(
-            "Stored designs. Optimization runs are stored as “run N” (final design) and "
-            "“run N · stage” (design after each stage). Click to select a candidate: it is "
-            "shown next to the input design and can be analyzed or exported. Double-click to "
-            "rename. Check to overlay it in the reflectivity plot."
+            "Stored designs. An optimization run is stored as “run N”: the final design of a "
+            "full pipeline run, or the result of a single stage run. Click to select a candidate: "
+            "it is shown next to the input design and can be analyzed or exported. Shift-click "
+            "selects a "
+            "range, Ctrl-click toggles single entries. Double-click to rename. Check to "
+            "overlay it in the reflectivity plot."
         )
         self.candidate_list.itemChanged.connect(self._candidate_item_changed)
         self.candidate_list.currentItemChanged.connect(self._candidate_clicked)
@@ -697,11 +699,48 @@ class MainWindow(QMainWindow):
         self.comparison_view.set_state(state)
         names = [c.name for c in state.candidates]
         self.overlays = [n for n in self.overlays if n in names]
-        self.candidate_list.blockSignals(True)
-        self.candidate_list.clear()
-        self.candidate_list.addItem(self._input_item())
-        if state.selected is None:
-            self.candidate_list.setCurrentRow(0)
+        self._sync_candidate_list(state, names)
+        self.candidate_details.setText(_candidate_details(state))
+        self._show_layers()
+        self._update_title()
+        self._request_preview()
+
+    def _sync_candidate_list(self, state: ProjectState, names: list[str]) -> None:
+        """Bring the candidate list in line with the state, keeping scroll position and selection.
+
+        The entries are only rebuilt if the candidate names changed; otherwise the check states
+        and the current entry are updated in place, which leaves a Shift/Ctrl multi-selection
+        intact.
+        """
+        view = self.candidate_list
+        view.blockSignals(True)
+        try:
+            existing = [view.item(r).data(Qt.ItemDataRole.UserRole) for r in range(view.count())]
+            if existing != [None, *names]:
+                self._rebuild_candidate_list(state, names)
+                return
+            for row, name in enumerate(names, start=1):
+                item = view.item(row)
+                checked = name in self.overlays
+                check = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+                if item.checkState() != check:
+                    item.setCheckState(check)
+                if item.text() != name:
+                    item.setText(name)
+            current = view.currentItem()
+            current_name = current.data(Qt.ItemDataRole.UserRole) if current is not None else None
+            if current is None or current_name != state.selected:
+                row = 0 if state.selected is None else 1 + names.index(state.selected)
+                view.setCurrentRow(row)
+        finally:
+            view.blockSignals(False)
+
+    def _rebuild_candidate_list(self, state: ProjectState, names: list[str]) -> None:
+        view = self.candidate_list
+        scroll = view.verticalScrollBar().value()
+        kept = {i.data(Qt.ItemDataRole.UserRole) for i in view.selectedItems()}
+        view.clear()
+        view.addItem(self._input_item())
         for name in names:
             item = QListWidgetItem(name)
             item.setData(Qt.ItemDataRole.UserRole, name)
@@ -710,14 +749,19 @@ class MainWindow(QMainWindow):
             )
             checked = name in self.overlays
             item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
-            self.candidate_list.addItem(item)
-            if name == state.selected:
-                self.candidate_list.setCurrentItem(item)
-        self.candidate_list.blockSignals(False)
-        self.candidate_details.setText(_candidate_details(state))
-        self._show_layers()
-        self._update_title()
-        self._request_preview()
+            view.addItem(item)
+        row = 0 if state.selected is None else 1 + names.index(state.selected)
+        if state.selected in kept and len(kept) > 1:
+            for r in range(view.count()):
+                if view.item(r).data(Qt.ItemDataRole.UserRole) in kept:
+                    view.item(r).setSelected(True)
+            view.selectionModel().setCurrentIndex(
+                view.model().index(row, 0), QItemSelectionModel.SelectionFlag.NoUpdate
+            )
+        else:
+            view.setCurrentRow(row)
+        view.doItemsLayout()
+        view.verticalScrollBar().setValue(scroll)
 
     def _input_item(self) -> QListWidgetItem:
         """Return the list entry of the input design (no candidate name)."""
@@ -905,14 +949,11 @@ class MainWindow(QMainWindow):
         self,
         problem: DesignProblem,
         result: PipelineResult,
-        stage_evaluations: tuple[Evaluation, ...] | None = None,
         name: str | None = None,
     ) -> None:
         record_run(self.controller.project.journal, result)
         runs = len(self.controller.project.journal.entries("run"))
-        self.controller.execute(
-            store_pipeline_result(problem, result, name or f"run {runs}", stage_evaluations)
-        )
+        self.controller.execute(store_pipeline_result(problem, result, name or f"run {runs}"))
 
     def store_candidate(self, name: str | None = None) -> None:
         """Store the input design as a candidate.

@@ -124,7 +124,7 @@ class TestRunPipelineResults:
 
 
 class TestStorePipelineResult:
-    def test_stage_candidates_then_final(self) -> None:
+    def test_multi_stage_run_stores_only_final(self) -> None:
         project = make_project()
         problem = project.state.problem()
         pipeline = Pipeline(
@@ -134,21 +134,19 @@ class TestStorePipelineResult:
             )
         )
         result = pipeline.run(problem)
-        evaluations = commands.evaluate_stages(problem, result)
-        assert len(evaluations) == len(result.stages) == 2
-
-        project.execute(commands.store_pipeline_result(problem, result, "run", evaluations))
-        names = [c.name for c in project.state.candidates]
-        assert names == ["run · coarse", "run · fine", "run"]
-        assert project.state.selected == "run"
-
-    def test_without_stage_evaluations_stores_only_final(self) -> None:
-        project = make_project()
-        problem = project.state.problem()
-        result = fast_pipeline().run(problem)
         project.execute(commands.store_pipeline_result(problem, result, "run"))
         assert [c.name for c in project.state.candidates] == ["run"]
+        assert project.state.candidate("run").source == "pipeline"
         assert project.state.selected == "run"
+
+    def test_single_stage_run_stores_its_result(self) -> None:
+        project = make_project()
+        problem = project.state.problem()
+        pipeline = Pipeline((Stage("only", LmfitOptimizer("nelder", max_evaluations=10)),))
+        result = pipeline.run(problem)
+        project.execute(commands.store_pipeline_result(problem, result, "run"))
+        assert [c.name for c in project.state.candidates] == ["run"]
+        assert project.state.candidate("run").source == "pipeline"
 
     def test_evaluate_stages_one_per_stage(self) -> None:
         problem = make_project().state.problem()

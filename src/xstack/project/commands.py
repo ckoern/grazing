@@ -537,38 +537,21 @@ def evaluate_stages(problem: DesignProblem, result: PipelineResult) -> tuple[Eva
     return tuple(evaluations)
 
 
-def store_pipeline_result(
-    problem: DesignProblem,
-    result: PipelineResult,
-    name: str,
-    stage_evaluations: Sequence[Evaluation] | None = None,
-) -> Command:
-    """Store the result of a pipeline run as candidates and select the final design.
+def store_pipeline_result(problem: DesignProblem, result: PipelineResult, name: str) -> Command:
+    """Store the final design of a pipeline run as a candidate and select it.
+
+    Only the final design is stored, also for runs of several stages; a run of a single
+    stage stores the result of that stage. The candidate source is ``"pipeline"``.
 
     Args:
         problem: The design problem of the run.
         result: The pipeline result.
-        name: Name of the final candidate; stage candidates are named ``"<name> · <stage>"``.
-        stage_evaluations: Evaluations of the stage results from `evaluate_stages`; if given,
-            every stage result is stored as a candidate as well.
+        name: Name of the candidate.
 
     Returns:
         The command.
     """
-    entries: list[tuple[str, ParameterSet, Evaluation, str]] = []
-    if stage_evaluations is not None:
-        initial = problem.parameters
-        for stage, evaluation in zip(result.stages, stage_evaluations, strict=True):
-            params = initial.with_values(
-                {
-                    n: v
-                    for n, v in evaluation.values.items()
-                    if n in initial and initial[n].expr is None
-                }
-            )
-            entries.append((f"{name} · {stage.stage.name}", params, evaluation, stage.stage.name))
-    entries.append((name, result.parameters, result.final, "pipeline"))
-    return store_results(problem, entries)
+    return store_results(problem, [(name, result.parameters, result.final, "pipeline")])
 
 
 def run_pipeline(

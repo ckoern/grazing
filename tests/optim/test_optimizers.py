@@ -16,10 +16,15 @@ from xstack.optim import (
     optimizers,
 )
 from xstack.optim.optimizers import prepare_parameters
+from xstack.optim.problem import Evaluation
 from xstack.parameters import free
 from xstack.structure import Mirror, Periodic
 
 D_OPT = 4.0
+
+
+def _de_options(method: str = "differential_evolution") -> tuple[tuple[str, object], ...]:
+    return (("seed", 2), ("popsize", 5)) if method == "differential_evolution" else ()
 
 
 def integer_problem() -> DesignProblem:
@@ -154,6 +159,42 @@ class TestConvergence:
         result = opt.run(problem)
         assert result.best.merit < problem.evaluate().merit
         assert result.best.merit < 0.4
+
+    @pytest.mark.parametrize("method", ["differential_evolution", "nelder", "leastsq"])
+    def test_never_worse_than_start(self, method: str) -> None:
+        problem = make_problem()
+        good = LmfitOptimizer("least_squares").run(problem).parameters
+        start = problem.with_parameters(good).evaluate().objective
+        opt = LmfitOptimizer(method, max_evaluations=15, options=_de_options(method))
+        result = opt.run(problem, good)
+        assert result.history[0] == pytest.approx(start)
+        assert result.best.objective <= start
+
+    def test_differential_evolution_population_contains_start(self) -> None:
+        problem = make_problem()
+        start = problem.parameters.with_values({"d": 3.95, "gamma": 0.24})
+        seen: list[dict[str, float]] = []
+        original = problem.evaluate
+
+        def spy(values: dict[str, float] | None = None) -> Evaluation:
+            seen.append(dict(values or {}))
+            return original(values)
+
+        object.__setattr__(problem, "evaluate", spy)
+        opt = LmfitOptimizer("differential_evolution", max_evaluations=15, options=_de_options())
+        opt.run(problem, start)
+        hits = [v for v in seen[1:] if v.get("d") == pytest.approx(3.95)]
+        assert hits
+        assert hits[0]["gamma"] == pytest.approx(0.24)
+
+    def test_differential_evolution_explicit_init_kept(self) -> None:
+        problem = make_problem()
+        opt = LmfitOptimizer(
+            "differential_evolution",
+            max_evaluations=10,
+            options=(("seed", 1), ("init", "random"), ("popsize", 5)),
+        )
+        assert opt.run(problem).evaluations > 0
 
     def test_max_evaluations_limits_work(self) -> None:
         problem = make_problem()

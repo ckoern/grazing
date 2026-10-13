@@ -239,6 +239,23 @@ def prepare_parameters(
     return params
 
 
+def _seeded_population(params: lmfit.Parameters, options: dict[str, Any]) -> NDArray[np.float64]:
+    """Initial differential-evolution population: a Latin hypercube plus the start design.
+
+    lmfit runs differential evolution on internal coordinates in [-π/2, π/2] per varying
+    parameter; the first member is the start design mapped to these coordinates.
+    """
+    varying = [p for p in params.values() if p.vary]
+    popsize = int(options.get("popsize", 15))
+    size = max(5, popsize * len(varying))
+    rng = np.random.default_rng(options.get("seed"))
+    strata = np.array([rng.permutation(size) for _ in varying]).T
+    unit = (strata + rng.random(strata.shape)) / size
+    population = -0.5 * np.pi + np.pi * unit
+    population[0] = [p.setup_bounds() for p in varying]
+    return population
+
+
 @register_optimizer
 @dataclass(frozen=True)
 class LmfitOptimizer(Optimizer):
@@ -248,6 +265,10 @@ class LmfitOptimizer(Optimizer):
     the problem; all other methods minimize the scalar objective. Global methods (see
     `GLOBAL_METHODS`) vary integer parameters (rounded when building the coating) and require
     finite bounds for all free parameters; local methods keep integer parameters fixed.
+
+    The start design is evaluated first, so the result is never worse than the start design.
+    Differential evolution includes the start design in its initial population unless an
+    ``init`` option is given.
 
     Attributes:
         method: lmfit method name, e.g. ``"leastsq"``, ``"nelder"``, ``"lbfgsb"``,
@@ -299,12 +320,16 @@ class LmfitOptimizer(Optimizer):
         lm_params = params.to_lmfit()
         names = {n.replace(".", "__"): n for n in params}
         use_residuals = self.method in _RESIDUAL_METHODS
+        first = problem.evaluate(params.value_dict())
         size = 0
         if use_residuals:
-            first = problem.evaluate(params.value_dict())
             if first.stack is None:
                 raise ValueError(f"start design cannot be built: {first.error}")
             size = len(problem.residuals(params.value_dict(), 1))
+        tracker.record(first)
+        options = dict(self.options)
+        if self.method == "differential_evolution" and "init" not in options:
+            options["init"] = _seeded_population(lm_params, options)
 
         expressions = {n for n, p in params.items() if p.expr is not None}
 
@@ -324,7 +349,7 @@ class LmfitOptimizer(Optimizer):
         )
         message = ""
         try:
-            out = minimizer.minimize(method=self.method, **dict(self.options))
+            out = minimizer.minimize(method=self.method, **options)
             message = str(getattr(out, "message", ""))
         except lmfit.minimizer.AbortFitException:
             message = "aborted"

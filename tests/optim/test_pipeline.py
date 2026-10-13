@@ -8,6 +8,7 @@ from xstack.merit import MeanReflectivity
 from xstack.optim import CancellationToken, DesignProblem, Pipeline
 from xstack.optim.optimizers import LmfitOptimizer
 from xstack.optim.pipeline import StageResult
+from xstack.optim.scan import GridScan
 from xstack.optim.stages import Stage
 from xstack.parameters import free
 from xstack.structure import Composite, Mirror, Periodic, SingleLayer
@@ -109,6 +110,30 @@ class TestRun:
         result = Pipeline(stages).run(problem)
         assert starts[0] == problem.parameters["d"].value
         assert starts[1] == result.stages[0].result.parameters["d"].value
+
+    def test_worse_stage_result_is_not_handed_over(self) -> None:
+        problem = make_problem()
+        good = LmfitOptimizer("least_squares").run(problem).parameters
+        bad = Stage("bad", GridScan(values=(("d", (3.0,)),)), free=("d",))
+        starts: list[float] = []
+
+        class Probe(LmfitOptimizer):
+            def run(self, problem, start=None, events=None, cancel=None):
+                assert start is not None
+                starts.append(start["d"].value)
+                return super().run(problem, start, events, cancel)
+
+        result = Pipeline((bad, Stage("b", Probe("leastsq", 15)))).run(problem, good)
+        assert result.stages[0].result.parameters["d"].value == 3.0
+        assert starts == [good["d"].value]
+
+    def test_default_pipeline_never_worse_than_start(self) -> None:
+        problem = make_problem()
+        good = LmfitOptimizer("least_squares").run(problem).parameters
+        start = problem.with_parameters(good).evaluate().objective
+        for seed in (1, 2, 3):
+            result = Pipeline.default(problem, **{**FAST, "seed": seed}).run(problem, good)
+            assert result.final.objective <= start
 
     def test_final_uses_original_problem(self) -> None:
         problem = make_problem(points=9)

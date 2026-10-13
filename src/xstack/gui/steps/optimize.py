@@ -107,10 +107,8 @@ class OptimizePage(StepPage):
     """Figure of merit (mixable, with optional coating-time penalty) and pipeline runs.
 
     Signals:
-        pipelineFinished(DesignProblem, PipelineResult, tuple, object): A pipeline run
-            finished; the evaluations of the stage results with the full problem (see
-            `xstack.project.commands.evaluate_stages`) and the candidate name entered for the
-            run (``None`` for an automatic name).
+        pipelineFinished(DesignProblem, PipelineResult, object): A pipeline run finished;
+            the candidate name entered for the run (``None`` for an automatic name).
 
     Args:
         parent: Parent widget.
@@ -128,14 +126,15 @@ class OptimizePage(StepPage):
         "<li><b>global</b>: differential evolution over all free parameters.</li>"
         "<li><b>refine</b>: local least-squares refinement.</li></ul>"
         "<p>Each stage can be disabled or configured in the stage table. <i>Run stage</i> runs "
-        "a single stage from the current design.</p>"
+        "a single stage from the current design. In a pipeline run, each stage starts from the "
+        "best design so far, so the final design is never worse than the input design.</p>"
         "<p><b>Results.</b> Results are stored as candidates named &quot;run N&quot; (the "
-        "final design) and &quot;run N &middot; &lt;stage&gt;&quot; (the result of a stage). "
+        "final design of the pipeline or of a single stage run). "
         "The input design is never overwritten.</p>"
         "<p><b>Progress.</b> Watch the <i>Convergence</i> tab and the live reflectivity of the "
         "best design while the run is active.</p>"
     )
-    pipelineFinished = Signal(object, object, object, object)
+    pipelineFinished = Signal(object, object, object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -334,8 +333,8 @@ class OptimizePage(StepPage):
         self.run_name = QLineEdit()
         self.run_name.setPlaceholderText("run name (optional)")
         self.run_name.setToolTip(
-            "Name of the candidate that stores the result of the next run (stage results are "
-            "named “<name> · <stage>”). Leave empty for an automatic name “run N”."
+            "Name of the candidate that stores the final design of the next run. Leave empty "
+            "for an automatic name “run N”."
         )
         self.run_name.setMaximumWidth(180)
         buttons.addWidget(self.run_name)
@@ -620,8 +619,8 @@ class OptimizePage(StepPage):
     def run(self, stage: str | None = None) -> None:
         """Request a pipeline run, or a run of a single stage.
 
-        After the run, the job computes the evaluations of all stage results with the full
-        problem and emits `pipelineFinished`.
+        After the run, the job evaluates the stage results with the full problem for the results
+        table and emits `pipelineFinished`; only the final design is stored as a candidate.
 
         Args:
             stage: Name of the stage to run alone, or ``None`` for the whole pipeline.
@@ -651,7 +650,7 @@ class OptimizePage(StepPage):
         def finished(outcome: tuple[PipelineResult, tuple[Evaluation, ...]]) -> None:
             result, evaluations = outcome
             self._show_results(result, evaluations)
-            self.pipelineFinished.emit(problem, result, evaluations, candidate_name)
+            self.pipelineFinished.emit(problem, result, candidate_name)
 
         self.jobRequested.emit(Job(name, compute, finished))
 

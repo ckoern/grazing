@@ -20,7 +20,6 @@ from xstack.optim.events import CancellationToken, ProgressEvent
 from xstack.optim.optimizers import LmfitOptimizer
 from xstack.optim.pipeline import Pipeline
 from xstack.optim.stages import Stage
-from xstack.project.commands import evaluate_stages
 from xstack.project.templates import new_state
 
 pytestmark = pytest.mark.gui
@@ -305,9 +304,9 @@ def test_apply_pipeline_result_stores_candidates(qtbot: QtBot, window: MainWindo
     mirror = window.controller.state.mirror
     pipeline = Pipeline((Stage("tiny", LmfitOptimizer("nelder", max_evaluations=10)),))
     result = pipeline.run(problem)
-    window._apply_pipeline_result(problem, result, evaluate_stages(problem, result))
+    window._apply_pipeline_result(problem, result)
     state = window.controller.state
-    assert [c.name for c in state.candidates] == ["run 1 · tiny", "run 1"]
+    assert [c.name for c in state.candidates] == ["run 1"]
     assert state.selected == "run 1"
     assert state.mirror == mirror
     assert window.controller.project.journal.entries("run")

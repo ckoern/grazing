@@ -11,7 +11,6 @@ from xstack.gui.steps import OptimizePage
 from xstack.gui.workers import Job
 from xstack.optim import Pipeline
 from xstack.optim.events import CancellationToken
-from xstack.project.commands import evaluate_stages
 from xstack.project.templates import new_state
 
 pytestmark = pytest.mark.gui
@@ -40,37 +39,37 @@ def run_outline_job(page: OptimizePage) -> tuple[Any, ...]:
 
 def test_run_name_is_emitted(page: OptimizePage) -> None:
     page.run_name.setText("my run")
-    _problem, _result, _evaluations, candidate_name = run_outline_job(page)
+    _problem, _result, candidate_name = run_outline_job(page)
     assert candidate_name == "my run"
 
 
 def test_empty_run_name_is_none(page: OptimizePage) -> None:
     page.run_name.setText("   ")
-    _problem, _result, _evaluations, candidate_name = run_outline_job(page)
+    _problem, _result, candidate_name = run_outline_job(page)
     assert candidate_name is None
 
 
-def stage_outcome(window: MainWindow) -> tuple[Any, Any, Any]:
-    """Run the outline stage directly and return the problem, result and stage evaluations."""
+def stage_outcome(window: MainWindow) -> tuple[Any, Any]:
+    """Run the outline stage directly and return the problem and result."""
     problem = window.controller.state.problem()
     outline = window.optimize_page.pipeline(problem).stages[0]
     result = Pipeline((outline,)).run(problem)
-    return problem, result, evaluate_stages(problem, result)
+    return problem, result
 
 
 def test_named_run_stores_candidates_and_selects_final(window: MainWindow) -> None:
-    problem, result, evaluations = stage_outcome(window)
-    window._apply_pipeline_result(problem, result, evaluations, "my run")
+    problem, result = stage_outcome(window)
+    window._apply_pipeline_result(problem, result, "my run")
     state = window.controller.state
     names = [c.name for c in state.candidates]
-    assert names == ["my run · outline", "my run"]
+    assert names == ["my run"]
     assert state.selected == "my run"
     window.controller.undo_stack.setClean()
 
 
 def test_unnamed_run_uses_run_number(window: MainWindow) -> None:
-    problem, result, evaluations = stage_outcome(window)
-    window._apply_pipeline_result(problem, result, evaluations, None)
+    problem, result = stage_outcome(window)
+    window._apply_pipeline_result(problem, result, None)
     state = window.controller.state
     names = [c.name for c in state.candidates]
     assert re.fullmatch(r"run \d+", names[-1])

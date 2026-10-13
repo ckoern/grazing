@@ -418,7 +418,9 @@ class Optimizer(ABC):
 - `LmfitOptimizer(method=…)` wraps `lmfit.Minimizer` for `leastsq`, `least_squares`, `nelder`,
   `lbfgsb`, `powell`, `differential_evolution`, and the other lmfit methods. Global methods
   (`GLOBAL_METHODS`) vary integer parameters, which are rounded when the coating is built; they require
-  finite bounds for all free parameters. Local methods keep integer parameters fixed.
+  finite bounds for all free parameters. Local methods keep integer parameters fixed. The start
+  design is evaluated first, so the result is never worse than it; differential evolution also includes
+  it in its initial population (unless an `init` option is given).
 - `GridScan` (optim/scan.py) is a deterministic sweep over chosen parameters, including integers. The
   function `scan(problem, axes, start, events, cancel)` evaluates a problem on a regular grid and returns
   a `ScanResult` (`best_values()`, merit and feasibility per grid point). Parameters not in `axes` keep
@@ -429,8 +431,11 @@ class Optimizer(ABC):
 - `Stage(name, optimizer, model=None, points=None, merit=None, free=None)` bundles how much effort a run
   spends. `None` fields keep the problem's settings.
 - `Pipeline(stages)`:
-  - `run(problem, start=None, events=None, cancel=None, on_stage=None) -> PipelineResult`. Each stage
-    starts from the parameters of the stage before it. `PipelineResult` holds `stages` (a `StageResult` each,
+  - `run(problem, start=None, events=None, cancel=None, on_stage=None) -> PipelineResult`. Every stage
+    result is evaluated with the original problem, and each stage starts from the best design so far:
+    the result of the stage before it if that improved the objective, otherwise the design that stage
+    started from. The final design is the best one, so a run never ends worse than its start design
+    (e.g. a Bragg outline that is worse than a good start design is discarded). `PipelineResult` holds `stages` (a `StageResult` each,
     with its `OptimizationResult`), the final `parameters`, the `final` evaluation with the original
     problem, and `cancelled`.
   - `Pipeline.default(problem, *, scan_points=9, coarse_points=60, global_iterations=30, population=10,
@@ -527,10 +532,9 @@ class Project:
 - **Input design and candidates.** `ProjectState.mirror` is the input design. It is only changed by
   commands such as `set_mirror`, `set_parameter`, and `promote_candidate`. Optimization results never
   change it. They are stored as `Candidate`s by `store_results(problem, [(name, parameters, evaluation,
-  source), …])`, which also selects the last one. `store_pipeline_result(problem, result, name,
-  stage_evaluations)` stores the final design as `name` and each stage result as `"<name> · <stage>"`.
-  `evaluate_stages(problem, result)` evaluates every stage result with the full problem so that they are
-  comparable.
+  source), …])`, which also selects the last one. `store_pipeline_result(problem, result, name)`
+  stores only the final design as `name`; the source is `"pipeline"`. `evaluate_stages(problem, result)` evaluates every stage result with the full
+  problem so that they are comparable (used for the results table).
 - **Running a pipeline.** `run_pipeline(project, pipeline=None, events=None, cancel=None,
   candidate_name="optimized")` runs the pipeline on the project's problem, records the run in the journal,
   and stores the final design as a selected candidate in one undoable step.

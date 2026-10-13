@@ -1,7 +1,9 @@
 """Tests of the candidates list selection, context menu and parameter dialog of the main window."""
 
 import pytest
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QAction
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QAbstractItemView, QMenu
 
 from xstack.gui.main_window import MainWindow
@@ -113,3 +115,77 @@ def test_show_parameters_opens_dialog(stored: MainWindow) -> None:
     dialog.close()
     assert window.show_candidate_parameters("missing") is None
     window.controller.undo_stack.setClean()
+
+
+# Selection behaviour and scrolling of the candidate list
+
+
+def click_row(
+    window: MainWindow, row: int, modifier: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier
+) -> None:
+    view = window.candidate_list
+    rect = view.visualItemRect(view.item(row))
+    # Click right of the check box so that the click does not toggle the overlay.
+    QTest.mouseClick(
+        view.viewport(),
+        Qt.MouseButton.LeftButton,
+        modifier,
+        QPoint(rect.right() - 5, rect.center().y()),
+    )
+
+
+@pytest.fixture
+def many(window: MainWindow) -> MainWindow:
+    window.resize(900, 500)
+    window.show()
+    for index in range(40):
+        window.store_candidate(f"cand {index:02d}")
+    window.candidate_list.setFixedHeight(150)
+    window.candidate_list.doItemsLayout()
+    return window
+
+
+def selected_rows(window: MainWindow) -> list[int]:
+    view = window.candidate_list
+    return sorted(view.row(i) for i in view.selectedItems())
+
+
+def test_shift_click_selects_exact_range(many: MainWindow) -> None:
+    click_row(many, 3)
+    click_row(many, 7, Qt.KeyboardModifier.ShiftModifier)
+    assert selected_rows(many) == [3, 4, 5, 6, 7]
+    many.controller.undo_stack.setClean()
+
+
+def test_ctrl_click_toggles_single_entries(many: MainWindow) -> None:
+    click_row(many, 3)
+    click_row(many, 6, Qt.KeyboardModifier.ControlModifier)
+    click_row(many, 9, Qt.KeyboardModifier.ControlModifier)
+    assert selected_rows(many) == [3, 6, 9]
+    click_row(many, 6, Qt.KeyboardModifier.ControlModifier)
+    assert selected_rows(many) == [3, 9]
+    many.controller.undo_stack.setClean()
+
+
+def test_selecting_candidate_keeps_scroll_position(many: MainWindow) -> None:
+    bar = many.candidate_list.verticalScrollBar()
+    assert bar.maximum() > 0
+    bar.setValue(bar.maximum() // 2)
+    value = bar.value()
+    row = many.candidate_list.indexAt(QPoint(5, 5)).row() + 2
+    click_row(many, row)
+    assert many.controller.state.selected == f"cand {row - 1:02d}"
+    assert bar.value() == value
+    click_row(many, row + 1, Qt.KeyboardModifier.ShiftModifier)
+    assert bar.value() == value
+    many.controller.undo_stack.setClean()
+
+
+def test_rebuild_keeps_scroll_position(many: MainWindow) -> None:
+    bar = many.candidate_list.verticalScrollBar()
+    bar.setValue(bar.maximum() // 2)
+    value = bar.value()
+    many.candidate_list.item(5).setText("renamed")
+    many._on_state_changed(many.controller.state)
+    assert bar.value() == value
+    many.controller.undo_stack.setClean()

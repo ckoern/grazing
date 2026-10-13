@@ -2,6 +2,8 @@
 
 import numpy as np
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from xstack import materials
 from xstack.materials import VACUUM
@@ -15,6 +17,7 @@ from xstack.structure.coatings import (
     SingleLayer,
     grading_laws,
 )
+from xstack.structure.coatings.simple import layer_labels
 from xstack.structure.stack import Layer
 
 W = materials.get("W")
@@ -88,7 +91,7 @@ class TestNLayer:
         c = NLayer.create([W, SI, B4C], [1.0, 2.0, 3.0], [0.1, 0.2, 0.3])
         assert [role for role, _ in c.material_roles] == ["M1", "M2", "M3"]
         assert c.count == 3
-        assert list(c.parameters) == ["t1", "sigma1", "t2", "sigma2", "t3", "sigma3"]
+        assert list(c.parameters) == ["t_W", "sigma_W", "t_Si", "sigma_Si", "t_B4C", "sigma_B4C"]
         layers = c.layers()
         assert [layer.material for layer in layers] == [W, SI, B4C]
         assert thicknesses(layers) == [1.0, 2.0, 3.0]
@@ -101,10 +104,28 @@ class TestNLayer:
         assert layers[0].tag == "x.M1"
 
     def test_specs(self) -> None:
-        c = NLayer.create([W, SI], [free(2.0, 1.0, 3.0), "t1 + 1"])
-        assert c.parameters.free_names() == ("t1",)
+        c = NLayer.create([W, SI], [free(2.0, 1.0, 3.0), "t_W + 1"])
+        assert c.parameters.free_names() == ("t_W",)
         assert thicknesses(c.layers()) == [2.0, 3.0]
-        assert thicknesses(c.layers({"t1": 1.5})) == [1.5, 2.5]
+        assert thicknesses(c.layers({"t_W": 1.5})) == [1.5, 2.5]
+
+    def test_parameters_named_after_materials(self) -> None:
+        c = NLayer.create([W, SI, B4C, SI], [1.0] * 4)
+        assert list(c.parameters)[::2] == ["t_W", "t_Si_1", "t_B4C", "t_Si_2"]
+        assert list(c.parameters)[1::2] == ["sigma_W", "sigma_Si_1", "sigma_B4C", "sigma_Si_2"]
+
+    def test_legacy_positional_names_still_build(self) -> None:
+        new = NLayer.create([W, SI], [1.5, 2.5], [0.1, 0.2])
+        legacy = ParameterSet(
+            Parameter(old, p.value, min=p.min, max=p.max, unit=p.unit)
+            for old, p in zip(
+                ["t1", "sigma1", "t2", "sigma2"], new.parameters.values(), strict=True
+            )
+        )
+        old = NLayer("layers", new.material_roles, legacy)
+        assert thicknesses(old.layers()) == [1.5, 2.5]
+        assert [layer.roughness for layer in old.layers()] == [0.1, 0.2]
+        assert old.layers({"t2": 4.0})[1].thickness == 4.0
 
     @pytest.mark.parametrize(
         ("n_mat", "n_t", "n_s"),
@@ -890,3 +911,45 @@ def test_expression_outside_bounds_raises_build_error() -> None:
         coating.layers()
     coating = Periodic.create(get("W"), get("Si"), d=4.0, gamma="d / 10")
     assert coating.layers()[0].thickness == pytest.approx(1.6)
+
+
+class TestLayerLabels:
+    def test_unique_material_keeps_name(self) -> None:
+        assert layer_labels([W, SI, B4C]) == ["W", "Si", "B4C"]
+
+    def test_repeated_material_is_indexed(self) -> None:
+        assert layer_labels([SI, W, SI, SI]) == ["Si_1", "W", "Si_2", "Si_3"]
+
+    def test_sanitizing(self) -> None:
+        odd = [materials.get("Si"), materials.get("B4C")]
+        assert layer_labels(odd) == ["Si", "B4C"]
+        assert layer_labels([_named("2-x"), _named("a b"), _named("-")]) == [
+            "m_2_x",
+            "a_b",
+            "layer",
+        ]
+
+    def test_collision_with_indexed_label(self) -> None:
+        labels = layer_labels([_named("Si"), _named("Si"), _named("Si_1")])
+        assert len(set(labels)) == 3
+        assert "Si_1" in labels
+
+    @given(st.lists(st.text(min_size=1, max_size=6), min_size=1, max_size=12))
+    def test_labels_are_unique_identifiers(self, names: list[str]) -> None:
+        labels = layer_labels([_named(n) for n in names])
+        assert len(labels) == len(names)
+        assert len(set(labels)) == len(labels)
+        for label in labels:
+            assert f"t_{label}".isidentifier()
+            assert f"sigma_{label}".isidentifier()
+            assert "__" not in label
+
+    @given(st.lists(st.sampled_from(["Si", "W", "B4C", "Si_1", "x"]), min_size=1, max_size=10))
+    def test_nlayer_parameters_unique(self, names: list[str]) -> None:
+        mats = [_named(n) for n in names]
+        c = NLayer.create(mats, [1.0] * len(mats))
+        assert len(c.parameters) == 2 * len(mats)
+
+
+def _named(name: str) -> materials.Material:
+    return materials.Material(name, "Si", 2.33)

@@ -27,7 +27,7 @@ Stack: PySide6, pyqtgraph for interactive plots. The GUI is the package `xstack.
  +----------------+-------------------------------------------------------------------+
  | Candidates     | Design header: project name, input design, substrate              |
  | (left dock)    | [1 Goal][2 Materials][3 Coating][4 Estimate][5 Constraints]       |
- |                | [6 Process][7 Scan][8 Optimize][9 Analyze]                        |
+ |                | [6 Process][7 Scan][8 Optimize][9 Trade-off][10 Analyze]          |
  |  [x] run 2     | +-- help card -----------------------------------------------+    |
  |  [ ] input 1   | | page (scroll area)                                        |    |
  |  details       | |                                                           |    |
@@ -36,7 +36,7 @@ Stack: PySide6, pyqtgraph for interactive plots. The GUI is the package `xstack.
  | [Use as start] | ---- workflow panel (left of the splitter) ----                   |
  | [Delete]       | ---- plot tabs (right of the splitter) ----                       |
  |                | [Reflectivity][Layer profile][Parameters]                         |
- |                | [Design map][Convergence][Tolerance]                              |
+ |                | [Design map][Convergence][Tolerance][Trade-off]                   |
  |                |                                                                   |
  +----------------+-------------------------------------------------------------------+
  Bottom docks (tabbed):  [Journal] [History]
@@ -80,7 +80,7 @@ final design is selected. Estimates are stored as `estimate (plain)` or `estimat
 ### 2.2 Workflow panel
 
 The design header shows the project name and a one-line description of the input design (coating type,
-materials, substrate). Below it are nine step tabs, `1 Goal` to `9 Analyze`. Each tab shows a help card
+materials, substrate). Below it are ten step tabs, `1 Goal` to `10 Analyze`. Each tab shows a help card
 with the explanation of the step, the page in a scroll area, and **← Back** and **Next: <step> →**
 buttons (the first step has no Back, the last has no Next). The primary action of each step is the
 primary button variant.
@@ -139,6 +139,25 @@ primary button variant.
     current input design).
   - *Last run* table: Stage, Evaluations, Best objective (on the stage's grid), Figure of merit on the
     full problem, Time (s).
+- **Trade-off**: best figure of merit for a series of maximum coating times (ε-constraint sweep, see
+  `optim/tradeoff.py`). Needs a deposition process; without one, the page explains this and *Run
+  trade-off* is disabled.
+  - *Time limits*: *Automatic range* optimizes the design without a limit first and then uses *Number of
+    limits* limits from *Shortest limit* (% of that design's coating time, default 20 %) up to just below
+    it; *Explicit range* takes a shortest and a longest limit in h (suggested from the coating time of the
+    input design until edited) and the same number of limits, without computing the unconstrained design.
+  - *Mode*: *Continuation (fast)* optimizes the longest limit with the full pipeline and refines each shorter
+    limit from the previous design; *Thorough* runs the full pipeline for every limit. The pipeline is the
+    one configured on the Optimize page.
+  - *Run trade-off* runs as a background job (progress bar, Convergence tab, Stop action). The result is
+    stored in the project with an undoable command and the Trade-off plot tab is shown.
+  - *Plot* selects the plotted quantity: the figure of merit or one of the quantities it rates.
+  - The table has one row per point: limit (h, “no limit”), coating time (h), figure of merit, the plotted
+    quantity (if not the figure of merit), gain per h compared with the previous feasible point, notes
+    (*infeasible*, *replaced by shorter-limit design*, *knee*) and the values of the free parameters.
+  - Selecting a row (or clicking a marker in the plot) marks the point in the plot and draws the design's
+    reflectivity dashed in the Reflectivity tab. *Store as candidate* stores it as “trade-off <limit> h”
+    with source `tradeoff` and selects it.
 - **Analyze**: Monte Carlo tolerance analysis and recipe export.
   - *Design to analyze*: input design or selected candidate.
   - *Error model* with presets (Thickness errors only, Roughness only, Interlayer mixing only, All
@@ -166,6 +185,7 @@ primary button variant.
 | Design map | Result of the design-space scan: the figure of merit over one or two parameters. Infeasible points are grey. Clicking a cell sets the start values of the input design. |
 | Convergence | Two panels for the current or last run: best objective (FOM plus penalties, log scale), and the quantities the figure of merit rates for the best design (e.g. mean reflectivity; both quantities for a combination of two figures of merit, distinguished by line style; the figure of merit itself if it defines none), against evaluations, one color per stage. |
 | Tolerance | Histogram of the figure of merit over all samples, with the nominal value and dashed 10 % and 90 % lines. Below it, the reflectivity of all Monte Carlo samples is overlaid as semi-transparent lines (at most 200), with the nominal curve and a 10–90 % band. |
+| Trade-off | Upper panel: the plotted quantity versus coating time (h) of the stored trade-off. Feasible points are a line with markers, infeasible points hollow grey markers, points taken over from a shorter limit diamonds, the knee has a ring and a label, the point without limit is labeled “no limit”, and the selected point has a square. For the figure of merit, the input design and the stored candidates with a coating time are drawn as labeled triangles to show how far they are from the front. Lower panel: marginal gain (figure of merit per additional hour) between neighbouring feasible points, on the same time axis. |
 
 ### 2.4 Bottom docks
 
@@ -220,7 +240,7 @@ src/xstack/gui/
   forms.py               # DataclassForm: editor generated from dataclass fields
   files.py               # ask_save_path, with_suffix: save dialogs that append the file extension
   plots.py               # pyqtgraph widgets: ReflectivityPlot, LayerProfilePlot, DesignMapPlot,
-                         #   ConvergencePlot; scan_axis, bilayer_profile
+                         #   ConvergencePlot, TradeoffPlot; scan_axis, bilayer_profile, quantity_value
   preview.py             # compute_preview, compute_curves: calculations for the live views
   style.py               # design language: THEMES, COLORS, PLOT_PALETTE, apply_style, set_variant,
                          #   restyle_plots, icon
@@ -236,6 +256,7 @@ src/xstack/gui/
     process.py           # ProcessPage
     scan.py              # ScanPage
     optimize.py          # OptimizePage
+    tradeoff.py          # TradeoffPage: coating-time trade-off settings, results table, store as candidate
     analyze.py           # AnalyzePage: error model, tolerance analysis, recipe export
   widgets/
     __init__.py

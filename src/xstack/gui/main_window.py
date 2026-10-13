@@ -424,9 +424,8 @@ class MainWindow(QMainWindow):
             "Stored designs. An optimization run is stored as “run N”: the final design of a "
             "full pipeline run, or the result of a single stage run. Click to select a candidate: "
             "it is shown next to the input design and can be analyzed or exported. Shift-click "
-            "selects a "
-            "range, Ctrl-click toggles single entries. Double-click to rename. Check to "
-            "overlay it in the reflectivity plot."
+            "selects a range, Ctrl-click toggles single entries. Double-click to rename. Check "
+            "to overlay it in the reflectivity plot."
         )
         self.candidate_list.itemChanged.connect(self._candidate_item_changed)
         self.candidate_list.currentItemChanged.connect(self._candidate_clicked)

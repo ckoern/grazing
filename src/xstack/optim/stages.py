@@ -113,11 +113,18 @@ class Stage:
 
 
 def _target_extremes(
-    targets: TargetSet,
+    targets: TargetSet, index: int | None = None
 ) -> list[tuple[float, float, float]]:
-    """Return (energy, angle, weight) at both ends and the centre of every target."""
+    """Return (energy, angle, weight) at both ends and the centre of the selected targets."""
+    if index is not None and not 0 <= index < len(targets.targets):
+        raise ValueError(
+            f"Bragg outline target index {index} is out of range for "
+            f"{len(targets.targets)} target(s)"
+        )
     points = []
-    for t in targets.targets:
+    for i, t in enumerate(targets.targets):
+        if index is not None and i != index:
+            continue
         if isinstance(t, EnergyScan):
             for e in (t.energy_min, 0.5 * (t.energy_min + t.energy_max), t.energy_max):
                 points.append((e, t.angle, t.weight))
@@ -142,14 +149,26 @@ class BraggOutline(Optimizer):
     parameters are narrowed to ±`margin` around the estimates (within the original bounds).
     Other coatings are left unchanged.
 
+    With several targets, the ends and centres of all targets are pooled by default: the
+    energy is the weight-averaged energy, the periodic period is the median of the per-point
+    Bragg periods and the depth-graded range spans their minimum and maximum. This is only
+    meaningful if the targets lie in a similar energy and angle range; otherwise select the
+    target that determines the period.
+
     Attributes:
         refraction: Use the refraction-corrected Bragg law.
         margin: Relative half width of the narrowed bounds of period parameters.
+        target: Index into the problem's targets of the single target the estimate is based
+            on, or None to pool all targets.
+
+    Raises:
+        ValueError: From `run`, if `target` is out of range for the problem's targets.
     """
 
     type_name: ClassVar[str] = "bragg_outline"
     refraction: bool = False
     margin: float = 0.2
+    target: int | None = None
 
     def run(
         self,
@@ -184,7 +203,7 @@ class BraggOutline(Optimizer):
         h, low = coating.material("H"), coating.material("L")
         values = params.evaluate()
         gamma_name = "gamma" if isinstance(coating, Periodic) else "gamma_top"
-        extremes = _target_extremes(problem.targets)
+        extremes = _target_extremes(problem.targets, self.target)
         energies = np.array([e for e, _, _ in extremes])
         e_centre = float(np.average(energies, weights=[w for _, _, w in extremes]))
         updates: dict[str, tuple[float, float | None, float | None]] = {}

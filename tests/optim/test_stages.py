@@ -217,6 +217,42 @@ class TestBraggOutlinePeriodic:
         assert d == pytest.approx(float(bragg.bragg_period(deg(1.0), wavelength(ENERGY))), rel=1e-3)
 
 
+class TestBraggOutlineTargetSelection:
+    low, high = ENERGY, 2 * ENERGY
+
+    def two_targets(self) -> DesignProblem:
+        problem = periodic_problem()
+        targets = TargetSet(
+            (
+                EnergyScan(angle=deg(1.0), energy_min=self.low - 40, energy_max=self.low + 40),
+                EnergyScan(angle=deg(1.0), energy_min=self.high - 40, energy_max=self.high + 40),
+            ),
+            "average_merit",
+        )
+        return DesignProblem(problem.mirror, targets, MeanReflectivity())
+
+    def test_selected_target_alone(self) -> None:
+        problem = self.two_targets()
+        for index, energy in enumerate((self.low, self.high)):
+            d = BraggOutline(target=index).run(problem).parameters["d"].value
+            expected = float(bragg.bragg_period(deg(1.0), wavelength(energy)))
+            assert d == pytest.approx(expected, rel=1e-3)
+
+    def test_none_pools_targets(self) -> None:
+        problem = self.two_targets()
+        pooled = BraggOutline().run(problem).parameters["d"].value
+        first = BraggOutline(target=0).run(problem).parameters["d"].value
+        second = BraggOutline(target=1).run(problem).parameters["d"].value
+        assert pooled != pytest.approx(first, rel=1e-3)
+        assert pooled != pytest.approx(second, rel=1e-3)
+        assert second < pooled <= first
+
+    @pytest.mark.parametrize("index", [2, -1])
+    def test_out_of_range_raises(self, index: int) -> None:
+        with pytest.raises(ValueError, match="out of range"):
+            BraggOutline(target=index).run(self.two_targets())
+
+
 class TestBraggOutlineGraded:
     def test_energy_scan(self) -> None:
         theta = deg(0.2)

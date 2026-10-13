@@ -392,6 +392,11 @@ class TestModelsAndOptimizers:
         opt = BraggOutline(refraction=True, margin=0.1)
         assert roundtrip(opt) == opt
 
+    def test_bragg_outline_target(self) -> None:
+        opt = BraggOutline(target=1)
+        assert roundtrip(opt) == opt
+        assert roundtrip(opt).target == 1
+
     def test_stage(self) -> None:
         stage = Stage(
             "refine",

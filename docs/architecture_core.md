@@ -423,7 +423,8 @@ class Optimizer(ABC):
   a `ScanResult` (`best_values()`, merit and feasibility per grid point). Parameters not in `axes` keep
   their start values.
 - `BraggOutline` (optim/stages.py) is the analytic first estimate from the Bragg law. It sets the period
-  and bounds from the target band and does not optimize.
+  and bounds from the target band and does not optimize. With several targets it pools them by default;
+  `target=i` bases the estimate on the `i`-th target alone (`ValueError` if out of range).
 - `Stage(name, optimizer, model=None, points=None, merit=None, free=None)` bundles how much effort a run
   spends. `None` fields keep the problem's settings.
 - `Pipeline(stages)`:

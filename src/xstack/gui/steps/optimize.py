@@ -100,6 +100,7 @@ class _StageRow:
     method: QComboBox | None
     evaluations: QSpinBox
     points: QSpinBox
+    target: QComboBox | None = None
 
 
 class OptimizePage(StepPage):
@@ -486,6 +487,8 @@ class OptimizePage(StepPage):
                 changes["max_evaluations"] = row.evaluations.value()
             if changes:
                 optimizer = dataclasses.replace(optimizer, **changes)
+        if isinstance(optimizer, BraggOutline) and row.target is not None:
+            optimizer = dataclasses.replace(optimizer, target=row.target.currentData())
         points = row.points.value()
         if points > 0 and not isinstance(optimizer, BraggOutline):
             return dataclasses.replace(stage, optimizer=optimizer, points=points)
@@ -505,6 +508,7 @@ class OptimizePage(StepPage):
         names = [s.name for s in stages]
         if names != list(self._rows):
             self._build_stage_table(stages)
+        self._refresh_target_choice()
         self.stage_table.setEnabled(not self.custom_pipeline.isChecked())
         enabled = self._enabled_stage_names()
         current = self.stage_combo.currentText()
@@ -531,6 +535,8 @@ class OptimizePage(StepPage):
             optimizer: QWidget
             if row.method is not None:
                 optimizer = row.method
+            elif row.target is not None:
+                optimizer = row.target
             else:
                 optimizer = QLabel(
                     "Bragg law" if isinstance(stage.optimizer, BraggOutline) else "grid scan"
@@ -541,12 +547,37 @@ class OptimizePage(StepPage):
         self.stage_table.resizeRowsToContents()
         self._fit_height(self.stage_table)
 
+    def _target_labels(self) -> list[str]:
+        targets = self._state.targets if self._state is not None else None
+        return [t.label(i) for i, t in enumerate(targets.targets)] if targets else []
+
+    def _refresh_target_choice(self) -> None:
+        """Fill the target selector of the Bragg-law stage; keep the selection if possible."""
+        labels = self._target_labels()
+        for row in self._rows.values():
+            combo = row.target
+            if combo is None:
+                continue
+            current = combo.currentData()
+            items: list[tuple[str, int | None]] = [("Bragg law: all targets", None)]
+            items += [(f"Bragg law: {label}", i) for i, label in enumerate(labels)]
+            if [combo.itemText(i) for i in range(combo.count())] != [t for t, _ in items]:
+                combo.blockSignals(True)
+                combo.clear()
+                for text, data in items:
+                    combo.addItem(text, data)
+                index = combo.findData(current)
+                combo.setCurrentIndex(max(index, 0))
+                combo.blockSignals(False)
+            combo.setEnabled(len(labels) > 1)
+
     def _make_row(self, stage: Stage) -> _StageRow:
         enabled = QCheckBox()
         enabled.setChecked(True)
         enabled.setToolTip(f"Include the {stage.name} stage in the pipeline.")
         enabled.toggled.connect(lambda _: self._update_stages())
         method: QComboBox | None = None
+        target: QComboBox | None = None
         evaluations = QSpinBox()
         evaluations.setRange(0, 10_000_000)
         evaluations.setSpecialValueText("default")
@@ -577,7 +608,14 @@ class OptimizePage(StepPage):
             else:
                 points.setEnabled(False)
                 points.setToolTip("The analytic estimate does not use a grid.")
-        return _StageRow(stage.name, enabled, method, evaluations, points)
+        if isinstance(stage.optimizer, BraggOutline):
+            target = QComboBox()
+            target.addItem("Bragg law: all targets", None)
+            target.setToolTip(
+                "Target the Bragg-law estimate is based on. With several targets, 'all targets' "
+                "pools them, which is only meaningful for similar energies and angles."
+            )
+        return _StageRow(stage.name, enabled, method, evaluations, points, target)
 
     def run(self, stage: str | None = None) -> None:
         """Request a pipeline run, or a run of a single stage.

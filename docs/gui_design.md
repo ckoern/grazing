@@ -104,7 +104,9 @@ primary button variant.
   expression computes it from other parameters.
 - **Estimate**: analytic start values from the Bragg law for periodic and depth-graded multilayers.
   *Estimate* computes two estimates side by side with the current input values: plain Bragg and
-  refraction-corrected (`BraggOutline(refraction=…)`). The table lists the free parameters with Input,
+  refraction-corrected (`BraggOutline(refraction=…)`). With several targets, the *Target* selector next to
+  the button chooses the target the estimate is based on (`BraggOutline(target=…)`); *All targets* pools
+  them. The selector is hidden with a single target. The table lists the free parameters with Input,
   Plain Bragg and With refraction values; the bounds of each estimate are shown as tooltips. Each estimate
   shows its figure of merit and whether it is feasible. **Use estimate** chooses which estimate applies.
   *Use as start values* sets the start values of the input design; *Also narrow the parameter bounds to

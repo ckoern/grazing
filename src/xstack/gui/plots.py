@@ -8,22 +8,31 @@ from typing import Any
 import numpy as np
 import pyqtgraph as pg
 from numpy.typing import NDArray
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from xstack.gui.style import COLORS, PLOT_PALETTE
+from xstack.optim.tradeoff import TradeoffPoint, TradeoffResult
 from xstack.physics.models import ReflectivityResult
 from xstack.structure.stack import Stack
 from xstack.targets import Target
 
 __all__ = [
+    "MERIT_QUANTITY",
     "ConvergencePlot",
     "Curve",
     "DesignMapPlot",
     "LayerProfilePlot",
+    "ReferenceDesign",
     "ReflectivityPlot",
+    "TradeoffPlot",
     "bilayer_profile",
+    "quantity_value",
     "scan_axis",
 ]
+
+MERIT_QUANTITY = "figure of merit"
+"""Name of the trade-off quantity that selects the figure of merit itself."""
 
 PALETTE = PLOT_PALETTE
 """Colors of plot curves (the categorical palette of the design language)."""
@@ -503,3 +512,258 @@ class DesignMapPlot(QWidget):
         x, y = values.get(self._names[0]), values.get(self._names[1])
         if x is not None and y is not None:
             self._marker.setData([x], [y])
+
+
+def quantity_value(point: TradeoffPoint, quantity: str) -> float:
+    """Return a quantity of a trade-off point.
+
+    Args:
+        point: The trade-off point.
+        quantity: `MERIT_QUANTITY` or the label of one of the point's quantities.
+
+    Returns:
+        The figure of merit or the quantity; ``nan`` if the point has no such quantity.
+    """
+    if quantity == MERIT_QUANTITY:
+        return point.merit
+    return dict(point.quantities).get(quantity, float("nan"))
+
+
+@dataclass(frozen=True)
+class ReferenceDesign:
+    """A design shown in the trade-off plot for comparison with the front.
+
+    Attributes:
+        label: Name shown next to the marker.
+        coating_time: Coating time in s.
+        merit: Figure of merit.
+    """
+
+    label: str
+    coating_time: float
+    merit: float
+
+
+type _Group = list[tuple[float, float, int]]
+
+
+class TradeoffPlot(QWidget):
+    """Quantity versus coating time of a trade-off, with the marginal gain below.
+
+    The upper panel shows the feasible designs as a line with markers, infeasible designs as
+    hollow grey markers, designs taken over from a shorter limit as diamonds and the knee with
+    a ring and a label. Reference designs (the input design and stored candidates) are drawn
+    as separate labelled markers. The lower panel shows the improvement of the figure of merit
+    per additional hour between neighbouring feasible designs.
+
+    Signals:
+        pointSelected(int): A marker was clicked; the index of the point in
+            `TradeoffResult.points`.
+
+    Attributes:
+        feasible_xy: Coating times in h and plotted values of the feasible points.
+        infeasible_xy: The same for infeasible points.
+        replaced_xy: The same for points taken over from a shorter limit.
+        reference_xy: The same for the reference designs.
+        knee_xy: Coating time in h and value of the knee, or ``None``.
+        gains: Marginal gains in figure of merit per h shown in the lower panel.
+        labels: Texts of the annotations in the upper panel.
+        selected: Index of the marked point, or ``None``.
+
+    Args:
+        parent: Parent widget.
+    """
+
+    pointSelected = Signal(int)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.graphics = pg.GraphicsLayoutWidget()
+        layout.addWidget(self.graphics)
+        self.main_plot = self.graphics.addPlot(row=0, col=0)
+        self.gain_plot = self.graphics.addPlot(row=1, col=0)
+        self.gain_plot.setXLink(self.main_plot)
+        self.graphics.ci.layout.setRowStretchFactor(0, 3)
+        self.graphics.ci.layout.setRowStretchFactor(1, 1)
+        for plot in (self.main_plot, self.gain_plot):
+            plot.showGrid(x=True, y=True, alpha=0.15)
+            plot.getAxis("left").enableAutoSIPrefix(False)
+        self.gain_plot.setLabel("bottom", "Coating time (h)")
+        self.gain_plot.setLabel("left", "Gain (FOM / h)")
+        self.main_plot.setLabel("left", MERIT_QUANTITY)
+        self._result: TradeoffResult | None = None
+        self._quantity = MERIT_QUANTITY
+        self._items: list[tuple[pg.PlotItem, Any]] = []
+        self._marker: tuple[pg.PlotItem, Any] | None = None
+        self.feasible_xy: tuple[list[float], list[float]] = ([], [])
+        self.infeasible_xy: tuple[list[float], list[float]] = ([], [])
+        self.replaced_xy: tuple[list[float], list[float]] = ([], [])
+        self.reference_xy: tuple[list[float], list[float]] = ([], [])
+        self.knee_xy: tuple[float, float] | None = None
+        self.gains: tuple[float, ...] = ()
+        self.labels: list[str] = []
+        self.selected: int | None = None
+
+    def clear(self) -> None:
+        """Remove all data."""
+        for plot, item in self._items:
+            plot.removeItem(item)
+        self._items.clear()
+        self._remove_marker()
+        self.feasible_xy = ([], [])
+        self.infeasible_xy = ([], [])
+        self.replaced_xy = ([], [])
+        self.reference_xy = ([], [])
+        self.knee_xy = None
+        self.gains = ()
+        self.labels = []
+        self._result = None
+
+    def _add(self, plot: pg.PlotItem, item: Any) -> None:
+        plot.addItem(item)
+        self._items.append((plot, item))
+
+    def _annotate(
+        self, text: str, x: float, y: float, color: str, anchor: tuple[float, float]
+    ) -> None:
+        item = pg.TextItem(text, color=color, anchor=anchor)
+        item.setPos(x, y)
+        self._add(self.main_plot, item)
+        self.labels.append(text)
+
+    def _scatter(self, group: _Group, **style: Any) -> None:
+        scatter = pg.ScatterPlotItem(
+            x=[p[0] for p in group], y=[p[1] for p in group], data=[p[2] for p in group], **style
+        )
+        scatter.sigClicked.connect(self._clicked)
+        self._add(self.main_plot, scatter)
+
+    def set_result(
+        self,
+        result: TradeoffResult | None,
+        quantity: str = MERIT_QUANTITY,
+        references: Sequence[ReferenceDesign] = (),
+    ) -> None:
+        """Show a trade-off.
+
+        Args:
+            result: The trade-off, or ``None`` to clear the plot.
+            quantity: `MERIT_QUANTITY` or the label of a quantity to plot.
+            references: Designs to show for comparison; they are only shown for the figure of
+                merit.
+        """
+        selected = self.selected
+        self.clear()
+        self._result, self._quantity = result, quantity
+        self.main_plot.setLabel(
+            "left", "Figure of merit (lower is better)" if quantity == MERIT_QUANTITY else quantity
+        )
+        if result is None:
+            return
+        text, muted = COLORS["text"], COLORS["text_muted"]
+        feasible: _Group = []
+        infeasible: _Group = []
+        replaced: _Group = []
+        for index, point in enumerate(result.points):
+            x, y = point.coating_time / 3600.0, quantity_value(point, quantity)
+            if not (np.isfinite(x) and np.isfinite(y)):
+                continue
+            group = infeasible if not point.feasible else replaced if point.replaced else feasible
+            group.append((x, y, index))
+            if np.isinf(point.limit):
+                self._annotate("no limit", x, y, text, (1.0, 1.2))
+        front = sorted([*feasible, *replaced])
+        if front:
+            line = pg.PlotDataItem(
+                [p[0] for p in front], [p[1] for p in front], pen=pg.mkPen(PALETTE[0], width=2)
+            )
+            self._add(self.main_plot, line)
+        solid = {"symbol": "o", "size": 9, "pen": pg.mkPen(PALETTE[0]), "brush": PALETTE[0]}
+        hollow = {"symbol": "o", "size": 9, "pen": pg.mkPen(muted, width=1.5), "brush": None}
+        diamond = {"symbol": "d", "size": 13, "pen": pg.mkPen(PALETTE[3]), "brush": PALETTE[3]}
+        for group, style in ((feasible, solid), (infeasible, hollow), (replaced, diamond)):
+            if group:
+                self._scatter(group, **style)
+        self.feasible_xy = ([p[0] for p in feasible], [p[1] for p in feasible])
+        self.infeasible_xy = ([p[0] for p in infeasible], [p[1] for p in infeasible])
+        self.replaced_xy = ([p[0] for p in replaced], [p[1] for p in replaced])
+        self._draw_knee(result, quantity)
+        if quantity == MERIT_QUANTITY:
+            self._draw_references(references)
+        self._draw_gains(result)
+        self.select(selected)
+
+    def _draw_knee(self, result: TradeoffResult, quantity: str) -> None:
+        knee = result.knee()
+        if knee is None or not np.isfinite(quantity_value(knee, quantity)):
+            return
+        x, y = knee.coating_time / 3600.0, quantity_value(knee, quantity)
+        self.knee_xy = (x, y)
+        ring = pg.ScatterPlotItem(
+            x=[x], y=[y], symbol="o", size=18, brush=None, pen=pg.mkPen(PALETTE[1], width=2)
+        )
+        self._add(self.main_plot, ring)
+        self._annotate("knee", x, y, PALETTE[1], (-0.3, 1.4))
+
+    def _draw_references(self, references: Sequence[ReferenceDesign]) -> None:
+        shown = [r for r in references if np.isfinite(r.coating_time) and np.isfinite(r.merit)]
+        xs, ys = [r.coating_time / 3600.0 for r in shown], [r.merit for r in shown]
+        self.reference_xy = (xs, ys)
+        if not shown:
+            return
+        muted = COLORS["text_muted"]
+        marker = pg.ScatterPlotItem(
+            x=xs, y=ys, symbol="t", size=10, pen=pg.mkPen(muted), brush=PALETTE[6]
+        )
+        self._add(self.main_plot, marker)
+        for design, x, y in zip(shown, xs, ys, strict=True):
+            self._annotate(design.label, x, y, muted, (0.0, -0.3))
+
+    def _draw_gains(self, result: TradeoffResult) -> None:
+        points = result.feasible_points()
+        self.gains = result.marginal_gains()
+        x0, x1, heights = [], [], []
+        for shorter, longer, gain in zip(points, points[1:], self.gains, strict=False):
+            if np.isfinite(gain):
+                x0.append(shorter.coating_time / 3600.0)
+                x1.append(longer.coating_time / 3600.0)
+                heights.append(gain)
+        if heights:
+            bars = pg.BarGraphItem(
+                x0=x0, x1=x1, height=heights, brush=PALETTE[2], pen=pg.mkPen(COLORS["surface"])
+            )
+            self._add(self.gain_plot, bars)
+
+    def _remove_marker(self) -> None:
+        if self._marker is not None:
+            plot, item = self._marker
+            plot.removeItem(item)
+            self._marker = None
+
+    def select(self, index: int | None) -> None:
+        """Mark a point of the trade-off with a square.
+
+        Args:
+            index: Index in `TradeoffResult.points`, or ``None`` to remove the mark.
+        """
+        self._remove_marker()
+        self.selected = index
+        result = self._result
+        if result is None or index is None or not 0 <= index < len(result.points):
+            return
+        point = result.points[index]
+        x, y = point.coating_time / 3600.0, quantity_value(point, self._quantity)
+        if np.isfinite(x) and np.isfinite(y):
+            marker = pg.ScatterPlotItem(
+                x=[x], y=[y], symbol="s", size=17, brush=None, pen=pg.mkPen(COLORS["text"], width=2)
+            )
+            self.main_plot.addItem(marker)
+            self._marker = (self.main_plot, marker)
+
+    def _clicked(self, _item: Any, points: Sequence[Any]) -> None:
+        if points:
+            index = int(points[0].data())
+            self.select(index)
+            self.pointSelected.emit(index)

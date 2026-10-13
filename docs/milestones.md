@@ -134,6 +134,7 @@ Smoke tests run with pytest-qt.
 - Scan, Optimize, and Analyze pages: FOM editor (time weight slider), stage/pipeline editor.
 - `QThreadPool` workers with progress and cancel, Convergence and Design-map tabs (click to set start parameters).
 - Candidates list (overlay, compare, promote, export), Tolerance tab, recipe export.
+- Trade-off page and tab: coating-time sweep with marginal gain and knee (library: `optim/tradeoff.py`).
 
 **Done when:** examples (a)–(c) from M7 can be done entirely in the GUI with results identical to the library.
 

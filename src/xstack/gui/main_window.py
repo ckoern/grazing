@@ -42,7 +42,9 @@ from xstack.gui.plots import (
     Curve,
     DesignMapPlot,
     LayerProfilePlot,
+    ReferenceDesign,
     ReflectivityPlot,
+    TradeoffPlot,
 )
 from xstack.gui.preview import (
     Preview,
@@ -64,7 +66,9 @@ from xstack.gui.steps import (
     ProcessPage,
     ScanPage,
     StepPage,
+    TradeoffPage,
 )
+from xstack.gui.steps.tradeoff import limit_label
 from xstack.gui.style import (
     COLORS,
     Theme,
@@ -84,6 +88,7 @@ from xstack.optim.events import ProgressEvent
 from xstack.optim.pipeline import PipelineResult
 from xstack.optim.problem import DesignProblem
 from xstack.optim.scan import ScanResult
+from xstack.optim.tradeoff import TradeoffPoint
 from xstack.physics.models import ReflectivityResult
 from xstack.project import Candidate, ProjectState
 from xstack.project.commands import (
@@ -110,6 +115,7 @@ WORKFLOW_STEPS = (
     "Process",
     "Scan",
     "Optimize",
+    "Trade-off",
     "Analyze",
 )
 """Steps of the design workflow, shown as tabs in this order."""
@@ -214,6 +220,8 @@ class MainWindow(QMainWindow):
         self.plot_tabs.addTab(self.design_map, "Design map")
         self.plot_tabs.addTab(self.convergence_plot, "Convergence")
         self.plot_tabs.addTab(self.tolerance_view, "Tolerance")
+        self.tradeoff_plot = TradeoffPlot()
+        self.plot_tabs.addTab(self.tradeoff_plot, "Trade-off")
         self.plot_tabs.setTabToolTip(
             2, "Coating parameters of the selected candidate compared with the input design"
         )
@@ -245,6 +253,11 @@ class MainWindow(QMainWindow):
         self.tolerance_runner = LatestRunner(delay_ms=200, parent=self)
         self.tolerance_runner.finished.connect(self._on_tolerance_curves)
         self.tolerance_runner.failed.connect(self._show_error)
+        self.tradeoff_runner = LatestRunner(delay_ms=100, parent=self)
+        self.tradeoff_runner.finished.connect(self._on_tradeoff_curves)
+        self.tradeoff_runner.failed.connect(self._show_error)
+        self.tradeoff_point: TradeoffPoint | None = None
+        self.tradeoff_curves: tuple[ReflectivityResult, ...] = ()
 
     def _step_panel(self) -> QWidget:
         """Create the workflow panel: design summary and one tab per workflow step."""
@@ -270,6 +283,8 @@ class MainWindow(QMainWindow):
         self.process_page = ProcessPage()
         self.scan_page = ScanPage()
         self.optimize_page = OptimizePage()
+        self.tradeoff_page = TradeoffPage()
+        self.tradeoff_page.pipeline_provider = self.optimize_page.pipeline
         self.analyze_page = AnalyzePage()
         self.pages: dict[str, QWidget] = {
             "Goal": self.goal_page,
@@ -280,6 +295,7 @@ class MainWindow(QMainWindow):
             "Process": self.process_page,
             "Scan": self.scan_page,
             "Optimize": self.optimize_page,
+            "Trade-off": self.tradeoff_page,
             "Analyze": self.analyze_page,
         }
         self.step_tabs = QTabWidget()
@@ -298,6 +314,7 @@ class MainWindow(QMainWindow):
             self.estimate_page.estimate_button,
             self.scan_page.run_button,
             self.optimize_page.run_button,
+            self.tradeoff_page.run_button,
             self.analyze_page.run_button,
         ):
             set_variant(button, "primary")
@@ -539,6 +556,7 @@ class MainWindow(QMainWindow):
         self._on_state_changed(self.controller.state)
         self._redraw()
         self.tolerance_view.refresh()
+        self._update_tradeoff_plot()
 
     def next_step(self) -> None:
         """Show the next workflow step."""
@@ -673,6 +691,10 @@ class MainWindow(QMainWindow):
         self.design_map.pointSelected.connect(self.scan_page.apply_values)
         self.optimize_page.pipelineFinished.connect(self._apply_pipeline_result)
         self.analyze_page.toleranceFinished.connect(self._show_tolerance)
+        self.tradeoff_page.quantityChanged.connect(self._update_tradeoff_plot)
+        self.tradeoff_page.pointSelected.connect(self._tradeoff_point_selected)
+        self.tradeoff_page.tradeoffFinished.connect(self._show_tradeoff)
+        self.tradeoff_plot.pointSelected.connect(self.tradeoff_page.select_point)
         self.store_button.clicked.connect(lambda: self.store_candidate())
         self.comparison_view.commandRequested.connect(c.execute)
         self.use_button.clicked.connect(self._use_candidate)
@@ -703,6 +725,7 @@ class MainWindow(QMainWindow):
         self._show_layers()
         self._update_title()
         self._request_preview()
+        self._update_tradeoff_plot()
 
     def _sync_candidate_list(self, state: ProjectState, names: list[str]) -> None:
         """Bring the candidate list in line with the state, keeping scroll position and selection.
@@ -796,6 +819,7 @@ class MainWindow(QMainWindow):
         self._show_layers()
         for page in self.step_pages():
             page.set_preview(preview)
+        self._update_tradeoff_plot()
         self.summary_label.setText(_summary(preview))
 
     def _redraw(self) -> None:
@@ -815,6 +839,11 @@ class MainWindow(QMainWindow):
         for name, results in preview.overlays:
             curves += [Curve(label(name, i), r, dashed=True) for i, r in enumerate(results)]
         curves += [Curve(label("best so far", i), r) for i, r in enumerate(self.live_curves)]
+        if self.tradeoff_point is not None:
+            name = f"trade-off {limit_label(self.tradeoff_point.limit, unit=True)}"
+            curves += [
+                Curve(label(name, i), r, dashed=True) for i, r in enumerate(self.tradeoff_curves)
+            ]
         self.reflectivity_plot.set_curves(curves, targets)
 
     def start_job(self, job: Job) -> bool:
@@ -943,6 +972,71 @@ class MainWindow(QMainWindow):
             self.tolerance_view.set_result(result)
             self._request_tolerance_curves()
         self.plot_tabs.setCurrentWidget(self.tolerance_view)
+
+    def _update_tradeoff_plot(self) -> None:
+        """Draw the stored trade-off with the input design and the candidates for reference."""
+        state = self.controller.state
+        references = [
+            ReferenceDesign(c.name, c.coating_time, c.merit)
+            for c in state.candidates
+            if c.coating_time is not None and c.merit is not None
+        ]
+        preview = self.preview
+        if preview is not None and preview.state is state and preview.evaluation is not None:
+            evaluation = preview.evaluation
+            if evaluation.coating_time is not None:
+                references.insert(
+                    0,
+                    ReferenceDesign(INPUT_DESIGN_LABEL, evaluation.coating_time, evaluation.merit),
+                )
+        self.tradeoff_plot.set_result(
+            self.tradeoff_page.result(), self.tradeoff_page.quantity(), references
+        )
+        if self.tradeoff_point is not None and not any(
+            p is self.tradeoff_point for p in (state.tradeoff.points if state.tradeoff else ())
+        ):
+            self._clear_tradeoff_curves()
+
+    def _clear_tradeoff_curves(self) -> None:
+        self.tradeoff_point = None
+        self.tradeoff_curves = ()
+        self._redraw()
+
+    def _tradeoff_point_selected(self, index: object) -> None:
+        """Show the reflectivity of a selected trade-off point as a dashed overlay."""
+        state = self.controller.state
+        result = state.tradeoff
+        self.tradeoff_plot.select(index if isinstance(index, int) else None)
+        if not isinstance(index, int) or result is None or state.mirror is None:
+            self._clear_tradeoff_curves()
+            return
+        point = result.points[index]
+        mirror = state.mirror
+        ranges = dict(self.display_ranges)
+        self.tradeoff_point = point
+        self.tradeoff_curves = ()
+
+        def compute() -> tuple[TradeoffPoint, tuple[ReflectivityResult, ...]]:
+            design = mirror.with_coating(mirror.coating.with_parameters(point.parameters))
+            return point, compute_curves(state, design, None, ranges)
+
+        self.tradeoff_runner.request(compute)
+
+    def _on_tradeoff_curves(
+        self, outcome: tuple[TradeoffPoint, tuple[ReflectivityResult, ...]]
+    ) -> None:
+        point, curves = outcome
+        if point is self.tradeoff_point:
+            self.tradeoff_curves = curves
+            self._redraw()
+            self.statusBar().showMessage(
+                f"Reflectivity of the trade-off design for {limit_label(point.limit, unit=True)} "
+                "is shown dashed in the Reflectivity tab",
+                5000,
+            )
+
+    def _show_tradeoff(self, _result: object) -> None:
+        self.plot_tabs.setCurrentWidget(self.tradeoff_plot)
 
     def _apply_pipeline_result(
         self,

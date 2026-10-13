@@ -24,6 +24,7 @@ from xstack.merit.base import FigureOfMerit
 from xstack.optim.events import CancellationToken, EventSink
 from xstack.optim.pipeline import Pipeline, PipelineResult
 from xstack.optim.problem import DesignProblem, Evaluation
+from xstack.optim.tradeoff import TradeoffResult
 from xstack.parameters import ParameterSet
 from xstack.physics.models import ReflectivityModel
 from xstack.project.journal import Journal
@@ -58,6 +59,7 @@ __all__ = [
     "set_targets",
     "store_pipeline_result",
     "store_results",
+    "store_tradeoff",
 ]
 
 
@@ -497,6 +499,19 @@ def store_results(
 
     names = ", ".join(repr(c.name) for c in candidates)
     return Command(f"Store result {names}", transform)
+
+
+def store_tradeoff(result: TradeoffResult | None) -> Command:
+    """Store or remove the coating-time trade-off of the project.
+
+    Args:
+        result: The trade-off, or ``None`` to remove it.
+
+    Returns:
+        The command.
+    """
+    text = "Remove trade-off" if result is None else "Store trade-off"
+    return Command(text, lambda s: s.evolve(tradeoff=result))
 
 
 def evaluate_stages(problem: DesignProblem, result: PipelineResult) -> tuple[Evaluation, ...]:

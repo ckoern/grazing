@@ -87,6 +87,7 @@ src/xstack/
     stages.py               # Stage, BraggOutline
     pipeline.py             # Pipeline, PipelineResult, StageResult
     events.py               # ProgressEvent, CancellationToken, EventSink
+    tradeoff.py             # time_tradeoff, TradeoffPoint, TradeoffResult, default_limits
   project/
     __init__.py
     project.py              # ProjectState, Candidate, Command, History, Project
@@ -449,6 +450,27 @@ class Optimizer(ABC):
 
     The optional tolerance analysis is separate: `thickness_tolerance(problem, values, random_error,
     systematic_error, samples, seed, cancel)` in `manufacturing/tolerance.py` returns a `ToleranceResult`.
+
+**Coating-time trade-off.** `time_tradeoff(problem, limits=None, *, points, lowest, mode, pipeline, refine,
+start, events, cancel, on_point)` (optim/tradeoff.py) is an ε-constraint sweep: the problem is optimized for a
+sequence of maximum coating times, each limit replacing the problem's `MaxCoatingTime` constraints by a hard
+constraint. It needs a deposition process (`ValueError` otherwise).
+- Without explicit `limits`, the problem is first optimized without a limit (a point with `limit=inf`);
+  `default_limits(reference_time, points, lowest)` then gives `points` limits on a log scale from `lowest`
+  times that design's coating time up to just below it. Limits are processed from the longest to the shortest.
+- `mode="continuation"` runs the full pipeline for the longest limit only. Each shorter limit starts from the
+  previous design, scans the free integer parameters on a grid and refines locally (Nelder–Mead by default,
+  as the hard time penalty is discontinuous); a limit that ends infeasible falls back to the full pipeline.
+  `mode="thorough"` runs the full pipeline for every limit, starting from the previous design.
+- Dominance filter: a design found for a shorter limit also satisfies every longer limit. If it has a lower
+  objective than the design of a longer limit, it replaces it (`TradeoffPoint.replaced`).
+- `TradeoffResult.feasible_points()` (sorted by coating time), `marginal_gains()` (decrease of the figure of
+  merit per additional hour between neighbouring feasible points) and `knee()` (the feasible point farthest
+  from the line between the shortest and the longest design, with time and merit scaled to [0, 1]; `None` for
+  fewer than three feasible points or a nearly straight front). A point is infeasible if its limit is below
+  the minimum achievable time, e.g. due to the per-layer overhead of a fixed number of layers.
+- The last result is stored in `ProjectState.tradeoff` with the command `store_tradeoff(result)` and is part of
+  the project file.
 
 **Events and cancellation.** `ProgressEvent` (optim/events.py) carries `task`, `evaluations`, `total`,
 `best_objective` (FOM plus penalties), `current_objective`, `best_values`, `elapsed`, and `best_merit`

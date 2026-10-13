@@ -10,6 +10,7 @@ from xstack.gui.steps.materials import MaterialDialog, MaterialsPage
 from xstack.gui.steps.optimize import OptimizePage
 from xstack.gui.steps.process import ProcessPage
 from xstack.gui.steps.scan import ScanPage
+from xstack.gui.steps.tradeoff import TradeoffPage
 
 __all__ = [
     "AnalyzePage",
@@ -23,5 +24,6 @@ __all__ = [
     "ProcessPage",
     "ScanPage",
     "StepPage",
+    "TradeoffPage",
     "convert_coating",
 ]

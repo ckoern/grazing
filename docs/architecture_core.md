@@ -213,7 +213,7 @@ Built-in coatings (`create` classmethods take `ParameterValue`s, i.e. numbers, `
 | Coating | Parameters (examples) |
 |---|---|
 | `SingleLayer.create(material, t, sigma)` | `t`, `sigma` |
-| `NLayer.create(materials, thicknesses, roughnesses)` | `t_1…t_N`, `sigma_1…sigma_N`; one material per layer |
+| `NLayer.create(materials, thicknesses, roughnesses)` | `t_<label>`, `sigma_<label>` per layer, labelled by material (`Mo`, or `Si_1`, `Si_2` if a material repeats) |
 | `Periodic.create(H, L, N, d, gamma, sigma_H, sigma_L, …)` | `N`, `d`, `gamma` (Γ = t_H/d), `sigma_H`, `sigma_L`, interlayer thicknesses |
 | `DepthGraded.create(H, L, N, gamma_top, gamma_bottom, law, cap, …, **law_parameters)` | `N`, grading-law parameters (`d_min`, `d_max`, `c` for `power_law`), `gamma_top`, `gamma_bottom`, `cap_d`, `cap_gamma` (if `cap`), `sigma_H`, `sigma_L` |
 | `Composite.create(blocks)` | the parameters of each block, prefixed with the block name, e.g. `cap.d` |

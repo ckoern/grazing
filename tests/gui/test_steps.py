@@ -1,5 +1,6 @@
 """Tests for the workflow pages in `xstack.gui.steps`."""
 
+import dataclasses
 import math
 from collections.abc import Callable
 
@@ -16,9 +17,11 @@ from xstack.gui.steps import (
     StepPage,
     convert_coating,
 )
+from xstack.gui.steps.coating import _restack
 from xstack.manufacturing.constraints import MaxTotalThickness, MinLayerThickness, constraints
 from xstack.manufacturing.process import DepositionProcess
 from xstack.materials import get
+from xstack.parameters import ParameterSet
 from xstack.project import Command, ProjectState
 from xstack.project.templates import new_state
 from xstack.structure.coatings.graded import DepthGraded
@@ -250,13 +253,13 @@ def test_convert_to_n_layer_from_bilayer_and_single() -> None:
     new = convert_coating(old, "n_layer")
     assert isinstance(new, NLayer)
     assert [m.name for _, m in new.material_roles] == ["W", "Si"]
-    assert new.parameters["t1"].value == pytest.approx(2.0)
-    assert new.parameters["t2"].value == pytest.approx(3.0)
-    assert new.parameters["sigma1"].value == pytest.approx(0.5)
+    assert new.parameters["t_W"].value == pytest.approx(2.0)
+    assert new.parameters["t_Si"].value == pytest.approx(3.0)
+    assert new.parameters["sigma_W"].value == pytest.approx(0.5)
     single = convert_coating(SingleLayer.create(get("W"), t=12.0), "n_layer")
     assert isinstance(single, NLayer)
     assert single.count == 1
-    assert single.parameters["t1"].value == pytest.approx(12.0)
+    assert single.parameters["t_W"].value == pytest.approx(12.0)
 
 
 def test_convert_from_n_layer() -> None:
@@ -302,7 +305,7 @@ def test_coating_page_add_remove_layer(qtbot: QtBot) -> None:
     assert added is not None
     assert isinstance(added.coating, NLayer)
     assert added.coating.count == 3
-    assert added.coating.parameters["t2"].value == pytest.approx(4.0)
+    assert added.coating.parameters["t_C_1"].value == pytest.approx(4.0)
 
     rec.commands.clear()
     page.layer_table.selectRow(0)
@@ -311,7 +314,7 @@ def test_coating_page_add_remove_layer(qtbot: QtBot) -> None:
     assert removed is not None
     assert isinstance(removed.coating, NLayer)
     assert [m.name for _, m in removed.coating.material_roles] == ["C"]
-    assert removed.coating.parameters["t1"].value == pytest.approx(4.0)
+    assert removed.coating.parameters["t_C"].value == pytest.approx(4.0)
 
 
 def test_coating_page_cannot_remove_last_layer(qtbot: QtBot) -> None:
@@ -335,7 +338,31 @@ def test_coating_page_layer_material_change(qtbot: QtBot) -> None:
     assert new.mirror is not None
     assert isinstance(new.mirror.coating, NLayer)
     assert [m.name for _, m in new.mirror.coating.material_roles] == ["Pt", "Si"]
-    assert new.mirror.coating.parameters["t2"].value == pytest.approx(4.0)
+    assert new.mirror.coating.parameters["t_Si"].value == pytest.approx(4.0)
+
+
+def test_restack_renames_parameters_and_expressions() -> None:
+    old = NLayer.create([get("Pt"), get("C")], [3.0, "t_Pt + 1"])
+    new = _restack(old, [get("Si"), get("C")], [1, 2])
+    assert list(new.parameters)[::2] == ["t_Si", "t_C"]
+    assert new.parameters["t_C"].expr == "t_Si + 1"
+    dropped = _restack(old, [get("C")], [2])
+    assert dropped.parameters["t_C"].expr is None
+
+
+def test_restack_of_legacy_names() -> None:
+    new = NLayer.create([get("Pt"), get("C")], [3.0, 4.0])
+    legacy = NLayer(
+        new.name,
+        new.material_roles,
+        ParameterSet(
+            dataclasses.replace(p, name=n)
+            for n, p in zip(["t1", "sigma1", "t2", "sigma2"], new.parameters.values(), strict=True)
+        ),
+    )
+    restacked = _restack(legacy, [get("Pt"), get("C"), get("Pt")], [1, 2, None])
+    assert list(restacked.parameters)[::2] == ["t_Pt_1", "t_C", "t_Pt_2"]
+    assert restacked.parameters["t_C"].value == pytest.approx(4.0)
 
 
 # --- ConstraintsPage ---------------------------------------------------------------------

@@ -99,7 +99,7 @@ primary button variant.
   layers)); top layer of each bilayer (absorber H or spacer L); grading law for depth-graded coatings; a
   cap bilayer with its own period and Γ; *Same Γ for all graded bilayers* (ties `gamma_bottom` to
   `gamma_top` by an expression; unchecked, Γ changes linearly with depth); substrate roughness. The N-layer stack has a layer table with
-  *Add layer* and *Remove layer*. Below is the parameter table: columns Parameter, Value, Unit, Vary, Min,
+  *Add layer* and *Remove layer*; its parameters are named after the layer materials (`t_Mo`, `sigma_Mo`; `t_Si_1`, `t_Si_2` if a material repeats), and changing a material renames them (expressions between layers follow). Below is the parameter table: columns Parameter, Value, Unit, Vary, Min,
   Max, Expression, Description. A parameter with *Vary* checked is explored between Min and Max; an
   expression computes it from other parameters.
 - **Estimate**: analytic start values from the Bragg law for periodic and depth-graded multilayers.

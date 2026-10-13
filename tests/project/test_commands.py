@@ -184,9 +184,9 @@ class TestParameterCommands:
         project = Project(
             ProjectState(mirror=Mirror(NLayer.create([W, SI], [free(1.0, 0.5, 2.0), 2.0]), SI))
         )
-        project.execute(commands.set_parameter("t1", value=1.5))
+        project.execute(commands.set_parameter("t_W", value=1.5))
         assert project.state.mirror is not None
-        assert project.state.mirror.parameters["t1"].value == 1.5
+        assert project.state.mirror.parameters["t_W"].value == 1.5
 
 
 class TestConstraintCommands:

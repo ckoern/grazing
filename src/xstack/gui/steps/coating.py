@@ -1,6 +1,7 @@
 """Workflow page for the coating type, its options and parameters."""
 
 import dataclasses
+import re
 from collections.abc import Sequence
 from typing import ClassVar
 
@@ -181,20 +182,39 @@ def _restack(old: NLayer, materials: Sequence[Material], sources: Sequence[int |
             roughness settings it takes over, or None for a new layer.
     """
     new = NLayer.create(materials, [5.0] * len(materials), name=old.name)
+    valid = [s is not None and 2 * s <= len(old.parameters) for s in sources]
+    renamed: dict[str, str] = {}
+    for i, (source, ok) in enumerate(zip(sources, valid, strict=True), start=1):
+        if source is not None and ok:
+            renamed[old.thickness_name(source)] = new.thickness_name(i)
+            renamed[old.roughness_name(source)] = new.roughness_name(i)
+    old_names = set(old.parameters)
+    word = re.compile(r"[A-Za-z_]\w*")
+
+    def translate(expr: str | None) -> str | None:
+        """Rewrite an expression to the new names; None if it refers to a removed layer."""
+        if expr is None or any(w in old_names and w not in renamed for w in word.findall(expr)):
+            return None
+        return word.sub(lambda m: renamed.get(m.group(0), m.group(0)), expr)
+
     params = []
-    for i, source in enumerate(sources, start=1):
-        for base in ("t", "sigma"):
-            template = new.parameters[f"{base}{i}"]
-            if source is None or f"{base}{source}" not in old.parameters:
+    for i, (source, ok) in enumerate(zip(sources, valid, strict=True), start=1):
+        pairs = (
+            (new.thickness_name(i), old.thickness_name),
+            (new.roughness_name(i), old.roughness_name),
+        )
+        for new_name, old_name_of in pairs:
+            template = new.parameters[new_name]
+            if source is None or not ok:
                 params.append(template)
                 continue
-            carried = old.parameters[f"{base}{source}"]
+            carried = old.parameters[old_name_of(source)]
             params.append(
                 dataclasses.replace(
                     carried,
                     name=template.name,
                     description=template.description,
-                    expr=carried.expr if source == i else None,
+                    expr=translate(carried.expr),
                 )
             )
     try:

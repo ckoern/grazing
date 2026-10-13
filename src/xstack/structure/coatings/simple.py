@@ -1,5 +1,6 @@
 """Coatings without periodicity: a single layer and a sequence of N layers."""
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import ClassVar
@@ -10,7 +11,49 @@ from xstack.structure.coating import Coating, register_coating
 from xstack.structure.coatings.bilayer import MAX_ROUGHNESS, MAX_THICKNESS
 from xstack.structure.stack import Layer
 
-__all__ = ["NLayer", "SingleLayer"]
+__all__ = ["NLayer", "SingleLayer", "layer_labels"]
+
+
+def _sanitize(name: str) -> str:
+    """Turn a material name into a fragment of a parameter name."""
+    label = re.sub(r"_+", "_", re.sub(r"\W", "_", name, flags=re.ASCII)).strip("_")
+    if not label:
+        return "layer"
+    return f"m_{label}" if label[0].isdigit() else label
+
+
+def layer_labels(materials: Sequence[Material]) -> list[str]:
+    """Derive a unique label for every layer of a stack from its material.
+
+    A material used once is labelled with its (sanitized) name, e.g. ``"Mo"``. A material used
+    several times is labelled ``"<name>_<k>"`` with k counting its occurrences from the top,
+    starting at 1, e.g. ``"Si_1"``, ``"Si_2"``. Characters that are not valid in identifiers
+    become ``"_"`` and a leading digit gets the prefix ``"m_"``. If a label is already taken,
+    a further ``"_<k>"`` is appended.
+
+    Args:
+        materials: Layer materials from the top.
+
+    Returns:
+        One label per layer; all labels are distinct identifiers without ``"__"``.
+    """
+    bases = [_sanitize(m.name) for m in materials]
+    totals = {base: bases.count(base) for base in bases}
+    labels: list[str | None] = [base if totals[base] == 1 else None for base in bases]
+    used = {label for label in labels if label is not None}
+    seen: dict[str, int] = {}
+    for i, base in enumerate(bases):
+        if labels[i] is not None:
+            continue
+        seen[base] = seen.get(base, 0) + 1
+        label = f"{base}_{seen[base]}"
+        extra = 1
+        while label in used:
+            extra += 1
+            label = f"{base}_{seen[base]}_{extra}"
+        used.add(label)
+        labels[i] = label
+    return [label for label in labels if label is not None]
 
 
 @register_coating
@@ -68,8 +111,11 @@ class SingleLayer(Coating):
 class NLayer(Coating):
     """A sequence of N layers of arbitrary materials without periodicity.
 
-    Material roles ``"M1"`` … ``"MN"`` from the top. Parameters ``t1`` … ``tN`` (thickness, nm)
-    and ``sigma1`` … ``sigmaN`` (roughness at the top of each layer, nm).
+    Material roles ``"M1"`` … ``"MN"`` from the top. Each layer has the parameters ``t_<label>``
+    (thickness, nm) and ``sigma_<label>`` (roughness at the top of the layer, nm), listed layer
+    by layer from the top. The label is derived from the material by `layer_labels`: ``Mo`` for
+    a material used once, ``Si_1``, ``Si_2``, … for a material used several times. The
+    parameters of layer k are the ``2k-1``-th and ``2k``-th of the set, whatever their names.
     """
 
     type_name: ClassVar[str] = "n_layer"
@@ -114,16 +160,17 @@ class NLayer(Coating):
         if not len(materials) == len(thicknesses) == len(rough):
             raise ValueError("materials, thicknesses and roughnesses must have equal length")
         params: list[Parameter] = []
-        for i, (t, s) in enumerate(zip(thicknesses, rough, strict=True), start=1):
+        labels = layer_labels(materials)
+        for i, (label, t, s) in enumerate(zip(labels, thicknesses, rough, strict=True), start=1):
             params.append(
                 resolve(
                     Parameter(
-                        f"t{i}",
+                        f"t_{label}",
                         1.0,
                         min=0.0,
                         max=MAX_THICKNESS,
                         unit="nm",
-                        description=f"Thickness of layer {i} (from the top)",
+                        description=f"Thickness of layer {i} ({label}, from the top)",
                     ),
                     t,
                 )
@@ -131,12 +178,12 @@ class NLayer(Coating):
             params.append(
                 resolve(
                     Parameter(
-                        f"sigma{i}",
+                        f"sigma_{label}",
                         0.0,
                         min=0.0,
                         max=MAX_ROUGHNESS,
                         unit="nm",
-                        description=f"Roughness at the top of layer {i}",
+                        description=f"Roughness at the top of layer {i} ({label})",
                     ),
                     s,
                 )
@@ -144,8 +191,36 @@ class NLayer(Coating):
         roles = tuple((f"M{i}", m) for i, m in enumerate(materials, start=1))
         return cls(name, roles, ParameterSet(params))
 
+    def thickness_name(self, layer: int) -> str:
+        """Name of the thickness parameter of a layer.
+
+        Args:
+            layer: 1-based layer index from the top.
+
+        Returns:
+            The parameter name.
+        """
+        return list(self.parameters)[2 * layer - 2]
+
+    def roughness_name(self, layer: int) -> str:
+        """Name of the roughness parameter of a layer.
+
+        Args:
+            layer: 1-based layer index from the top.
+
+        Returns:
+            The parameter name.
+        """
+        return list(self.parameters)[2 * layer - 1]
+
     def _build(self, values: dict[str, float]) -> tuple[Layer, ...]:
+        names = list(self.parameters)
         return tuple(
-            Layer(material, values[f"t{i}"], values[f"sigma{i}"], f"{self.name}.{role}")
+            Layer(
+                material,
+                values[names[2 * i - 2]],
+                values[names[2 * i - 1]],
+                f"{self.name}.{role}",
+            )
             for i, (role, material) in enumerate(self.material_roles, start=1)
         )

@@ -13,6 +13,7 @@ from xstack.optim.pipeline import Pipeline, PipelineResult, StageResult
 from xstack.optim.problem import DesignProblem, Evaluation
 from xstack.optim.scan import GridScan, ScanResult, scan
 from xstack.optim.stages import BraggOutline, Stage
+from xstack.optim.tradeoff import TradeoffPoint, TradeoffResult, time_tradeoff
 
 __all__ = [
     "GLOBAL_METHODS",
@@ -31,7 +32,10 @@ __all__ = [
     "ScanResult",
     "Stage",
     "StageResult",
+    "TradeoffPoint",
+    "TradeoffResult",
     "optimizers",
     "register_optimizer",
     "scan",
+    "time_tradeoff",
 ]

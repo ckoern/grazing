@@ -70,6 +70,7 @@ def _initialize() -> None:
     from xstack.optim.pipeline import Pipeline
     from xstack.optim.problem import DesignProblem
     from xstack.optim.stages import Stage
+    from xstack.optim.tradeoff import TradeoffPoint, TradeoffResult
     from xstack.physics.models import KinematicModel, ParrattModel
     from xstack.structure.coating import Mirror
     from xstack.structure.stack import Layer, Stack
@@ -91,6 +92,8 @@ def _initialize() -> None:
         Stage,
         Pipeline,
         DesignProblem,
+        TradeoffPoint,
+        TradeoffResult,
     ):
         register_serializable(cls.__name__, cls)
 

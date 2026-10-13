@@ -12,6 +12,7 @@ from xstack.manufacturing.process import DepositionProcess
 from xstack.merit.base import FigureOfMerit
 from xstack.optim.pipeline import Pipeline
 from xstack.optim.problem import DesignProblem, Evaluation
+from xstack.optim.tradeoff import TradeoffResult
 from xstack.physics.models import ParrattModel, ReflectivityModel
 from xstack.project.journal import Journal
 from xstack.project.serialization import from_data, register_serializable, to_data
@@ -93,6 +94,7 @@ class ProjectState:
         selected: Name of the selected candidate, shown and analyzed next to the input design,
             or ``None``.
         notes: Free-form notes.
+        tradeoff: The last coating-time trade-off, or ``None``.
     """
 
     name: str = "untitled"
@@ -106,6 +108,7 @@ class ProjectState:
     candidates: tuple[Candidate, ...] = ()
     selected: str | None = None
     notes: str = ""
+    tradeoff: TradeoffResult | None = None
 
     def evolve(self, **changes: Any) -> "ProjectState":
         """Return a copy with some fields changed.

@@ -48,9 +48,11 @@ class PipelineResult:
 class Pipeline:
     """An ordered sequence of stages.
 
-    Each stage starts from the parameters found by the previous stage, including bounds that a
-    stage narrowed. The final parameters carry the values of the last stage with the bounds
-    and free/fixed settings of the start parameters.
+    Every stage result is evaluated with the original design problem. Each stage starts from the
+    best design so far: the result of the previous stage (including bounds that it narrowed) if
+    it improved the objective, otherwise the design the previous stage started from. The final
+    parameters carry the values of the best design, which is never worse than the start
+    design, with the bounds and free/fixed settings of the start parameters.
 
     Attributes:
         stages: The stages in order.
@@ -78,17 +80,21 @@ class Pipeline:
         Returns:
             The pipeline result.
         """
-        params = start if start is not None else problem.parameters
+        initial = start if start is not None else problem.parameters
+        params = initial
+        best = problem.with_parameters(initial).evaluate().objective
         results: list[StageResult] = []
         for stage in self.stages:
             if cancel is not None and cancel.cancelled:
                 break
             outcome = StageResult(stage, stage.run(problem, params, events, cancel))
             results.append(outcome)
-            params = outcome.result.parameters
+            found = outcome.result.parameters
+            objective = problem.with_parameters(found).evaluate().objective
+            if objective < best:
+                params, best = found, objective
             if on_stage is not None:
                 on_stage(outcome)
-        initial = start if start is not None else problem.parameters
         final_values = {n: v for n, v in params.value_dict().items() if initial[n].expr is None}
         params = initial.with_values(final_values)
         final = problem.with_parameters(params).evaluate()

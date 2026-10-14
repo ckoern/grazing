@@ -1,4 +1,4 @@
-"""Run the xstack GUI with ``python -m xstack.gui``."""
+"""Run the xstack-design GUI with ``python -m xstack.gui.design``."""
 
 import sys
 

@@ -98,7 +98,7 @@ designs such as NuSTAR-type W/Si).
 - `Project` aggregate, `Candidate` snapshots.
 - Versioned JSON serialization driven by the registries (type tags), round-trip tests for every registered type.
 - `Command` protocol and `History` (undo/redo, merge of consecutive edits), `Journal`.
-- CLI: `python -m xstack run project.xstack` (headless pipeline).
+- CLI: `xstack design run project.xstack` (headless pipeline).
 
 **Done when:** save → load → identical results, undo/redo property tests pass (random command
 sequences return to the original state), and the journal is persisted.

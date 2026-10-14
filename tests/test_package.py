@@ -25,8 +25,9 @@ SRC = Path(xstack.__file__).parent
 FORBIDDEN = {
     "core": ("xstack.design", "xstack.fit", "xstack.gui", "PySide6", "pyqtgraph"),
     "design": ("xstack.fit", "xstack.gui", "PySide6", "pyqtgraph"),
+    "fit": ("xstack.gui", "PySide6", "pyqtgraph"),
 }
-"""Imports that a subpackage must not use: core is shared, the GUI sits on top."""
+"""Imports that a subpackage must not use: core ← design ← fit ← gui."""
 
 
 def imported_modules(path: Path) -> set[str]:

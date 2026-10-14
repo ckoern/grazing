@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from xstack.design.optim.events import CancellationToken
+from xstack.core.optim.events import CancellationToken
 from xstack.design.optim.pipeline import Pipeline
 from xstack.design.optim.problem import DesignProblem
 from xstack.design.optim.tradeoff import (

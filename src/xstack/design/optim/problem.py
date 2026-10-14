@@ -19,7 +19,7 @@ from xstack.design.manufacturing.constraints import Constraint, ConstraintResult
 from xstack.design.manufacturing.process import DepositionProcess
 from xstack.design.merit.base import EvaluationContext, FigureOfMerit
 
-__all__ = ["DesignProblem", "Evaluation"]
+__all__ = ["DesignProblem", "Evaluation", "require_design_problem"]
 
 
 @dataclass(frozen=True)
@@ -241,3 +241,21 @@ class DesignProblem:
 
 
 register_serializable("DesignProblem", DesignProblem)
+
+
+def require_design_problem(problem: object, user: str) -> DesignProblem:
+    """Return a problem as `DesignProblem`, for optimizers that only work on designs.
+
+    Args:
+        problem: The problem passed to the optimizer.
+        user: Name of the optimizer, used in the error message.
+
+    Returns:
+        The same problem.
+
+    Raises:
+        TypeError: If `problem` is not a `DesignProblem`.
+    """
+    if not isinstance(problem, DesignProblem):
+        raise TypeError(f"{user} requires a DesignProblem, got {type(problem).__name__}")
+    return problem

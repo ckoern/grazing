@@ -6,6 +6,8 @@ from typing import Any
 import pytest
 from pytestqt.qtbot import QtBot
 
+from xstack.core.optim.events import CancellationToken
+from xstack.core.optim.optimizers import LmfitOptimizer
 from xstack.core.parameters import free
 from xstack.core.structure import Mirror, Periodic
 from xstack.core.targets import EnergyScan, TargetSet
@@ -18,8 +20,6 @@ from xstack.design.merit import (
     WeightedSum,
 )
 from xstack.design.merit.base import CallableMerit
-from xstack.design.optim.events import CancellationToken
-from xstack.design.optim.optimizers import LmfitOptimizer
 from xstack.design.optim.scan import GridScan
 from xstack.design.optim.stages import BraggOutline
 from xstack.design.project.commands import set_mirror

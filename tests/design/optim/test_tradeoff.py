@@ -5,11 +5,12 @@ import math
 import pytest
 
 from tests.design.optim.test_stages import periodic_problem
+from xstack.core.optim import CancellationToken, ProgressEvent
 from xstack.core.parameters import ParameterSet
 from xstack.core.serialization import from_data, to_data
 from xstack.design.manufacturing.constraints import MaxCoatingTime
 from xstack.design.manufacturing.process import DepositionProcess
-from xstack.design.optim import CancellationToken, DesignProblem, Pipeline, ProgressEvent
+from xstack.design.optim import DesignProblem, Pipeline
 from xstack.design.optim.tradeoff import (
     TradeoffPoint,
     TradeoffResult,

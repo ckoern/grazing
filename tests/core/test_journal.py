@@ -3,7 +3,7 @@
 import json
 from datetime import UTC, datetime
 
-from xstack.design.project import Journal, JournalEntry
+from xstack.core.journal import Journal, JournalEntry
 
 
 class TestJournal:

@@ -6,12 +6,13 @@ import pytest
 
 from xstack.__main__ import main
 from xstack.core import materials
+from xstack.core.optim import LmfitOptimizer
 from xstack.core.parameters import free
 from xstack.core.structure import Mirror, Periodic
 from xstack.core.targets import EnergyScan, TargetSet
 from xstack.core.units import deg, kev
 from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import LmfitOptimizer, Pipeline, Stage
+from xstack.design.optim import Pipeline, Stage
 from xstack.design.project import Project, ProjectState, commands
 
 W = materials.get("W")

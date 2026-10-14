@@ -4,12 +4,13 @@ import pytest
 
 from tests.design.optim.test_problem import ENERGY, THETA, make_problem
 from xstack.core.materials import get
+from xstack.core.optim import CancellationToken
+from xstack.core.optim.optimizers import LmfitOptimizer
 from xstack.core.parameters import free
 from xstack.core.structure import Composite, Mirror, Periodic, SingleLayer
 from xstack.core.targets import EnergyScan, TargetSet
 from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import CancellationToken, DesignProblem, Pipeline
-from xstack.design.optim.optimizers import LmfitOptimizer
+from xstack.design.optim import DesignProblem, Pipeline
 from xstack.design.optim.pipeline import StageResult
 from xstack.design.optim.scan import GridScan
 from xstack.design.optim.stages import Stage

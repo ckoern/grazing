@@ -7,8 +7,8 @@ import pyqtgraph as pg
 import pytest
 from pytestqt.qtbot import QtBot
 
+from xstack.core.optim.events import CancellationToken
 from xstack.design.manufacturing import ErrorModel, ToleranceResult, tolerance_analysis
-from xstack.design.optim.events import CancellationToken
 from xstack.design.project.templates import new_state
 from xstack.gui.common.workers import Job
 from xstack.gui.design.main_window import MainWindow

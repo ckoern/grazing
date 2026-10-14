@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from xstack.core import materials
+from xstack.core.optim import LmfitOptimizer
 from xstack.core.parameters import free
 from xstack.core.physics.models import KinematicModel
 from xstack.core.structure import Mirror, NLayer, Periodic, SingleLayer
@@ -17,7 +18,7 @@ from xstack.design.manufacturing import (
     MinLayerThickness,
 )
 from xstack.design.merit import Flatness, MeanReflectivity
-from xstack.design.optim import LmfitOptimizer, Pipeline, Stage
+from xstack.design.optim import Pipeline, Stage
 from xstack.design.project import Candidate, Command, Project, ProjectState, commands
 
 W = materials.get("W")

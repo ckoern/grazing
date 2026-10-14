@@ -3,11 +3,11 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from xstack.core.optim.events import CancellationToken, EventSink
+from xstack.core.optim.optimizers import LmfitOptimizer, OptimizationResult
 from xstack.core.parameters import ParameterSet
 from xstack.core.physics.models import KinematicModel
 from xstack.core.serialization import register_serializable
-from xstack.design.optim.events import CancellationToken, EventSink
-from xstack.design.optim.optimizers import LmfitOptimizer, OptimizationResult
 from xstack.design.optim.problem import DesignProblem, Evaluation
 from xstack.design.optim.scan import GridScan
 from xstack.design.optim.stages import BraggOutline, Stage
@@ -25,7 +25,7 @@ class StageResult:
     """
 
     stage: Stage
-    result: OptimizationResult
+    result: OptimizationResult[Evaluation]
 
 
 @dataclass(frozen=True)

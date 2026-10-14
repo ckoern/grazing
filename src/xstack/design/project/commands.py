@@ -18,6 +18,8 @@ from collections.abc import Sequence
 from dataclasses import replace
 from typing import Any
 
+from xstack.core.journal import Journal
+from xstack.core.optim.events import CancellationToken, EventSink
 from xstack.core.parameters import ParameterSet
 from xstack.core.physics.models import ReflectivityModel
 from xstack.core.structure.coating import Coating, Mirror
@@ -25,11 +27,9 @@ from xstack.core.targets import TargetSet
 from xstack.design.manufacturing.constraints import Constraint
 from xstack.design.manufacturing.process import DepositionProcess
 from xstack.design.merit.base import FigureOfMerit
-from xstack.design.optim.events import CancellationToken, EventSink
 from xstack.design.optim.pipeline import Pipeline, PipelineResult
 from xstack.design.optim.problem import DesignProblem, Evaluation
 from xstack.design.optim.tradeoff import TradeoffResult
-from xstack.design.project.journal import Journal
 from xstack.design.project.project import Candidate, Command, Project, ProjectState
 
 __all__ = [

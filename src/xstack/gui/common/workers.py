@@ -6,7 +6,7 @@ from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
 
-from xstack.design.optim.events import CancellationToken
+from xstack.core.optim.events import CancellationToken
 
 __all__ = ["Job", "JobRunner", "LatestRunner", "Task", "TaskSignals"]
 

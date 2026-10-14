@@ -1,4 +1,4 @@
-"""Optimizers for design problems."""
+"""Optimizers for problems with free parameters (see `xstack.core.optim.problem`)."""
 
 import math
 import time
@@ -10,11 +10,11 @@ import lmfit
 import numpy as np
 from numpy.typing import NDArray
 
+from xstack.core.optim.events import CancellationToken, EventSink, ProgressEvent
+from xstack.core.optim.problem import Evaluation, Problem
 from xstack.core.parameters import ParameterSet
 from xstack.core.plugins import Registry
 from xstack.core.serialization import register_component_registry
-from xstack.design.optim.events import CancellationToken, EventSink, ProgressEvent
-from xstack.design.optim.problem import DesignProblem, Evaluation
 
 __all__ = [
     "GLOBAL_METHODS",
@@ -38,12 +38,12 @@ _EVENT_INTERVAL = 0.2
 
 
 @dataclass(frozen=True)
-class OptimizationResult:
+class OptimizationResult[E: Evaluation]:
     """Outcome of an optimization.
 
     Attributes:
-        parameters: The parameter set with the values of the best design.
-        best: Evaluation of the best design.
+        parameters: The parameter set with the values of the best evaluation.
+        best: The best evaluation.
         evaluations: Number of objective evaluations.
         history: Best objective value after each evaluation.
         method: Name of the method.
@@ -53,7 +53,7 @@ class OptimizationResult:
     """
 
     parameters: ParameterSet
-    best: Evaluation
+    best: E
     evaluations: int
     history: tuple[float, ...]
     method: str
@@ -62,11 +62,11 @@ class OptimizationResult:
     elapsed: float = 0.0
 
 
-class Tracker:
-    """Keeps track of the best design and reports progress during an optimization.
+class Tracker[E: Evaluation]:
+    """Keeps track of the best evaluation and reports progress during an optimization.
 
     Args:
-        problem: The design problem.
+        problem: The problem.
         task: Task name for progress events.
         events: Receiver of progress events.
         cancel: Cancellation token.
@@ -75,7 +75,7 @@ class Tracker:
 
     def __init__(
         self,
-        problem: DesignProblem,
+        problem: Problem[E],
         task: str,
         events: EventSink | None = None,
         cancel: CancellationToken | None = None,
@@ -86,7 +86,7 @@ class Tracker:
         self.events = events
         self.cancel = cancel
         self.total = total
-        self.best: Evaluation | None = None
+        self.best: E | None = None
         self._best_quantities: dict[str, float] = {}
         self.history: list[float] = []
         self.start = time.perf_counter()
@@ -102,7 +102,7 @@ class Tracker:
         """Elapsed time in s."""
         return time.perf_counter() - self.start
 
-    def record(self, evaluation: Evaluation) -> None:
+    def record(self, evaluation: E) -> None:
         """Record an evaluation and emit a progress event if due.
 
         Args:
@@ -131,8 +131,8 @@ class Tracker:
                 )
             )
 
-    def result(self, parameters: ParameterSet, message: str = "") -> OptimizationResult:
-        """Build the optimization result from the best recorded design.
+    def result(self, parameters: ParameterSet, message: str = "") -> OptimizationResult[E]:
+        """Build the optimization result from the best recorded evaluation.
 
         Args:
             parameters: The parameter set used during the optimization (bounds and flags).
@@ -141,8 +141,8 @@ class Tracker:
         Returns:
             The result.
 
-        If nothing was evaluated (e.g. cancelled before the first evaluation), the start design
-        given by `parameters` is evaluated.
+        If nothing was evaluated (e.g. cancelled before the first evaluation), the start values
+        given by `parameters` are evaluated.
         """
         if self.best is None:
             self.record(self.problem.with_parameters(parameters).evaluate())
@@ -171,21 +171,21 @@ class Optimizer(ABC):
     type_name: ClassVar[str]
 
     @abstractmethod
-    def run(
+    def run[E: Evaluation](
         self,
-        problem: DesignProblem,
+        problem: Problem[E],
         start: ParameterSet | None = None,
         events: EventSink | None = None,
         cancel: CancellationToken | None = None,
-    ) -> OptimizationResult:
-        """Optimize a design problem.
+    ) -> OptimizationResult[E]:
+        """Optimize a problem.
 
         Args:
-            problem: The design problem.
+            problem: The problem.
             start: Start parameters (values, bounds, fixed/free). Defaults to the problem's
                 parameters.
             events: Receiver of progress events.
-            cancel: Token to cancel the optimization; the best design so far is returned.
+            cancel: Token to cancel the optimization; the best evaluation so far is returned.
 
         Returns:
             The result.
@@ -210,15 +210,15 @@ def register_optimizer[O: type[Optimizer]](cls: O) -> O:
 
 
 def prepare_parameters(
-    problem: DesignProblem, start: ParameterSet | None, vary_integers: bool
+    problem: Problem[Any], start: ParameterSet | None, vary_integers: bool
 ) -> ParameterSet:
     """Return the parameters to optimize, with constraint hints applied.
 
-    Bounds of free parameters are intersected with the bounds hinted by hard constraints (if the
+    Bounds of free parameters are intersected with the bounds hinted by the problem (if the
     intersection is not empty), and integer parameters are fixed unless `vary_integers` is set.
 
     Args:
-        problem: The design problem.
+        problem: The problem.
         start: Start parameters, or ``None`` for the problem's parameters.
         vary_integers: Whether integer parameters may be varied.
 
@@ -241,10 +241,10 @@ def prepare_parameters(
 
 
 def _seeded_population(params: lmfit.Parameters, options: dict[str, Any]) -> NDArray[np.float64]:
-    """Initial differential-evolution population: a Latin hypercube plus the start design.
+    """Initial differential-evolution population: a Latin hypercube plus the start point.
 
     lmfit runs differential evolution on internal coordinates in [-π/2, π/2] per varying
-    parameter; the first member is the start design mapped to these coordinates.
+    parameter; the first member is the start point mapped to these coordinates.
     """
     varying = [p for p in params.values() if p.vary]
     popsize = int(options.get("popsize", 15))
@@ -267,8 +267,8 @@ class LmfitOptimizer(Optimizer):
     `GLOBAL_METHODS`) vary integer parameters (rounded when building the coating) and require
     finite bounds for all free parameters; local methods keep integer parameters fixed.
 
-    The start design is evaluated first, so the result is never worse than the start design.
-    Differential evolution includes the start design in its initial population unless an
+    The start values are evaluated first, so the result is never worse than the start.
+    Differential evolution includes the start point in its initial population unless an
     ``init`` option is given.
 
     Attributes:
@@ -285,20 +285,20 @@ class LmfitOptimizer(Optimizer):
     max_evaluations: int | None = None
     options: tuple[tuple[str, Any], ...] = field(default=())
 
-    def run(
+    def run[E: Evaluation](
         self,
-        problem: DesignProblem,
+        problem: Problem[E],
         start: ParameterSet | None = None,
         events: EventSink | None = None,
         cancel: CancellationToken | None = None,
-    ) -> OptimizationResult:
-        """Optimize a design problem.
+    ) -> OptimizationResult[E]:
+        """Optimize a problem.
 
         Args:
-            problem: The design problem.
+            problem: The problem.
             start: Start parameters. Defaults to the problem's parameters.
             events: Receiver of progress events.
-            cancel: Token to cancel the optimization; the best design so far is returned.
+            cancel: Token to cancel the optimization; the best evaluation so far is returned.
 
         Returns:
             The result.
@@ -324,8 +324,8 @@ class LmfitOptimizer(Optimizer):
         first = problem.evaluate(params.value_dict())
         size = 0
         if use_residuals:
-            if first.stack is None:
-                raise ValueError(f"start design cannot be built: {first.error}")
+            if first.error is not None:
+                raise ValueError(f"start values cannot be evaluated: {first.error}")
             size = len(problem.residuals(params.value_dict(), 1))
         tracker.record(first)
         options = dict(self.options)

@@ -18,11 +18,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from xstack.core.optim.optimizers import OptimizationResult
 from xstack.core.parameters import Parameter, ParameterSet
 from xstack.core.structure.coatings.graded import DepthGraded
 from xstack.core.structure.coatings.periodic import Periodic
-from xstack.design.optim.optimizers import OptimizationResult
-from xstack.design.optim.problem import DesignProblem
+from xstack.design.optim.problem import DesignProblem, Evaluation
 from xstack.design.optim.stages import BraggOutline
 from xstack.design.project import ProjectState
 from xstack.design.project.commands import set_parameters, store_results
@@ -73,7 +73,7 @@ class EstimatePage(StepPage):
         super().__init__(parent)
         self._state: ProjectState | None = None
         self._problem: DesignProblem | None = None
-        self.estimates: dict[str, OptimizationResult] = {}
+        self.estimates: dict[str, OptimizationResult[Evaluation]] = {}
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel("<b>Estimate</b> start values from the Bragg law"))
 

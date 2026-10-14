@@ -8,11 +8,20 @@ an analytic stage that derives start values and bounds from the Bragg law.
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import ClassVar
+from typing import ClassVar, cast
 
 import numpy as np
 
 from xstack.core.materials import default_library
+from xstack.core.optim.events import CancellationToken, EventSink, ProgressEvent
+from xstack.core.optim.optimizers import (
+    OptimizationResult,
+    Optimizer,
+    Tracker,
+    prepare_parameters,
+    register_optimizer,
+)
+from xstack.core.optim.problem import Evaluation, Problem
 from xstack.core.parameters import ParameterSet
 from xstack.core.physics import bragg
 from xstack.core.physics.models import ReflectivityModel
@@ -22,15 +31,8 @@ from xstack.core.structure.coatings.periodic import Periodic
 from xstack.core.targets import AngleScan, EnergyScan, TargetSet
 from xstack.core.units import energy_to_wavelength
 from xstack.design.merit.base import FigureOfMerit
-from xstack.design.optim.events import CancellationToken, EventSink, ProgressEvent
-from xstack.design.optim.optimizers import (
-    OptimizationResult,
-    Optimizer,
-    Tracker,
-    prepare_parameters,
-    register_optimizer,
-)
-from xstack.design.optim.problem import DesignProblem
+from xstack.design.optim.problem import DesignProblem, require_design_problem
+from xstack.design.optim.problem import Evaluation as DesignEvaluation
 
 __all__ = ["BraggOutline", "Stage"]
 
@@ -81,7 +83,7 @@ class Stage:
         start: ParameterSet | None = None,
         events: EventSink | None = None,
         cancel: CancellationToken | None = None,
-    ) -> OptimizationResult:
+    ) -> OptimizationResult[DesignEvaluation]:
         """Run the stage.
 
         Args:
@@ -171,13 +173,13 @@ class BraggOutline(Optimizer):
     margin: float = 0.2
     target: int | None = None
 
-    def run(
+    def run[E: Evaluation](
         self,
-        problem: DesignProblem,
+        problem: Problem[E],
         start: ParameterSet | None = None,
         events: EventSink | None = None,
         cancel: CancellationToken | None = None,
-    ) -> OptimizationResult:
+    ) -> OptimizationResult[E]:
         """Derive start values and bounds and evaluate the resulting design.
 
         Args:
@@ -188,14 +190,18 @@ class BraggOutline(Optimizer):
 
         Returns:
             The result with the estimated parameters.
+
+        Raises:
+            TypeError: If `problem` is not a `DesignProblem`.
         """
-        params = prepare_parameters(problem, start, vary_integers=True)
-        coating = problem.mirror.coating
+        design = require_design_problem(problem, type(self).__name__)
+        params = prepare_parameters(design, start, vary_integers=True)
+        coating = design.mirror.coating
         if isinstance(coating, Periodic | DepthGraded):
-            params = self._estimate(problem, params, coating)
-        tracker = Tracker(problem, self.type_name, events, cancel, 1)
-        tracker.record(problem.with_parameters(params).evaluate())
-        return tracker.result(params, "analytic estimate")
+            params = self._estimate(design, params, coating)
+        tracker = Tracker(design, self.type_name, events, cancel, 1)
+        tracker.record(design.with_parameters(params).evaluate())
+        return cast(OptimizationResult[E], tracker.result(params, "analytic estimate"))
 
     def _estimate(
         self, problem: DesignProblem, params: ParameterSet, coating: Periodic | DepthGraded

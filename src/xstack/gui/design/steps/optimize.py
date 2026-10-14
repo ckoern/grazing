@@ -25,11 +25,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from xstack.core.optim.events import CancellationToken
+from xstack.core.optim.optimizers import LmfitOptimizer
 from xstack.design.merit.base import FigureOfMerit, merits
 from xstack.design.merit.composite import TimePenalized, WeightedSum
 from xstack.design.merit.optical import MeanReflectivity
-from xstack.design.optim.events import CancellationToken
-from xstack.design.optim.optimizers import LmfitOptimizer
 from xstack.design.optim.pipeline import Pipeline, PipelineResult
 from xstack.design.optim.problem import DesignProblem, Evaluation
 from xstack.design.optim.scan import GridScan

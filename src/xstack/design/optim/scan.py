@@ -3,21 +3,23 @@
 import itertools
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import ClassVar, cast
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from xstack.core.parameters import ParameterSet
-from xstack.design.optim.events import CancellationToken, EventSink
-from xstack.design.optim.optimizers import (
+from xstack.core.optim.events import CancellationToken, EventSink
+from xstack.core.optim.optimizers import (
     OptimizationResult,
     Optimizer,
     Tracker,
     prepare_parameters,
     register_optimizer,
 )
-from xstack.design.optim.problem import DesignProblem
+from xstack.core.optim.problem import Evaluation, Problem
+from xstack.core.parameters import ParameterSet
+from xstack.design.optim.problem import DesignProblem, require_design_problem
+from xstack.design.optim.problem import Evaluation as DesignEvaluation
 
 __all__ = ["GridScan", "ScanResult", "scan"]
 
@@ -42,7 +44,7 @@ class ScanResult:
     objective: NDArray[np.float64]
     merit: NDArray[np.float64]
     feasible: NDArray[np.bool_]
-    optimization: OptimizationResult
+    optimization: OptimizationResult[DesignEvaluation]
 
     def best_values(self) -> dict[str, float]:
         """Return the values of the scanned parameters at the best grid point."""
@@ -173,13 +175,13 @@ class GridScan(Optimizer):
             axes.setdefault(name, grid)
         return axes
 
-    def run(
+    def run[E: Evaluation](
         self,
-        problem: DesignProblem,
+        problem: Problem[E],
         start: ParameterSet | None = None,
         events: EventSink | None = None,
         cancel: CancellationToken | None = None,
-    ) -> OptimizationResult:
+    ) -> OptimizationResult[E]:
         """Scan the free parameters and return the best grid point.
 
         Args:
@@ -190,6 +192,11 @@ class GridScan(Optimizer):
 
         Returns:
             The result.
+
+        Raises:
+            TypeError: If `problem` is not a `DesignProblem`.
         """
-        params = prepare_parameters(problem, start, vary_integers=True)
-        return scan(problem, self.axes(params), params, events, cancel).optimization
+        design = require_design_problem(problem, type(self).__name__)
+        params = prepare_parameters(design, start, vary_integers=True)
+        result = scan(design, self.axes(params), params, events, cancel).optimization
+        return cast(OptimizationResult[E], result)

@@ -6,11 +6,12 @@ import numpy as np
 import pytest
 
 from tests.design.optim.test_problem import SI, W, make_problem
+from xstack.core.optim import CancellationToken, ProgressEvent
 from xstack.core.parameters import free
 from xstack.core.structure import Mirror, Periodic
 from xstack.design.manufacturing.constraints import MinLayerThickness
 from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import CancellationToken, DesignProblem, GridScan, ProgressEvent, scan
+from xstack.design.optim import DesignProblem, GridScan, scan
 
 
 class TestScan:

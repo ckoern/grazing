@@ -15,14 +15,14 @@ class ProgressEvent:
         task: Name of the running task, e.g. the stage name or the optimizer method.
         evaluations: Number of objective evaluations so far.
         total: Expected total number of evaluations, if known.
-        best_objective: Best objective so far: the figure of merit plus constraint penalties.
+        best_objective: Best objective so far, including penalties.
         current_objective: Objective of the latest evaluation.
-        best_values: Parameter values of the best design so far.
+        best_values: Parameter values of the best evaluation so far.
         elapsed: Elapsed time in s.
-        best_merit: Figure of merit (without penalties) of the best design so far; ``nan`` if
-            that design could not be built.
-        best_quantities: Quantities rated by the figure of merit for the best design so far,
-            by label (see `xstack.design.merit.FigureOfMerit.quantities`).
+        best_merit: Rating without penalties of the best evaluation so far; ``nan`` if its
+            model could not be built.
+        best_quantities: Named quantities of the best evaluation so far, by label (see
+            `xstack.core.optim.problem.Problem.quantities`).
     """
 
     task: str

@@ -6,18 +6,13 @@ import math
 import pytest
 
 from tests.design.optim.test_problem import SI, W, make_problem
+from xstack.core.optim import CancellationToken, LmfitOptimizer, ProgressEvent, optimizers
+from xstack.core.optim.optimizers import prepare_parameters
 from xstack.core.parameters import free
 from xstack.core.structure import Mirror, Periodic
 from xstack.design.manufacturing.constraints import MinLayerThickness
 from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import (
-    CancellationToken,
-    DesignProblem,
-    LmfitOptimizer,
-    ProgressEvent,
-    optimizers,
-)
-from xstack.design.optim.optimizers import prepare_parameters
+from xstack.design.optim import DesignProblem
 from xstack.design.optim.problem import Evaluation
 
 D_OPT = 4.0
@@ -230,7 +225,7 @@ class TestResultFields:
 
     def test_start_design_not_buildable_for_residual_methods(self) -> None:
         problem = make_problem(gamma="d * 0.5")
-        with pytest.raises(ValueError, match="cannot be built"):
+        with pytest.raises(ValueError, match="cannot be evaluated"):
             LmfitOptimizer("leastsq").run(problem)
 
 

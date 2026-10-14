@@ -12,8 +12,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QPushButton
 from pytestqt.qtbot import QtBot
 
-from xstack.design.optim.events import CancellationToken, ProgressEvent
-from xstack.design.optim.optimizers import LmfitOptimizer
+from xstack.core.optim.events import CancellationToken, ProgressEvent
+from xstack.core.optim.optimizers import LmfitOptimizer
 from xstack.design.optim.pipeline import Pipeline
 from xstack.design.optim.stages import Stage
 from xstack.design.project.templates import new_state

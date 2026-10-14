@@ -1,7 +1,7 @@
 # xstack GUI: design and layout
 
-Stack: PySide6, pyqtgraph for interactive plots. The GUI is the package `xstack.gui`
-(`python -m xstack.gui`).
+Stack: PySide6, pyqtgraph for interactive plots. The design application is the package `xstack.gui.design`; shared helpers live in `xstack.gui.common`.
+Launch it with `xstack-design [PROJECT.xstack]` or `python -m xstack.gui.design`.
 
 ## 1. Principles
 
@@ -12,7 +12,7 @@ Stack: PySide6, pyqtgraph for interactive plots. The GUI is the package `xstack.
   pushes it onto a `QUndoStack`. Undo/redo and the history view stay in sync with the core journal.
 - **Input design and results are separate.** The Coating page edits the input design. Optimization runs,
   scans and estimates never change it; their results are stored as candidates (see section 2.1).
-- **Generated forms.** `forms.DataclassForm` builds editors from the dataclass fields of a value (label
+- **Generated forms.** `gui.common.forms.DataclassForm` builds editors from the dataclass fields of a value (label
   and unit metadata, `Literal` fields as choices). The parameter table (`widgets/parameter_table.py`)
   shows the parameters of the coating.
 - **Responsive.** Long calculations run in a worker thread and are cancellable. Results stream in through
@@ -142,7 +142,7 @@ primary button variant.
   - *Last run* table: Stage, Evaluations, Best objective (on the stage's grid), Figure of merit on the
     full problem, Time (s).
 - **Trade-off**: best figure of merit for a series of maximum coating times (ε-constraint sweep, see
-  `optim/tradeoff.py`). Needs a deposition process; without one, the page explains this and *Run
+  `design/optim/tradeoff.py`). Needs a deposition process; without one, the page explains this and *Run
   trade-off* is disabled.
   - *Time limits*: *Automatic range* optimizes the design without a limit first and then uses *Number of
     limits* limits from *Shortest limit* (% of that design's coating time, default 20 %) up to just below
@@ -213,7 +213,7 @@ primary button variant.
 
 ### 2.6 Design language
 
-Defined in `xstack.gui.style`.
+Defined in `xstack.gui.common.style`.
 
 - **Themes**: `light` and `dark`, plus `system`, which follows the operating system. The choice is set
   under View > Theme and saved in the settings. `apply_style` is called once at start-up by the application
@@ -235,37 +235,41 @@ Defined in `xstack.gui.style`.
 ```
 src/xstack/gui/
   __init__.py
-  __main__.py            # python -m xstack.gui
-  app.py                 # QApplication setup, theme from settings, main()
-  controller.py          # ProjectController (owns Project and QUndoStack), CommandAdapter
-  main_window.py         # MainWindow: docks, splitter, workflow and plot tabs, actions, menus, settings
-  forms.py               # DataclassForm: editor generated from dataclass fields
-  files.py               # ask_save_path, with_suffix: save dialogs that append the file extension
-  plots.py               # pyqtgraph widgets: ReflectivityPlot, LayerProfilePlot, DesignMapPlot,
-                         #   ConvergencePlot, TradeoffPlot; scan_axis, bilayer_profile, quantity_value
-  preview.py             # compute_preview, compute_curves: calculations for the live views
-  style.py               # design language: THEMES, COLORS, PLOT_PALETTE, apply_style, set_variant,
-                         #   restyle_plots, icon
-  workers.py             # Task, LatestRunner (latest-request-wins), Job and JobRunner (one at a time)
-  steps/
-    __init__.py          # exports the pages
-    base.py              # StepPage: base of all pages, signals and set_state/set_preview
-    goal.py              # GoalPage
-    materials.py         # MaterialsPage, MaterialDialog
-    coating.py           # CoatingPage, convert_coating, has_constant_gamma, set_constant_gamma
-    estimate.py          # EstimatePage: Bragg-law estimates (plain and refraction-corrected)
-    constraints.py       # ConstraintsPage
-    process.py           # ProcessPage
-    scan.py              # ScanPage
-    optimize.py          # OptimizePage
-    tradeoff.py          # TradeoffPage: coating-time trade-off settings, results table, store as candidate
-    analyze.py           # AnalyzePage: error model, tolerance analysis, recipe export
-  widgets/
+  common/                # shared by all GUI applications
     __init__.py
-    design_comparison.py # DesignComparisonView: Parameters tab (selected candidate vs input design)
-    journal_view.py      # JournalView
-    parameter_table.py   # ParameterTableModel, ParameterTable
-    tolerance_view.py    # ToleranceView: Tolerance tab (histogram and sample reflectivity)
+    forms.py             # DataclassForm: editor generated from dataclass fields
+    files.py             # ask_save_path, with_suffix: save dialogs that append the file extension
+    style.py             # design language: THEMES, COLORS, PLOT_PALETTE, apply_style, set_variant,
+                         #   restyle_plots, icon
+    workers.py           # Task, LatestRunner (latest-request-wins), Job and JobRunner (one at a time)
+  design/                # the design application
+    __init__.py
+    __main__.py            # python -m xstack.gui.design
+    app.py                 # QApplication setup, theme from settings, main()
+    controller.py          # ProjectController (owns Project and QUndoStack), CommandAdapter
+    main_window.py         # MainWindow: docks, splitter, workflow and plot tabs, actions, menus, settings
+    plots.py               # pyqtgraph widgets: ReflectivityPlot, LayerProfilePlot, DesignMapPlot,
+                           #   ConvergencePlot, TradeoffPlot; scan_axis, bilayer_profile, quantity_value
+    preview.py             # compute_preview, compute_curves: calculations for the live views
+    steps/
+      __init__.py          # exports the pages
+      base.py              # StepPage: base of all pages, signals and set_state/set_preview
+      goal.py              # GoalPage
+      materials.py         # MaterialsPage, MaterialDialog
+      coating.py           # CoatingPage, convert_coating, has_constant_gamma, set_constant_gamma
+      estimate.py          # EstimatePage: Bragg-law estimates (plain and refraction-corrected)
+      constraints.py       # ConstraintsPage
+      process.py           # ProcessPage
+      scan.py              # ScanPage
+      optimize.py          # OptimizePage
+      tradeoff.py          # TradeoffPage: coating-time trade-off settings, results table, store as candidate
+      analyze.py           # AnalyzePage: error model, tolerance analysis, recipe export
+    widgets/
+      __init__.py
+      design_comparison.py # DesignComparisonView: Parameters tab (selected candidate vs input design)
+      journal_view.py      # JournalView
+      parameter_table.py   # ParameterTableModel, ParameterTable
+      tolerance_view.py    # ToleranceView: Tolerance tab (histogram and sample reflectivity)
 ```
 
 - `ProjectController` is the single point of truth for the GUI. It emits `stateChanged`, `journalChanged`,

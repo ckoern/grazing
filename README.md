@@ -16,6 +16,26 @@ or, in an existing environment:
 conda activate xstack && pip install -e ".[dev,gui]"
 ```
 
+## Usage
+
+The package has three layers: `xstack.core` (physics, parameters, serialization), `xstack.design`
+(mirror design workflow) and `xstack.gui` (PySide6 applications).
+
+Run the design pipeline of a project file from the command line:
+
+```bash
+xstack design run project.xstack [--output OUT] [--seed N] [-v]
+xstack design info project.xstack
+```
+
+(`python -m xstack design ...` is equivalent.) Start the design GUI:
+
+```bash
+xstack-design [project.xstack]
+```
+
+or `python -m xstack.gui.design`.
+
 ## Checks
 
 ```bash

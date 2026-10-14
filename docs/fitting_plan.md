@@ -14,6 +14,11 @@ existing physics, structure and parameter machinery. The current GUI becomes `xs
   formats are added by registering a new parser.
 - **Fit files:** fit projects use their own file type (`.xfit`), separate from `.xstack` design
   projects. A design file can be imported as the starting model.
+- **Independence of design and fit:** `xstack.fit` never imports `xstack.design` (and vice
+  versa), so that core + fit can later be installed without design. Optional cooperation goes
+  through registries in core that are filled from entry points (group `xstack.plugins`): design
+  registers a model reader for `.xstack` files; the data parsers use the same mechanism, so new
+  file formats can also come from third-party packages.
 - **Fit parameters:** the existing coating parameters are sufficient; no per-layer deviations
   in the first version.
 
@@ -27,7 +32,9 @@ existing physics, structure and parameter machinery. The current GUI becomes `xs
 3. **Fitting core (no GUI).** Measured curves with optional uncertainties and the CSV parser;
    instrument model (scale, background, angle offset, resolution, footprint); fit problem with
    log, linear and χ² weighting; simultaneous fits of several datasets with shared parameters;
-   results with uncertainties and correlations; `.xfit` files; `xstack fit` CLI. Verified by
+   results with uncertainties and correlations; `.xfit` files; `xstack fit` CLI. Registries for
+   data parsers and model readers in core, filled from the `xstack.plugins` entry points; design
+   registers the `.xstack` model reader. Verified by
    round-trip tests (simulate, add noise, fit, recover the parameters).
 4. **`xstack-fit` GUI.** Reuses `gui.common`. Steps: Data → Model → Parameters → Fit → Results,
    with residual and correlation views. Imports the starting model from an `.xstack` file.

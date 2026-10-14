@@ -9,6 +9,7 @@ Guidance for working on xstack, a Python library and PySide6 GUI for designing X
 - `docs/gui_design.md`: GUI design and layout
 - `docs/kernel_verification.md`: reflectivity kernel test strategy
 - `docs/milestones.md`: development milestones
+- `docs/fitting_plan.md`: plan and decisions for the fitting tool (`feature/fitting`)
 
 ## Environment
 - Use the conda environment `xstack` (Python 3.12): `conda run -n xstack <cmd>` or `conda activate xstack`.
@@ -45,3 +46,17 @@ Guidance for working on xstack, a Python library and PySide6 GUI for designing X
   imported by the library.
 - Reference datasets in `tests/data/` carry a provenance header (source, version, inputs).
 - Every kernel bug gets a regression test.
+
+## Working with subagents
+- Delegate work that doesn't need the main model: Sonnet (`model: "sonnet"`) for well-specified
+  moderate tasks (tests from a spec, self-contained GUI pages, scaffolding), Haiku
+  (`model: "haiku"`) for trivial mechanical tasks (renames, small text and doc edits, boilerplate).
+  Keep design decisions, physics and numerical kernel work, cross-cutting integration and review
+  in the main session.
+- Split delegated work by file so agents don't collide, and give precise prompts that point to
+  the conventions in this file.
+- Review every agent's result: check `git show --stat`, rerun the checks yourself and make sure the
+  reported tests exist. Agents that find bugs in `src/` mark the test `xfail` and report the bug
+  instead of fixing it.
+- Parallel agents in worktrees must not run `pip install -e` (shared conda env). Use
+  `PYTHONPATH=<worktree>/src` and `conda run --cwd <worktree>` with absolute paths.

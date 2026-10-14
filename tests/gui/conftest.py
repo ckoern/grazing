@@ -11,7 +11,7 @@ import pytest
 from PySide6.QtCore import QSettings
 from pytestqt.qtbot import QtBot
 
-from xstack.gui.main_window import MainWindow
+from xstack.gui.design.main_window import MainWindow
 
 
 @pytest.fixture

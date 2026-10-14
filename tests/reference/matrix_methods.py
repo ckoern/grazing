@@ -1,4 +1,4 @@
-"""Matrix formalisms for planar stacks, written independently of `xstack.physics.kernel`.
+"""Matrix formalisms for planar stacks, written independently of `xstack.core.physics.kernel`.
 
 These are straightforward but not numerically stable for thick absorbing stacks; they are
 intended for small to moderate test stacks only.

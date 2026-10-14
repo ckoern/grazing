@@ -19,7 +19,7 @@ dependencies = [
 xstack = "xstack.__main__:main"
 
 [project.gui-scripts]
-xstack-gui = "xstack.gui.app:main"
+xstack-design = "xstack.gui.design.app:main"
 
 [project.optional-dependencies]
 gui = [
@@ -63,7 +63,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "PT011"]
-"src/xstack/structure/coatings/*" = ["N803"]
+"src/xstack/core/structure/coatings/*" = ["N803"]
 "src/xstack/gui/**" = ["N802", "N815"]
 
 [tool.mypy]

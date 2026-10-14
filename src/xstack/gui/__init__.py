@@ -1,4 +1,1 @@
-"""PySide6 graphical user interface.
-
-Start it with ``python -m xstack.gui [PROJECT.xstack]`` or the ``xstack-gui`` command.
-"""
+"""PySide6 graphical user interfaces: shared components and the xstack applications."""

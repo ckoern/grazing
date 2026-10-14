@@ -34,8 +34,8 @@ See `physics_background.md` for the physics and `kernel_verification.md` for the
 ## 2. Package layout
 
 Modules under `src/xstack/` (all files; `__pycache__` directories omitted). The layers depend only
-downward: `core` ← `design` ← `gui`. A fitting layer (`xstack.fit`, `xstack.gui.fit`) is planned between
-`design` and `gui`.
+downward: `core` ← `design` ← `gui`. A fitting layer (`xstack.fit`, `xstack.gui.fit`) is planned
+beside `design`; design and fit never import each other.
 
 ```
 src/xstack/

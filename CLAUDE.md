@@ -24,9 +24,11 @@ mirrors (`xstack-design`) and fitting measured reflectivity (`xstack-fit`).
 - Target Python 3.12. Use type hints everywhere. Everything except `xstack.gui` passes `mypy --strict`.
 - Formatting and linting with ruff (line length 100). Configuration lives in `pyproject.toml`.
 - Package layers: `xstack.core` (shared physics, structure, parameters, serialization) ←
-  `xstack.design` ← `xstack.fit` ← `xstack.gui` (`gui.common`, `gui.design`, `gui.fit`). Lower
-  layers never import higher ones (fit may read design projects, design never imports fit);
-  `tests/test_package.py` checks this. Only `xstack.gui` imports Qt.
+  `xstack.design` and `xstack.fit` ← `xstack.gui` (`gui.common`, `gui.design`, `gui.fit`). Lower
+  layers never import higher ones, and design and fit never import each other, so that each can be
+  installed without the other. They cooperate through registries filled from entry points (e.g.
+  design provides the reader of `.xstack` files as a model source for fit).
+  `tests/test_package.py` checks the layering. Only `xstack.gui` imports Qt.
 - Use numpy for numerics and lmfit for optimization.
 - Prefer frozen dataclasses for physical value objects. Mutable state lives in the `Project`.
 - Internal units: lengths in nm, energies in eV, angles in rad, time in s, density in g/cm³.

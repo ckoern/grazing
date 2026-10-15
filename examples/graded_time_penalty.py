@@ -22,24 +22,24 @@ Run it with ``python examples/graded_time_penalty.py``. ``--plot`` shows the ref
 import argparse
 from pathlib import Path
 
-from xstack.io.recipe import write_recipe_csv
-from xstack.manufacturing import (
+from xstack.core.materials import get
+from xstack.core.optim.optimizers import LmfitOptimizer
+from xstack.core.parameters import free
+from xstack.core.structure import DepthGraded, Mirror
+from xstack.core.targets import EnergyScan, TargetSet
+from xstack.core.units import deg, kev, to_kev
+from xstack.design.manufacturing import (
     DepositionProcess,
     MaxCoatingTime,
     MaxTotalThickness,
     MinLayerThickness,
     thickness_tolerance,
 )
-from xstack.materials import get
-from xstack.merit import MeanReflectivity, TimePenalized
-from xstack.optim import DesignProblem, Pipeline
-from xstack.optim.optimizers import LmfitOptimizer
-from xstack.optim.pipeline import PipelineResult, StageResult
-from xstack.optim.stages import Stage
-from xstack.parameters import free
-from xstack.structure import DepthGraded, Mirror
-from xstack.targets import EnergyScan, TargetSet
-from xstack.units import deg, kev, to_kev
+from xstack.design.merit import MeanReflectivity, TimePenalized
+from xstack.design.optim import DesignProblem, Pipeline
+from xstack.design.optim.pipeline import PipelineResult, StageResult
+from xstack.design.optim.stages import Stage
+from xstack.design.recipe import write_recipe_csv
 
 ANGLE = deg(0.2)
 HOUR = 3600.0

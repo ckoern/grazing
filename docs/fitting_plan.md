@@ -34,8 +34,10 @@ existing physics, structure and parameter machinery. The current GUI becomes `xs
    log, linear and χ² weighting; simultaneous fits of several datasets with shared parameters;
    results with uncertainties and correlations; `.xfit` files; `xstack fit` CLI. Registries for
    data parsers and model readers in core, filled from the `xstack.plugins` entry points; design
-   registers the `.xstack` model reader. Verified by
-   round-trip tests (simulate, add noise, fit, recover the parameters).
+   registers the `.xstack` model reader. An example script in `examples/` shows a complete fit
+   with the library (load data, import or build the model, set up instrument and parameters,
+   fit, report and plot the results). Verified by round-trip tests (simulate, add noise, fit,
+   recover the parameters).
 4. **`xstack-fit` GUI.** Reuses `gui.common`. Steps: Data → Model → Parameters → Fit → Results,
    with residual and correlation views. Imports the starting model from an `.xstack` file.
 5. **Later.** Per-layer deviations, roughness growth with depth, MCMC uncertainties, batch fits,

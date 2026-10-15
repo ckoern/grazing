@@ -21,6 +21,9 @@ xstack = "xstack.__main__:main"
 [project.gui-scripts]
 xstack-design = "xstack.gui.design.app:main"
 
+[project.entry-points."xstack.plugins"]
+design = "xstack.design.plugin"
+
 [project.optional-dependencies]
 gui = [
     "PySide6>=6.6",

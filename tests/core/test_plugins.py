@@ -1,7 +1,10 @@
 """Tests for `xstack.core.plugins`."""
 
+from importlib.metadata import entry_points
+
 import pytest
 
+from xstack.core import plugins
 from xstack.core.plugins import Registry
 
 
@@ -113,3 +116,52 @@ def test_reregister_after_unregister() -> None:
     registry.register("one", 11)
     assert registry.get("one") == 11
     assert registry.names() == ("two", "three", "one")
+
+
+class FakeEntryPoint:
+    def __init__(self, name: str, error: Exception | None = None) -> None:
+        self.name = name
+        self.value = f"fake.{name}"
+        self.error = error
+        self.calls = 0
+
+    def load(self) -> None:
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+
+
+@pytest.fixture
+def fake_plugins(monkeypatch: pytest.MonkeyPatch) -> list[FakeEntryPoint]:
+    entry_points: list[FakeEntryPoint] = []
+
+    def select(*, group: str) -> list[FakeEntryPoint]:
+        return entry_points if group == plugins.PLUGIN_GROUP else []
+
+    monkeypatch.setattr(plugins, "entry_points", select)
+    monkeypatch.setattr(plugins, "_loaded", set())
+    return entry_points
+
+
+def test_load_plugins_imports_each_plugin_once(fake_plugins: list[FakeEntryPoint]) -> None:
+    good = FakeEntryPoint("good")
+    fake_plugins.append(good)
+    assert plugins.load_plugins() == ("good",)
+    assert plugins.load_plugins() == ()
+    assert good.calls == 1
+
+
+def test_broken_plugin_warns_and_is_retried(fake_plugins: list[FakeEntryPoint]) -> None:
+    broken = FakeEntryPoint("broken", ImportError("missing dependency"))
+    good = FakeEntryPoint("good")
+    fake_plugins.extend([broken, good])
+    with pytest.warns(plugins.PluginWarning, match="broken.*missing dependency"):
+        assert plugins.load_plugins() == ("good",)
+    with pytest.warns(plugins.PluginWarning):
+        assert plugins.load_plugins() == ()
+    assert (broken.calls, good.calls) == (2, 1)
+
+
+def test_design_plugin_is_installed() -> None:
+    names = {ep.name: ep.value for ep in entry_points(group=plugins.PLUGIN_GROUP)}
+    assert names.get("design") == "xstack.design.plugin"

@@ -1,5 +1,11 @@
-"""Import and export of data files."""
+"""Import and export of data files.
 
+Measured curves are read with `read_curves` and structure models with `read_models`; both
+choose the file handler by suffix from registries that plugins can extend.
+"""
+
+from xstack.core.io.data import DataParser, data_parsers, parser_for, read_curves
+from xstack.core.io.delimited import UNITS, CsvLayout, CsvParser, Quantity
 from xstack.core.io.models import (
     ImportedModel,
     ModelReader,
@@ -15,9 +21,17 @@ from xstack.core.io.reflectivity import (
 
 __all__ = [
     "REFLECTIVITY_COLUMNS",
+    "UNITS",
+    "CsvLayout",
+    "CsvParser",
+    "DataParser",
     "ImportedModel",
     "ModelReader",
+    "Quantity",
+    "data_parsers",
     "model_readers",
+    "parser_for",
+    "read_curves",
     "read_models",
     "reader_for",
     "reflectivity_table",

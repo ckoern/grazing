@@ -53,3 +53,28 @@ def test_arrays_preserve_shape(forward, backward) -> None:
     assert isinstance(result, np.ndarray)
     assert result.shape == values.shape
     np.testing.assert_allclose(backward(result), values, rtol=1e-12)
+
+
+def test_angle_to_q_known_value() -> None:
+    theta = units.deg(0.5)
+    expected = 4.0 * np.pi * np.sin(theta) / units.energy_to_wavelength(8048.0)
+    assert units.angle_to_q(theta, 8048.0) == pytest.approx(expected, rel=1e-12)
+    assert units.q_to_angle(expected, 8048.0) == pytest.approx(theta, rel=1e-12)
+
+
+@given(
+    st.lists(st.floats(min_value=1e-4, max_value=np.pi / 2 - 1e-3), min_size=1, max_size=10),
+    st.floats(min_value=100.0, max_value=1e5),
+)
+def test_q_angle_round_trip_on_arrays(thetas: list[float], energy: float) -> None:
+    theta = np.array(thetas)
+    q = units.angle_to_q(theta, energy)
+    np.testing.assert_allclose(units.q_to_angle(q, energy), theta, rtol=1e-9)
+
+
+def test_q_above_maximum_is_nan() -> None:
+    q_max = 4.0 * np.pi / units.energy_to_wavelength(8048.0)
+    result = units.q_to_angle(np.array([0.5 * q_max, 1.01 * q_max]), 8048.0)
+    assert np.isfinite(result[0])
+    assert np.isnan(result[1])
+    assert units.q_to_angle(q_max, 8048.0) == pytest.approx(np.pi / 2)

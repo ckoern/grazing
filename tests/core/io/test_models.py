@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from xstack.core.io import models
+from xstack.core.io import files
 from xstack.core.io.models import ImportedModel, model_readers, read_models, reader_for
 from xstack.core.materials import get
 from xstack.core.structure.coating import Mirror
@@ -24,7 +24,7 @@ class FakeReader:
 
 @pytest.fixture
 def fake_reader(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeReader]:
-    monkeypatch.setattr(models, "load_plugins", lambda: ())
+    monkeypatch.setattr(files, "load_plugins", lambda: ())
     reader = FakeReader()
     model_readers.register("fake", reader)
     yield reader
@@ -62,7 +62,7 @@ def test_plugins_loaded_before_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
         calls.append(True)
         return ()
 
-    monkeypatch.setattr(models, "load_plugins", load_plugins)
+    monkeypatch.setattr(files, "load_plugins", load_plugins)
     with pytest.raises(ValueError):
         reader_for("sample.unknown")
     assert calls == [True]

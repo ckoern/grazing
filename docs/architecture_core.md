@@ -43,7 +43,7 @@ src/xstack/
   __main__.py               # command dispatcher: `xstack design ...`
   core/                     # physics, parameters, serialization (no Qt)
     __init__.py
-    units.py                # conversion helpers (keV↔eV, deg/mrad↔rad, Å↔nm, µm, E↔λ)
+    units.py                # conversion helpers (keV↔eV, deg/mrad↔rad, Å↔nm, µm, E↔λ, θ↔q)
     plugins.py              # Registry[T]: named registry with register/get/names;
                             #   load_plugins() imports the `xstack.plugins` entry points
     parameters.py           # Parameter, Range, free(), ParameterSet, lmfit conversion
@@ -58,6 +58,7 @@ src/xstack/
                             #   prepare_parameters, optimizers registry, register_optimizer
       events.py             # ProgressEvent, CancellationToken, EventSink
     targets.py              # Target, EnergyScan, AngleScan, Profile, TargetSet
+    measurement.py          # MeasuredCurve: measured R(θ) or R(E) with optional uncertainties
     materials/
       __init__.py           # get(name) for preset materials
       material.py           # Material, VACUUM
@@ -83,7 +84,11 @@ src/xstack/
         graded.py           # DepthGraded, grading laws (power_law, linear)
         composite.py        # Composite: ordered blocks with name prefixes
     io/
-      __init__.py           # exports the model readers and reflectivity functions
+      __init__.py           # exports readers, parsers and reflectivity export
+      files.py              # FileHandler protocol, handler_for(registry, path): choice by suffix
+      data.py               # DataParser protocol, data_parsers registry, read_curves(path, options)
+      delimited.py          # CsvLayout, CsvParser: measured curves from CSV/TSV/column files,
+                            #   automatic reading of xstack reflectivity exports
       models.py             # ImportedModel, ModelReader protocol, model_readers registry,
                             #   read_models(path): start models from other applications' files
       reflectivity.py       # export of reflectivity curves (CSV)
@@ -601,6 +606,7 @@ optimizers: Registry[type[Optimizer]]       # register_optimizer
 models: Registry[ReflectivityModel]
 interface_models: Registry[InterfaceModel]
 model_readers: Registry[ModelReader]        # filled by plugins, e.g. design's `.xstack` reader
+data_parsers: Registry[DataParser]          # "csv" built in; further formats from plugins
 ```
 
 A plugin class is registered with its decorator, for example:
@@ -625,7 +631,7 @@ design = "xstack.design.plugin"
 ```
 
 `load_plugins()` imports all of them once; a plugin that fails to load is skipped with a
-`PluginWarning`. Lookups in registries filled by plugins (e.g. `reader_for(path)`) call it first. This
+`PluginWarning`. Lookups in registries filled by plugins (`reader_for(path)`, `parser_for(path)`) call it first. This
 is how fit reads `.xstack` designs without importing `xstack.design`, and how third-party packages
 add components.
 

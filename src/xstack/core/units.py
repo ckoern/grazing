@@ -26,11 +26,13 @@ __all__ = [
     "AVOGADRO",
     "CLASSICAL_ELECTRON_RADIUS",
     "HC",
+    "angle_to_q",
     "angstrom",
     "deg",
     "energy_to_wavelength",
     "kev",
     "mrad",
+    "q_to_angle",
     "to_angstrom",
     "to_deg",
     "to_kev",
@@ -194,3 +196,35 @@ def wavelength_to_energy[T: (float, NDArray[np.float64])](wavelength: T) -> T:
         Photon energy in eV.
     """
     return HC / wavelength
+
+
+def angle_to_q[T: (float, NDArray[np.float64])](theta: T, energy: float) -> T:
+    """Convert a grazing angle to the momentum transfer q = 4π sin θ / λ.
+
+    Args:
+        theta: Grazing angle in rad.
+        energy: Photon energy in eV. Must be positive.
+
+    Returns:
+        Momentum transfer in 1/nm.
+    """
+    return 4.0 * np.pi * np.sin(theta) / energy_to_wavelength(energy)  # type: ignore[no-any-return]
+
+
+def q_to_angle[T: (float, NDArray[np.float64])](q: T, energy: float) -> T:
+    """Convert a momentum transfer q = 4π sin θ / λ to the grazing angle.
+
+    Args:
+        q: Momentum transfer in 1/nm.
+        energy: Photon energy in eV. Must be positive.
+
+    Returns:
+        Grazing angle in rad; NaN where q exceeds 4π / λ.
+
+    Examples:
+        >>> theta = deg(0.5)
+        >>> round(float(q_to_angle(angle_to_q(theta, 8048.0), 8048.0) / theta), 12)
+        1.0
+    """
+    with np.errstate(invalid="ignore"):
+        return np.arcsin(q * energy_to_wavelength(energy) / (4.0 * np.pi))  # type: ignore[no-any-return]

@@ -11,6 +11,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from xstack.core import materials
+from xstack.core.document import History
 from xstack.core.parameters import free
 from xstack.core.structure import Mirror, Periodic
 from xstack.core.targets import EnergyScan, TargetSet
@@ -18,14 +19,7 @@ from xstack.core.units import deg, kev
 from xstack.design.manufacturing.process import DepositionProcess
 from xstack.design.merit import MeanReflectivity
 from xstack.design.optim import DesignProblem, Pipeline
-from xstack.design.project import (
-    SCHEMA_VERSION,
-    Candidate,
-    Command,
-    History,
-    Project,
-    ProjectState,
-)
+from xstack.design.project import SCHEMA_VERSION, Candidate, Command, Project, ProjectState
 
 W = materials.get("W")
 SI = materials.get("Si")
@@ -92,7 +86,7 @@ class TestHistory:
         return [ProjectState(name=f"s{i}") for i in range(n)]
 
     def test_empty(self) -> None:
-        history = History()
+        history: History[ProjectState] = History()
         assert not history.can_undo
         assert not history.can_redo
         with pytest.raises(IndexError):
@@ -102,7 +96,7 @@ class TestHistory:
 
     def test_push_undo_redo(self) -> None:
         s = self.states(3)
-        history = History()
+        history: History[ProjectState] = History()
         history.push("one", s[0], s[1])
         history.push("two", s[1], s[2])
         assert (history.can_undo, history.can_redo) == (True, False)
@@ -116,7 +110,7 @@ class TestHistory:
 
     def test_push_clears_redo(self) -> None:
         s = self.states(4)
-        history = History()
+        history: History[ProjectState] = History()
         history.push("one", s[0], s[1])
         history.undo()
         assert history.can_redo
@@ -126,7 +120,7 @@ class TestHistory:
 
     def test_descriptions(self) -> None:
         s = self.states(4)
-        history = History()
+        history: History[ProjectState] = History()
         for i, text in enumerate(("a", "b", "c")):
             history.push(text, s[i], s[i + 1])
         assert history.undo_descriptions() == ("a", "b", "c")
@@ -138,7 +132,7 @@ class TestHistory:
 
     def test_merge_key(self) -> None:
         s = self.states(4)
-        history = History()
+        history: History[ProjectState] = History()
         history.push("x1", s[0], s[1], "x")
         history.push("x2", s[1], s[2], "x")
         history.push("x3", s[2], s[3], "x")
@@ -149,7 +143,7 @@ class TestHistory:
 
     def test_merge_only_same_key(self) -> None:
         s = self.states(4)
-        history = History()
+        history: History[ProjectState] = History()
         history.push("x", s[0], s[1], "x")
         history.push("y", s[1], s[2], "y")
         history.push("x again", s[2], s[3], "x")
@@ -157,14 +151,14 @@ class TestHistory:
 
     def test_empty_key_never_merges(self) -> None:
         s = self.states(3)
-        history = History()
+        history: History[ProjectState] = History()
         history.push("a", s[0], s[1])
         history.push("b", s[1], s[2])
         assert len(history.undo_descriptions()) == 2
 
     def test_clear(self) -> None:
         s = self.states(3)
-        history = History()
+        history: History[ProjectState] = History()
         history.push("a", s[0], s[1])
         history.push("b", s[1], s[2])
         history.undo()

@@ -7,6 +7,7 @@ import pytest
 
 from tests.design.optim.test_problem import make_problem
 from xstack.core.materials import VACUUM, Material, delta_beta, get
+from xstack.core.optim import CancellationToken, ProgressEvent
 from xstack.core.structure import Layer, Stack
 from xstack.design.manufacturing import (
     ErrorModel,
@@ -17,7 +18,6 @@ from xstack.design.manufacturing import (
     thickness_tolerance,
     tolerance_analysis,
 )
-from xstack.design.optim import CancellationToken, ProgressEvent
 
 W = get("W")
 SI = get("Si")

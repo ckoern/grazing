@@ -36,10 +36,10 @@ from PySide6.QtWidgets import (
 )
 
 from xstack.core.io.reflectivity import write_reflectivity_csv
+from xstack.core.optim.events import ProgressEvent
 from xstack.core.physics.models import ReflectivityResult
 from xstack.core.structure.coating import CoatingBuildError
 from xstack.design.manufacturing.tolerance import ToleranceResult
-from xstack.design.optim.events import ProgressEvent
 from xstack.design.optim.pipeline import PipelineResult
 from xstack.design.optim.problem import DesignProblem
 from xstack.design.optim.scan import ScanResult

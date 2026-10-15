@@ -10,9 +10,9 @@ import pytest
 from PySide6.QtCore import Qt
 from pytestqt.qtbot import QtBot
 
+from xstack.core.optim.events import CancellationToken, ProgressEvent
 from xstack.core.parameters import free
 from xstack.core.structure import Mirror, Periodic
-from xstack.design.optim.events import CancellationToken, ProgressEvent
 from xstack.design.project.commands import set_mirror
 from xstack.design.project.templates import new_state
 from xstack.gui.common.workers import Job, JobRunner

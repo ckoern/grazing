@@ -1,14 +1,13 @@
-"""Project state, candidate designs and undo/redo history."""
+"""Design project: its state, candidate designs and commands."""
 
-import json
-from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
+from xstack.core import document
+from xstack.core.document import Document
 from xstack.core.physics.models import ParrattModel, ReflectivityModel
-from xstack.core.serialization import from_data, register_serializable, to_data
+from xstack.core.serialization import register_serializable
 from xstack.core.structure.coating import Mirror
 from xstack.core.targets import TargetSet
 from xstack.design.manufacturing.constraints import Constraint
@@ -17,9 +16,8 @@ from xstack.design.merit.base import FigureOfMerit
 from xstack.design.optim.pipeline import Pipeline
 from xstack.design.optim.problem import DesignProblem, Evaluation
 from xstack.design.optim.tradeoff import TradeoffResult
-from xstack.design.project.journal import Journal
 
-__all__ = ["SCHEMA_VERSION", "Candidate", "Command", "History", "Project", "ProjectState"]
+__all__ = ["SCHEMA_VERSION", "Candidate", "Command", "Project", "ProjectState"]
 
 SCHEMA_VERSION = 1
 """Version of the project file format."""
@@ -168,7 +166,7 @@ register_serializable("ProjectState", ProjectState)
 
 
 @dataclass(frozen=True)
-class Command:
+class Command(document.Command[ProjectState]):
     """A described change of the project state.
 
     Attributes:
@@ -178,102 +176,12 @@ class Command:
             step (e.g. repeated edits of the same parameter).
     """
 
-    description: str
-    transform: Callable[[ProjectState], ProjectState]
-    merge_key: str = ""
 
-
-@dataclass(frozen=True)
-class _Step:
-    description: str
-    before: ProjectState
-    after: ProjectState
-    merge_key: str
-
-
-class History:
-    """Undo and redo stacks of project states."""
-
-    def __init__(self) -> None:
-        self._undo: list[_Step] = []
-        self._redo: list[_Step] = []
-
-    @property
-    def can_undo(self) -> bool:
-        """Whether there is a step to undo."""
-        return bool(self._undo)
-
-    @property
-    def can_redo(self) -> bool:
-        """Whether there is a step to redo."""
-        return bool(self._redo)
-
-    def undo_descriptions(self) -> tuple[str, ...]:
-        """Return the descriptions of the undoable steps, oldest first."""
-        return tuple(s.description for s in self._undo)
-
-    def redo_descriptions(self) -> tuple[str, ...]:
-        """Return the descriptions of the redoable steps, next first."""
-        return tuple(s.description for s in reversed(self._redo))
-
-    def push(
-        self, description: str, before: ProjectState, after: ProjectState, merge_key: str = ""
-    ) -> None:
-        """Record a step and clear the redo stack.
-
-        Args:
-            description: Description of the step.
-            before: State before the step.
-            after: State after the step.
-            merge_key: Merge with the previous step if it has the same non-empty key.
-        """
-        self._redo.clear()
-        if merge_key and self._undo and self._undo[-1].merge_key == merge_key:
-            previous = self._undo.pop()
-            before = previous.before
-        self._undo.append(_Step(description, before, after, merge_key))
-
-    def undo(self) -> tuple[str, ProjectState]:
-        """Undo the last step.
-
-        Returns:
-            Description of the step and the state to restore.
-
-        Raises:
-            IndexError: If there is nothing to undo.
-        """
-        if not self._undo:
-            raise IndexError("nothing to undo")
-        step = self._undo.pop()
-        self._redo.append(step)
-        return step.description, step.before
-
-    def redo(self) -> tuple[str, ProjectState]:
-        """Redo the last undone step.
-
-        Returns:
-            Description of the step and the state to restore.
-
-        Raises:
-            IndexError: If there is nothing to redo.
-        """
-        if not self._redo:
-            raise IndexError("nothing to redo")
-        step = self._redo.pop()
-        self._undo.append(step)
-        return step.description, step.after
-
-    def clear(self) -> None:
-        """Forget all steps."""
-        self._undo.clear()
-        self._redo.clear()
-
-
-class Project:
+class Project(Document[ProjectState]):
     """A design project: the current state, its undo history and the journal.
 
     All changes of the state go through `execute`, so that they can be undone and are recorded
-    in the journal.
+    in the journal. Project files conventionally have the suffix ``.xstack``.
 
     Args:
         state: Initial state.
@@ -289,118 +197,7 @@ class Project:
         'untitled'
     """
 
-    def __init__(self, state: ProjectState | None = None, journal: Journal | None = None) -> None:
-        self._state = state or ProjectState()
-        self.history = History()
-        self.journal = journal or Journal()
-        self._listeners: list[Callable[[ProjectState], None]] = []
-
-    @property
-    def state(self) -> ProjectState:
-        """The current state."""
-        return self._state
-
-    def subscribe(self, listener: Callable[[ProjectState], None]) -> None:
-        """Register a function that is called with the new state after every change.
-
-        Args:
-            listener: The function.
-        """
-        self._listeners.append(listener)
-
-    def _set(self, state: ProjectState) -> None:
-        self._state = state
-        for listener in self._listeners:
-            listener(state)
-
-    def execute(self, command: Command) -> None:
-        """Apply a command, record it for undo and in the journal.
-
-        Args:
-            command: The command.
-
-        Raises:
-            Exception: Any exception raised by the command's transform; the state is unchanged.
-        """
-        before = self._state
-        after = command.transform(before)
-        if after == before:
-            return
-        self.history.push(command.description, before, after, command.merge_key)
-        self.journal.add("command", command.description)
-        self._set(after)
-
-    def undo(self) -> None:
-        """Undo the last change.
-
-        Raises:
-            IndexError: If there is nothing to undo.
-        """
-        description, state = self.history.undo()
-        self.journal.add("undo", f"Undo: {description}")
-        self._set(state)
-
-    def redo(self) -> None:
-        """Redo the last undone change.
-
-        Raises:
-            IndexError: If there is nothing to redo.
-        """
-        description, state = self.history.redo()
-        self.journal.add("redo", f"Redo: {description}")
-        self._set(state)
-
-    def to_data(self) -> dict[str, Any]:
-        """Return the project (state and journal) as JSON-compatible data."""
-        return {
-            "format": "xstack-project",
-            "schema_version": SCHEMA_VERSION,
-            "state": to_data(self._state),
-            "journal": self.journal.to_data(),
-        }
-
-    @classmethod
-    def from_data(cls, data: dict[str, Any]) -> "Project":
-        """Create a project from data returned by `to_data`.
-
-        Args:
-            data: The data.
-
-        Returns:
-            The project with an empty undo history.
-
-        Raises:
-            ValueError: If the data is not an xstack project of a supported version.
-        """
-        if data.get("format") != "xstack-project":
-            raise ValueError("not an xstack project file")
-        version = data.get("schema_version")
-        if version != SCHEMA_VERSION:
-            raise ValueError(f"unsupported project file version {version}")
-        state = from_data(data["state"])
-        if not isinstance(state, ProjectState):
-            raise ValueError("project file does not contain a project state")
-        return cls(state, Journal.from_data(data.get("journal", [])))
-
-    def save(self, path: Path | str) -> None:
-        """Save the project to a JSON file.
-
-        Args:
-            path: Output file, conventionally with the suffix ``.xstack``.
-        """
-        self.journal.add("file", f"Saved to {Path(path).name}")
-        Path(path).write_text(json.dumps(self.to_data(), indent=1))
-
-    @classmethod
-    def load(cls, path: Path | str) -> "Project":
-        """Load a project from a JSON file.
-
-        Args:
-            path: The project file.
-
-        Returns:
-            The project.
-        """
-        project = cls.from_data(json.loads(Path(path).read_text()))
-        project.journal.add("file", f"Loaded {Path(path).name}")
-        return project
+    file_format = "xstack-project"
+    file_description = "xstack project"
+    schema_version = SCHEMA_VERSION
+    state_type = ProjectState

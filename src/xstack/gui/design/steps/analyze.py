@@ -21,9 +21,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from xstack.core.optim.events import CancellationToken
 from xstack.core.structure.coating import CoatingBuildError, Mirror
 from xstack.design.manufacturing.tolerance import ErrorModel, ToleranceResult, tolerance_analysis
-from xstack.design.optim.events import CancellationToken
 from xstack.design.project import ProjectState
 from xstack.design.recipe import write_recipe_csv, write_recipe_json
 from xstack.gui.common.files import ask_save_path

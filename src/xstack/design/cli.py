@@ -8,7 +8,7 @@ Usage::
 
 import argparse
 
-from xstack.design.optim.events import ProgressEvent
+from xstack.core.optim.events import ProgressEvent
 from xstack.design.optim.pipeline import Pipeline
 from xstack.design.project import Project
 from xstack.design.project.commands import run_pipeline

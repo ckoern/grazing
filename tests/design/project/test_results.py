@@ -3,8 +3,9 @@
 import pytest
 
 from tests.design.project.test_commands import SI, W, fast_pipeline, make_project
+from xstack.core.optim import LmfitOptimizer
 from xstack.core.structure import Mirror, Periodic
-from xstack.design.optim import LmfitOptimizer, Pipeline, Stage
+from xstack.design.optim import Pipeline, Stage
 from xstack.design.project import Candidate, Project, ProjectState, commands
 
 

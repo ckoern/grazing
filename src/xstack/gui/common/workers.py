@@ -6,7 +6,7 @@ from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
 
-from xstack.design.optim.events import CancellationToken
+from xstack.core.optim.events import CancellationToken
 
 __all__ = ["Job", "JobRunner", "LatestRunner", "Task", "TaskSignals"]
 
@@ -132,8 +132,8 @@ class Job:
     Attributes:
         name: Name shown in the user interface.
         function: Callable ``(progress, cancel) -> result`` run in a worker thread; `progress`
-            forwards `xstack.design.optim.ProgressEvent` objects, `cancel` is a
-            `xstack.design.optim.CancellationToken`.
+            forwards `xstack.core.optim.ProgressEvent` objects, `cancel` is a
+            `xstack.core.optim.CancellationToken`.
         on_finished: Called in the GUI thread with the result.
     """
 

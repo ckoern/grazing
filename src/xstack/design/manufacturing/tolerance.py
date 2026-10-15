@@ -19,7 +19,7 @@ from xstack.core.materials.material import Material
 from xstack.core.structure.stack import Layer, Stack
 
 if TYPE_CHECKING:
-    from xstack.design.optim.events import CancellationToken, EventSink
+    from xstack.core.optim.events import CancellationToken, EventSink
     from xstack.design.optim.problem import DesignProblem, Evaluation
 
 __all__ = [
@@ -295,7 +295,7 @@ def tolerance_analysis(
     Raises:
         ValueError: If the nominal design cannot be built.
     """
-    from xstack.design.optim.events import ProgressEvent
+    from xstack.core.optim.events import ProgressEvent
 
     model = errors if errors is not None else ErrorModel(thickness_random=0.01)
     nominal = problem.evaluate(values)

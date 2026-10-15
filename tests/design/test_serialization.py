@@ -10,6 +10,7 @@ import pytest
 
 from xstack.core import materials
 from xstack.core.materials import Material
+from xstack.core.optim import LmfitOptimizer
 from xstack.core.parameters import Parameter, ParameterSet, free
 from xstack.core.physics.models import KinematicModel, ParrattModel
 from xstack.core.serialization import (
@@ -50,14 +51,7 @@ from xstack.design.merit import (
     TimePenalized,
     WeightedSum,
 )
-from xstack.design.optim import (
-    BraggOutline,
-    DesignProblem,
-    GridScan,
-    LmfitOptimizer,
-    Pipeline,
-    Stage,
-)
+from xstack.design.optim import BraggOutline, DesignProblem, GridScan, Pipeline, Stage
 from xstack.design.project import Candidate, ProjectState
 
 W = materials.get("W")

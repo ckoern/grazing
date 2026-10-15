@@ -48,6 +48,14 @@ src/xstack/
     parameters.py           # Parameter, Range, free(), ParameterSet, lmfit conversion
     serialization.py        # versioned JSON: to_data, from_data, register_serializable,
                             #   register_component_registry
+    document.py             # Command[S], History[S], Document[S]: undoable, saveable state
+    journal.py              # Journal, JournalEntry
+    optim/
+      __init__.py           # exports Problem, Evaluation, optimizers and events
+      problem.py            # Problem[E], Evaluation protocols
+      optimizers.py         # Optimizer base class, LmfitOptimizer, OptimizationResult, Tracker,
+                            #   prepare_parameters, optimizers registry, register_optimizer
+      events.py             # ProgressEvent, CancellationToken, EventSink
     targets.py              # Target, EnergyScan, AngleScan, Profile, TargetSet
     materials/
       __init__.py           # get(name) for preset materials
@@ -94,18 +102,15 @@ src/xstack/
       tolerance.py          # Monte Carlo thickness-error analysis
     optim/
       __init__.py
-      problem.py            # DesignProblem, Evaluation
-      optimizers.py         # Optimizer base class, LmfitOptimizer, OptimizationResult
+      problem.py            # DesignProblem, Evaluation, require_design_problem
       scan.py               # GridScan, scan(), ScanResult
       stages.py             # Stage, BraggOutline
       pipeline.py           # Pipeline, PipelineResult, StageResult
-      events.py             # ProgressEvent, CancellationToken, EventSink
       tradeoff.py           # time_tradeoff, TradeoffPoint, TradeoffResult, default_limits
     project/
       __init__.py
-      project.py            # ProjectState, Candidate, Command, History, Project
+      project.py            # ProjectState, Candidate, Command, Project
       commands.py           # command functions (set_mirror, store_results, run_pipeline, …)
-      journal.py            # Journal, JournalEntry
       templates.py          # ready-made project states
   gui/                      # PySide6 application (not imported by core or design)
     common/                 # style.py, forms.py, files.py, workers.py
@@ -421,14 +426,19 @@ class Evaluation:
 
 class Optimizer(ABC):
     type_name: ClassVar[str]
-    def run(self, problem: DesignProblem, start: ParameterSet | None = None,
-            events: EventSink | None = None, cancel: CancellationToken | None = None) -> OptimizationResult: ...
+    def run[E: Evaluation](self, problem: Problem[E], start: ParameterSet | None = None,
+            events: EventSink | None = None,
+            cancel: CancellationToken | None = None) -> OptimizationResult[E]: ...
 ```
+
+Optimizers are generic core pieces (`xstack.core.optim`) that run on any `Problem`.
+`DesignProblem` satisfies that protocol, and design and fitting use the same optimizers.
+`BraggOutline` and `GridScan` accept only a `DesignProblem` and raise `TypeError` otherwise.
 
 - `LmfitOptimizer(method=…)` wraps `lmfit.Minimizer` for `leastsq`, `least_squares`, `nelder`,
   `lbfgsb`, `powell`, `differential_evolution`, and the other lmfit methods. Global methods
-  (`GLOBAL_METHODS`) vary integer parameters, which are rounded when the coating is built; they require
-  finite bounds for all free parameters. Local methods keep integer parameters fixed. The start
+  (`GLOBAL_METHODS` in `xstack.core.optim.optimizers`) vary integer parameters, which are rounded
+  when the coating is built; they require finite bounds for all free parameters. Local methods keep integer parameters fixed. The start
   design is evaluated first, so the result is never worse than it; differential evolution also includes
   it in its initial population (unless an `init` option is given).
 - `GridScan` (design/optim/scan.py) is a deterministic sweep over chosen parameters, including integers. The
@@ -482,7 +492,7 @@ constraint. It needs a deposition process (`ValueError` otherwise).
 - The last result is stored in `ProjectState.tradeoff` with the command `store_tradeoff(result)` and is part of
   the project file.
 
-**Events and cancellation.** `ProgressEvent` (design/optim/events.py) carries `task`, `evaluations`, `total`,
+**Events and cancellation.** `ProgressEvent` (core/optim/events.py) carries `task`, `evaluations`, `total`,
 `best_objective` (FOM plus penalties), `current_objective`, `best_values`, `elapsed`, and `best_merit`
 (FOM of the best design without penalties; NaN if that design cannot be built). `EventSink` is a callable
 receiving events. `CancellationToken` has `cancel()` and `cancelled`; optimizers check it between
@@ -524,12 +534,12 @@ class Candidate:
     notes: str = ""
 
 @dataclass(frozen=True)
-class Command:
+class Command(document.Command[ProjectState]):   # fields from xstack.core.document.Command
     description: str
     transform: Callable[[ProjectState], ProjectState]
     merge_key: str = ""               # commands with the same non-empty key may be merged in the undo history
 
-class Project:
+class Project(Document[ProjectState]):
     def execute(self, command: Command) -> None: ...
     def undo(self) -> None: ...
     def redo(self) -> None: ...
@@ -538,6 +548,11 @@ class Project:
     @classmethod
     def load(cls, path: Path | str) -> "Project": ...
 ```
+
+Documents are generic core pieces: `Document[S]` (`xstack.core.document`) provides execute,
+undo/redo, subscribe and save/load for any state type `S`, with `History[S]` as its undo stack.
+`Project` subclasses it with the file format `"xstack-project"`, and the design `Command` is a
+`Command[ProjectState]`.
 
 - **Input design and candidates.** `ProjectState.mirror` is the input design. It is only changed by
   commands such as `set_mirror`, `set_parameter`, and `promote_candidate`. Optimization results never
@@ -555,7 +570,8 @@ class Project:
   `rename_candidate`, `select_candidate`, `promote_candidate`, `store_results`, `store_pipeline_result`,
   `rename_project`, `set_notes`. `History` keeps the undo and redo stacks.
 - Scripted use: `project.execute(commands.set_parameter("N", vary=True, min=20, max=80))`.
-- **Journal**: `Journal` is an append-only list of `JournalEntry(timestamp, kind, description, data)`.
+- **Journal** (`xstack.core.journal`): `Journal` is an append-only list of
+  `JournalEntry(timestamp, kind, description, data)`.
   Executed commands and optimization runs (`record_run`) are logged. Undo adds an entry and does not
   delete one. The journal is saved with the project.
 - **Serialization**: versioned JSON (`SCHEMA_VERSION = 1`) through `to_data()` and `from_data()` in

@@ -13,11 +13,11 @@ from typing import Literal
 
 import numpy as np
 
+from xstack.core.optim.events import CancellationToken, EventSink, ProgressEvent
+from xstack.core.optim.optimizers import LmfitOptimizer, Optimizer
 from xstack.core.parameters import ParameterSet
 from xstack.core.serialization import register_serializable
 from xstack.design.manufacturing.constraints import MaxCoatingTime
-from xstack.design.optim.events import CancellationToken, EventSink, ProgressEvent
-from xstack.design.optim.optimizers import LmfitOptimizer, Optimizer
 from xstack.design.optim.pipeline import Pipeline
 from xstack.design.optim.problem import DesignProblem, Evaluation
 from xstack.design.optim.scan import GridScan

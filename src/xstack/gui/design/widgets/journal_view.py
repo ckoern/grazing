@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import QListWidget, QListWidgetItem, QWidget
 
-from xstack.design.project import Journal
+from xstack.core.journal import Journal
 
 __all__ = ["JournalView"]
 

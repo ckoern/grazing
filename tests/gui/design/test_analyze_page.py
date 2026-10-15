@@ -2,8 +2,8 @@
 
 from pytestqt.qtbot import QtBot
 
+from xstack.core.optim.events import CancellationToken
 from xstack.design.manufacturing.tolerance import ErrorModel, ToleranceResult
-from xstack.design.optim.events import CancellationToken
 from xstack.design.project.templates import new_state
 from xstack.gui.common.workers import Job
 from xstack.gui.design.steps import AnalyzePage

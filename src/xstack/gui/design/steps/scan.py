@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from xstack.design.optim.events import CancellationToken
+from xstack.core.optim.events import CancellationToken
 from xstack.design.optim.scan import ScanResult, scan
 from xstack.design.project import ProjectState
 from xstack.design.project.commands import set_parameters

@@ -18,8 +18,9 @@ conda activate xstack && pip install -e ".[dev,gui]"
 
 ## Usage
 
-The package has three layers: `xstack.core` (physics, parameters, serialization), `xstack.design`
-(mirror design workflow) and `xstack.gui` (PySide6 applications).
+The package has four parts: `xstack.core` (physics, parameters, serialization, data files),
+`xstack.design` (mirror design workflow), `xstack.fit` (fitting of measured reflectivity) and
+`xstack.gui` (PySide6 applications).
 
 Run the design pipeline of a project file from the command line:
 
@@ -27,6 +28,17 @@ Run the design pipeline of a project file from the command line:
 xstack design run project.xstack [--output OUT] [--seed N] [-v]
 xstack design info project.xstack
 ```
+
+Set up and run a fit of measured reflectivity from the command line:
+
+```bash
+xstack fit new fit.xfit --model design.xstack --data scan.csv --quantity two_theta --energy 8.048
+xstack fit run fit.xfit [--method least_squares] [-v]
+xstack fit info fit.xfit
+xstack fit export fit.xfit curves.csv
+```
+
+`examples/fit_reflectivity.py` shows a fit with the library.
 
 (`python -m xstack design ...` is equivalent.) Start the design GUI:
 

@@ -121,6 +121,16 @@ src/xstack/
       project.py            # ProjectState, Candidate, Command, Project
       commands.py           # command functions (set_mirror, store_results, run_pipeline, …)
       templates.py          # ready-made project states
+  fit/                      # fitting of measured reflectivity (depends on core, not on design)
+    __init__.py
+    instrument.py           # Instrument (scale, background, offset, resolution, footprint),
+                            #   smear(): Gaussian resolution at arbitrary points
+    dataset.py              # Dataset: curve + instrument + fit ranges/excluded ranges (mask)
+    problem.py              # FitProblem (Problem protocol), FitEvaluation, weightings
+    results.py              # analyze(): uncertainties and correlations; FitStatistics, FitResult
+    project.py              # FitState, FitProject (.xfit), command functions, run_fit
+    report.py               # text reports of parameters and results
+    cli.py                  # `xstack fit new|run|info|export`
   gui/                      # PySide6 application (not imported by core or design)
     common/                 # style.py, forms.py, files.py, workers.py
     design/                 # the design application (`xstack-design`)
@@ -302,6 +312,8 @@ class ReflectivityModel(Protocol):
     name: str
     def evaluate(self, stack: Stack, target: Target, points: int | None = None,
                  library: MaterialLibrary | None = None) -> ReflectivityResult: ...
+    def reflectance(self, stack: Stack, energy: NDArray, theta: NDArray,
+                    polarization="unpolarized", library=None) -> NDArray: ...
 
 @dataclass(frozen=True)
 class ReflectivityResult:
@@ -318,6 +330,8 @@ class ReflectivityResult:
   sums the amplitudes of all interfaces with their phases and neglects multiple reflections; the
   intensity is tanh²(|r|). With `refraction=False` the waves propagate with the vacuum wavevector and the
   result corresponds to the plain Bragg law. It is much faster than `ParrattModel`.
+- `reflectance(stack, energy, theta, polarization, library)` evaluates a model at individual points
+  without resolution; the fitting tool uses it at the measured points.
 - `evaluate_on_target()` is the shared driver: it builds the grid of the target, applies the polarization
   and resolution, and returns a `ReflectivityResult`.
 - `core/physics/kernel.py` `reflectance()` implements the Parratt recursion on plain arrays. The stack of M
@@ -634,6 +648,33 @@ design = "xstack.design.plugin"
 `PluginWarning`. Lookups in registries filled by plugins (`reader_for(path)`, `parser_for(path)`) call it first. This
 is how fit reads `.xstack` designs without importing `xstack.design`, and how third-party packages
 add components.
+
+### 3.12 Fitting
+
+A fit compares one structure model (a `Mirror`) with one or more measured curves.
+
+- `MeasuredCurve` (`core/measurement.py`): R(θ) at a fixed energy or R(E) at a fixed angle, with
+  optional uncertainties. Read with `read_curves(path, layout)`; `CsvLayout` describes columns, the
+  quantity of the x column (θ, 2θ, q, energy) and its unit.
+- `Instrument` (`fit/instrument.py`): R_meas(x) = scale · F(θ) · (R ⊛ G_σ)(x + offset) + background with
+  Gaussian resolution σ and the footprint factor F of a Gaussian beam on a sample of finite length.
+  All six quantities are parameters and can be fitted. The convolution at the measured points uses a
+  uniform grid (step σ/10) per cluster of points, or Gauss–Hermite quadrature when cheaper.
+- `Dataset` (`fit/dataset.py`): a curve, its instrument, fit `ranges` and `excluded` ranges, a weight
+  and an enabled flag. The selection is a mask over all measured points, so excluded points stay
+  available for plots and the selection can be changed and undone.
+- `FitProblem` (`fit/problem.py`) implements the core `Problem` protocol. Its parameters are the coating
+  parameters followed by `"<dataset>.<instrument parameter>"` for every dataset; parameters shared
+  between datasets use expressions (`expr="a.offset"`). Weightings: `"log"` (log₁₀ residuals),
+  `"linear"`, `"chi2"` (residuals over the measured σ). Any core optimizer can fit it.
+- `analyze()` (`fit/results.py`) computes uncertainties and correlations from a finite-difference
+  Jacobian at the best fit, C = s²(JᵀJ)⁻¹ with s² = 1 for χ² weighting and the reduced objective
+  otherwise. It does not depend on the optimizer.
+- `FitProject` (`fit/project.py`) stores `FitState` in `.xfit` files with undo history and journal;
+  `import_model(path)` reads the starting model through the model-reader registry, e.g. a design
+  from an `.xstack` file.
+
+`examples/fit_reflectivity.py` shows a complete fit.
 
 ## 4. Typical library usage
 

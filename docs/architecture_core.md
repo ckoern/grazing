@@ -44,7 +44,8 @@ src/xstack/
   core/                     # physics, parameters, serialization (no Qt)
     __init__.py
     units.py                # conversion helpers (keV↔eV, deg/mrad↔rad, Å↔nm, µm, E↔λ)
-    plugins.py              # Registry[T]: named registry with register/get/names
+    plugins.py              # Registry[T]: named registry with register/get/names;
+                            #   load_plugins() imports the `xstack.plugins` entry points
     parameters.py           # Parameter, Range, free(), ParameterSet, lmfit conversion
     serialization.py        # versioned JSON: to_data, from_data, register_serializable,
                             #   register_component_registry
@@ -82,11 +83,14 @@ src/xstack/
         graded.py           # DepthGraded, grading laws (power_law, linear)
         composite.py        # Composite: ordered blocks with name prefixes
     io/
-      __init__.py           # exports the reflectivity functions
+      __init__.py           # exports the model readers and reflectivity functions
+      models.py             # ImportedModel, ModelReader protocol, model_readers registry,
+                            #   read_models(path): start models from other applications' files
       reflectivity.py       # export of reflectivity curves (CSV)
   design/                   # mirror design workflow (depends on core)
     __init__.py
     cli.py                  # `xstack design run|info`
+    plugin.py               # XstackModelReader: designs of `.xstack` files as fit models
     recipe.py               # layer_table, write_recipe_csv, write_recipe_json
     merit/
       __init__.py
@@ -596,6 +600,7 @@ merits: Registry[type[FigureOfMerit]]       # register_merit
 optimizers: Registry[type[Optimizer]]       # register_optimizer
 models: Registry[ReflectivityModel]
 interface_models: Registry[InterfaceModel]
+model_readers: Registry[ModelReader]        # filled by plugins, e.g. design's `.xstack` reader
 ```
 
 A plugin class is registered with its decorator, for example:
@@ -610,6 +615,19 @@ class MyCoating(Coating):
 
 The registries are the single source of names. The serializer and the GUI read the same registries, so
 a registered class appears in serialization and in the GUI's type choices without other code.
+
+Packages contribute to registries they don't own through entry points in the group `xstack.plugins`.
+Each entry point names a module that registers its components when imported:
+
+```toml
+[project.entry-points."xstack.plugins"]
+design = "xstack.design.plugin"
+```
+
+`load_plugins()` imports all of them once; a plugin that fails to load is skipped with a
+`PluginWarning`. Lookups in registries filled by plugins (e.g. `reader_for(path)`) call it first. This
+is how fit reads `.xstack` designs without importing `xstack.design`, and how third-party packages
+add components.
 
 ## 4. Typical library usage
 

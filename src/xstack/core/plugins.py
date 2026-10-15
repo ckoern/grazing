@@ -1,9 +1,13 @@
-"""Named registries for extensible components.
+"""Named registries for extensible components and loading of plugins.
 
 Every extension axis of xstack (optical-constant providers, coatings, constraints, figures of
-merit, optimizers, ...) has a `Registry` that maps a unique name to an implementation. New
-implementations become available everywhere, including serialization and the GUI, by
-registering them.
+merit, optimizers, model readers, ...) has a `Registry` that maps a unique name to an
+implementation. New implementations become available everywhere, including serialization and the
+GUI, by registering them.
+
+Packages contribute to registries owned by other packages through entry points in the group
+`PLUGIN_GROUP`. Each entry point names a module that registers its components when imported;
+`load_plugins` imports all of them.
 
 Examples:
     >>> registry: Registry[int] = Registry("number")
@@ -12,9 +16,14 @@ Examples:
     42
 """
 
+import warnings
 from collections.abc import Iterator
+from importlib.metadata import EntryPoint, entry_points
 
-__all__ = ["Registry"]
+__all__ = ["PLUGIN_GROUP", "PluginWarning", "Registry", "load_plugins"]
+
+PLUGIN_GROUP = "xstack.plugins"
+"""Entry point group of xstack plugins."""
 
 
 class Registry[T]:
@@ -92,3 +101,46 @@ class Registry[T]:
 
     def __len__(self) -> int:
         return len(self._items)
+
+
+class PluginWarning(UserWarning):
+    """Issued when a plugin cannot be loaded."""
+
+
+_loaded: set[str] = set()
+
+
+def load_plugins() -> tuple[str, ...]:
+    """Import all plugin modules registered in the entry point group `PLUGIN_GROUP`.
+
+    Plugins already loaded are skipped, so the function can be called before every lookup in a
+    registry that plugins contribute to. A plugin that fails to load is skipped with a warning
+    and tried again on the next call.
+
+    Returns:
+        Names of the entry points loaded by this call.
+
+    Warns:
+        PluginWarning: For every plugin that cannot be loaded.
+    """
+    loaded: list[str] = []
+    for entry_point in entry_points(group=PLUGIN_GROUP):
+        if entry_point.name in _loaded:
+            continue
+        if _load(entry_point):
+            _loaded.add(entry_point.name)
+            loaded.append(entry_point.name)
+    return tuple(loaded)
+
+
+def _load(entry_point: EntryPoint) -> bool:
+    try:
+        entry_point.load()
+    except Exception as exc:
+        warnings.warn(
+            f"cannot load xstack plugin {entry_point.name!r} ({entry_point.value}): {exc}",
+            PluginWarning,
+            stacklevel=3,
+        )
+        return False
+    return True

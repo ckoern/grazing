@@ -18,8 +18,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
+from xstack.core.io.files import handler_for
 from xstack.core.physics.models import ParrattModel, ReflectivityModel
-from xstack.core.plugins import Registry, load_plugins
+from xstack.core.plugins import Registry
 from xstack.core.structure.coating import Mirror
 
 __all__ = ["ImportedModel", "ModelReader", "model_readers", "read_models", "reader_for"]
@@ -86,17 +87,7 @@ def reader_for(path: Path | str) -> ModelReader:
     Raises:
         ValueError: If no registered reader handles the suffix.
     """
-    load_plugins()
-    suffix = Path(path).suffix.lower()
-    for name in model_readers:
-        reader = model_readers.get(name)
-        if suffix in reader.suffixes:
-            return reader
-    known = sorted({s for name in model_readers for s in model_readers.get(name).suffixes})
-    raise ValueError(
-        f"no model reader for {suffix or 'files without suffix'!r} "
-        f"(supported: {', '.join(known) or 'none'})"
-    )
+    return handler_for(model_readers, path)
 
 
 def read_models(path: Path | str) -> tuple[ImportedModel, ...]:

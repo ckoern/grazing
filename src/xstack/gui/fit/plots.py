@@ -1,5 +1,6 @@
 """Plots of the fit application: measured and fitted curves, correlations, convergence."""
 
+import functools
 import math
 from collections.abc import Sequence
 from typing import Any
@@ -13,7 +14,13 @@ from xstack.fit.results import FitStatistics
 from xstack.gui.common.style import COLORS, PLOT_PALETTE
 from xstack.gui.fit.preview import FitPreview, residual_label
 
-__all__ = ["ConvergencePlot", "CorrelationPlot", "FitReflectivityPlot", "RangeViewBox"]
+__all__ = [
+    "ConvergencePlot",
+    "CorrelationPlot",
+    "FitReflectivityPlot",
+    "RangeRegion",
+    "RangeViewBox",
+]
 
 type Bounds = tuple[float, float]
 """Range of the scanned variable in display units (deg or keV)."""
@@ -47,18 +54,17 @@ class RangeViewBox(pg.ViewBox):
 
     def mouseDragEvent(self, ev: Any, axis: Any = None) -> None:
         """Draw a range with a modifier key held; otherwise pan or zoom as usual."""
-        modifiers = ev.modifiers()
-        shift = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
-        ctrl = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
-        left = ev.button() == Qt.MouseButton.LeftButton
-        if not (self.drawing_enabled and left and (shift or ctrl or self._drawing is not None)):
+        if not (self.drawing_enabled and (_draws_range(ev) or self._drawing is not None)):
             super().mouseDragEvent(ev, axis)
             return
         ev.accept()
         start = self.mapSceneToView(ev.buttonDownScenePos()).x()
         current = self.mapSceneToView(ev.scenePos()).x()
         if ev.isStart():
-            self._excluded = ctrl and not shift
+            modifiers = ev.modifiers()
+            self._excluded = bool(modifiers & Qt.KeyboardModifier.ControlModifier) and not bool(
+                modifiers & Qt.KeyboardModifier.ShiftModifier
+            )
             brush, pen = (
                 (_EXCLUDED_BRUSH, _EXCLUDED_PEN) if self._excluded else (_FIT_BRUSH, _FIT_PEN)
             )
@@ -75,6 +81,53 @@ class RangeViewBox(pg.ViewBox):
             lo, hi = sorted((start, current))
             if hi > lo:
                 self.rangeDrawn.emit(lo, hi, self._excluded)
+
+
+def _draws_range(ev: Any) -> bool:
+    """Whether a drag event draws a new range (left button with Shift or Ctrl)."""
+    modifiers = ev.modifiers()
+    drawing = Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier
+    return ev.button() == Qt.MouseButton.LeftButton and bool(modifiers & drawing)
+
+
+class RangeRegion(pg.LinearRegionItem):
+    """Shaded fit or excluded range whose body and edges can be dragged.
+
+    Drags that start with Shift or Ctrl held are handed to the view box, so that a new range can
+    be drawn on top of an existing one.
+
+    Args:
+        bounds: Lower and upper bound in data coordinates.
+        brush: Fill of the range.
+        pen: Pen of the edges.
+    """
+
+    def __init__(self, bounds: tuple[float, float], brush: Any, pen: Any) -> None:
+        super().__init__(bounds, movable=True, brush=brush, pen=pen)
+        self._forwarding = False
+        for line in self.lines:
+            line.mouseDragEvent = functools.partial(self._line_drag, line.mouseDragEvent)
+
+    def _forward(self, ev: Any) -> bool:
+        if ev.isStart():
+            self._forwarding = _draws_range(ev)
+        if not self._forwarding:
+            return False
+        view = self.getViewBox()
+        if view is not None:
+            view.mouseDragEvent(ev)
+        if ev.isFinish():
+            self._forwarding = False
+        return True
+
+    def mouseDragEvent(self, ev: Any) -> None:
+        """Move the range, or hand a Shift/Ctrl drag to the view box."""
+        if not self._forward(ev):
+            super().mouseDragEvent(ev)
+
+    def _line_drag(self, original: Any, ev: Any) -> None:
+        if not self._forward(ev):
+            original(ev)
 
 
 class FitReflectivityPlot(QWidget):
@@ -218,9 +271,7 @@ class FitReflectivityPlot(QWidget):
 
     def _add_region(self, bounds: Bounds, excluded: bool) -> None:
         brush, pen = (_EXCLUDED_BRUSH, _EXCLUDED_PEN) if excluded else (_FIT_BRUSH, _FIT_PEN)
-        region = pg.LinearRegionItem(
-            bounds, movable=True, brush=pg.mkBrush(*brush), pen=pg.mkPen(*pen)
-        )
+        region = RangeRegion(bounds, pg.mkBrush(*brush), pg.mkPen(*pen))
         region.setZValue(-10)
         region.sigRegionChangeFinished.connect(self._regions_moved)
         self.top.addItem(region)

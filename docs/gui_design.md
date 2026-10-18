@@ -344,7 +344,8 @@ journal, background jobs and file handling are the same as in the design applica
   xstack reflectivity exports are read without settings, one dataset per target.
 - **Data**: settings of the selected dataset (name, included, energy or angle, polarization, weight) and
   its fit ranges and excluded ranges, with the number of points in each. In the reflectivity plot,
-  Shift-drag adds a fit range, Ctrl-drag an excluded range; dragging the shaded edges moves them.
+  Shift-drag adds a fit range, Ctrl-drag an excluded range, also on top of existing ranges;
+  a drag without modifier moves a shaded range or its edges.
 - **Structure**: the shared coating page (coating type, options, layers, substrate roughness), a start
   structure from a template or from an `.xstack` design project (input design or a candidate), and the
   reflectivity and roughness model.

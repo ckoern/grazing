@@ -40,7 +40,8 @@ elements above ~10 keV. The `*_photo` providers leave it out (photoabsorption on
 - Between table points, f1 is interpolated linearly in ln E and f2 log-log. Absorption edges need dense sampling.
 - Cache per (material, energy grid). Optical constants depend only on E, not on θ.
 - Thin films are often less dense than bulk (e.g. sputtered B₄C, C). The density of a material is therefore set by
-  the user; the preset materials carry bulk densities.
+  the user; the preset materials carry bulk densities. The density of a material role (and of the substrate) can also
+  be a parameter, `rho_<role>`, which a fit determines from the measurement (§9) or an optimization varies.
 
 **Critical angle** of total external reflection: θ_c ≈ √(2δ). Rule of thumb (assuming Z/A ≈ 0.5): θ_c[mrad] ≈ 16·√ρ[g/cm³]·λ[nm]. For example, Si at 8 keV gives ≈ 3.8 mrad.
 
@@ -230,6 +231,13 @@ in a design target is not used.
 
 All six instrument quantities are parameters of a dataset and can be fixed or fitted, together with the
 structure parameters. Parameters shared by several datasets are tied with parameter expressions.
+
+**Film density.** δ and β of a material are proportional to its density ρ, so the density changes the
+critical angle (θ_c ∝ √ρ for the top film) and the optical contrast of the layers, i.e. the height of the
+Bragg peaks. A density parameter (`rho_<role>`, §1) lets the fit determine it. It is determined best by
+data that include the critical-angle region; above it, the density of a multilayer's absorber correlates
+strongly with Γ and with the interface roughness, because all of them change the height of the Bragg
+peaks.
 
 **Selection of points.** Fit ranges and excluded ranges of x define which measured points take part in a
 fit. Excluded points remain in the data and in plots.

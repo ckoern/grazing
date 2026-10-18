@@ -511,8 +511,7 @@ def set_parameter(name: str, **changes: Any) -> Command:
     def transform(state: FitState) -> FitState:
         mirror = _require_mirror(state)
         if name in mirror.parameters:
-            coating = mirror.coating.with_parameter(name, **changes)
-            return state.evolve(mirror=mirror.with_coating(coating))
+            return state.evolve(mirror=mirror.with_parameter(name, **changes))
         dataset_name, _, parameter = name.partition(".")
         dataset = state.dataset(dataset_name)
         instrument = dataset.instrument

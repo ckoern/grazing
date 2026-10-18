@@ -181,7 +181,7 @@ class DesignComparisonView(QWidget):
         base_params = None
         same_type = False
         if base_mirror is not None:
-            base_params = base_mirror.coating.parameters
+            base_params = base_mirror.parameters
             same_type = type(base_mirror.coating) is type(cand_coating)
         if base_mirror is None:
             self._info.setText("The project has no input design.")
@@ -256,7 +256,7 @@ class DesignComparisonView(QWidget):
     def _parameter_names(self) -> list[str]:
         if self._candidate is None:
             return []
-        return list(self._candidate.mirror.coating.parameters)
+        return list(self._candidate.mirror.parameters)
 
     def _update_buttons(self) -> None:
         self._promote_button.setEnabled(self._candidate is not None)
@@ -271,7 +271,7 @@ class DesignComparisonView(QWidget):
         name = self._selected_name()
         if self._candidate is None or name is None or name not in self._copyable:
             return
-        value = self._candidate.mirror.coating.parameters[name].value
+        value = self._candidate.mirror.parameters[name].value
         base = self._copyable[name]
         changes: dict[str, float] = {"value": value}
         if value < base.min:

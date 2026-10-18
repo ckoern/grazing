@@ -1024,7 +1024,7 @@ class MainWindow(QMainWindow):
         self.tradeoff_curves = ()
 
         def compute() -> tuple[TradeoffPoint, tuple[ReflectivityResult, ...]]:
-            design = mirror.with_coating(mirror.coating.with_parameters(point.parameters))
+            design = mirror.with_parameters(point.parameters)
             return point, compute_curves(state, design, None, ranges)
 
         self.tradeoff_runner.request(compute)

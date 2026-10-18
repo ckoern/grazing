@@ -229,10 +229,77 @@ a Gaussian beam of full width at half maximum `beam_width` that hits a sample of
 angles (the table printed above for the example). F is 1 if either length is zero. Include it
 when the fit range reaches below the angle where F is close to 1.
 
+## Film densities
+
+Deposited films are often less dense than the bulk material, and the density sets the optical constants:
+δ and β are proportional to it. A density can be a fit parameter. In xstack-fit, check *Density
+parameter* for the role on the **Materials** page; the parameter (`rho_H`, `rho_L`, `rho_substrate`, …)
+then appears on the **Parameters** page, where you set *Vary* and the bounds (by default 0.5 to 1.1 times
+the bulk density). In Python, {py:meth}`~xstack.core.structure.coating.Mirror.with_density_parameters`
+adds the parameters:
+
+```python
+from xstack.core.io import CsvLayout, read_curves
+from xstack.core.materials import get
+from xstack.core.optim import LmfitOptimizer
+from xstack.core.parameters import free
+from xstack.core.structure import Mirror, Periodic
+from xstack.core.units import deg
+from xstack.fit.dataset import Dataset
+from xstack.fit.problem import FitProblem
+from xstack.fit.results import FitResult
+
+layout = CsvLayout(
+    x_column="2theta_deg",
+    reflectivity_column="R",
+    uncertainty_column="dR",
+    quantity="two_theta",
+    energy=8048.0,
+)
+(curve,) = read_curves("examples/data/WSi_multilayer_cu_ka.csv", layout)
+coating = Periodic.create(
+    get("W"),
+    get("Si"),
+    N=20,
+    d=free(4.06, 3.9, 4.2),
+    gamma=free(0.38, 0.3, 0.5),
+    sigma_H=free(0.32, 0.0, 1.0),
+    sigma_L=free(0.45, 0.0, 1.0),
+)
+mirror = Mirror(coating, get("Si")).with_density_parameters(["H"])
+mirror = mirror.with_parameter("rho_H", vary=True)
+dataset = Dataset.create(
+    "cu_ka",
+    curve,
+    scale=free(0.92, 0.5, 1.5),
+    background=free(2e-7, 0.0, 1e-5),
+    offset=free(deg(0.006), -deg(0.02), deg(0.02)),
+    resolution=deg(0.004),
+    beam_width=0.05e6,
+    sample_length=20e6,
+).with_ranges([(deg(0.35), deg(1.6)), (deg(1.8), deg(3.0))], [(deg(2.05), deg(2.15))])
+problem = FitProblem(mirror, (dataset,), weighting="chi2")
+result = FitResult.from_optimization(problem, LmfitOptimizer("least_squares").run(problem))
+stats = result.statistics
+print(f"rho_H = {result.parameters['rho_H'].value:.2f} ± {stats.error('rho_H'):.2f} g/cm³")
+print(stats.strong_correlations())
+```
+
+The example sample has bulk tungsten (19.25 g/cm³), and the fit finds it within its uncertainty. The
+list of strong correlations shows the price: the W density is strongly correlated with Γ (r ≈ −0.98) and
+with the W roughness σ_H (r ≈ +0.95). A thicker W layer, a denser W layer and sharper W interfaces all
+raise the Bragg peaks, so the data separate them only through the details of the curve, and the
+uncertainties of Γ and σ_H grow when the density is free. The region around the critical angle depends
+on the density of the top layers but not on Γ; include it in the fit ranges when you fit a density
+(here it is excluded below 0.35°).
+Free one density at a time, preferably that of the material with the largest uncertainty (often the
+spacer or a light top layer), and fix the others at known values.
+
 ### What to free: a recipe
 
 1. Free what is unknown and clearly determined by the fit ranges: the structure parameters of
-   interest, the `scale` and, for a curve that reaches the noise, the `background`.
+   interest, the `scale` and, for a curve that reaches the noise, the `background`. Keep densities
+   fixed in the first fits.
 2. Free the `offset` unless the zero is calibrated. Expect a strong correlation with the
    period.
 3. Fix the `resolution`, the `beam_width` and the `sample_length` at the known values at first. Free

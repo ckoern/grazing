@@ -160,15 +160,15 @@ class FitProblem:
         Returns:
             The modified problem.
         """
-        coating_names = set(self.mirror.parameters)
-        coating = ParameterSet(p for n, p in parameters.items() if n in coating_names)
+        structure_names = set(self.mirror.parameters)
+        structure = ParameterSet(p for n, p in parameters.items() if n in structure_names)
         datasets = tuple(
             d.with_parameters(
                 ParameterSet(p for n, p in parameters.items() if n.startswith(f"{d.name}."))
             )
             for d in self.datasets
         )
-        mirror = self.mirror.with_coating(self.mirror.coating.with_parameters(coating))
+        mirror = self.mirror.with_parameters(structure)
         return replace(self, mirror=mirror, datasets=datasets)
 
     def evolve(self, **changes: Any) -> "FitProblem":

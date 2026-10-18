@@ -263,12 +263,26 @@ class Mirror:
     substrate: Material
     substrate_roughness: float = 0.0
     ambient: Material = VACUUM
+    densities: ParameterSet = ParameterSet()      # rho_<role>, g/cm³; empty by default
+    parameters: ParameterSet                      # coating parameters + densities (property)
     def stack(self, values: Mapping[str, float] | None = None) -> Stack: ...
+    def with_parameters(self, parameters: ParameterSet) -> "Mirror": ...
+    def with_parameter(self, name: str, **changes: Any) -> "Mirror": ...
+    def with_density_parameters(self, roles: Sequence[str] | None = None) -> "Mirror": ...
+    def without_density_parameters(self, roles: Sequence[str] | None = None) -> "Mirror": ...
 ```
 
 `Mirror` combines the coating, the substrate, the substrate roughness and the ambient medium. Its
 `stack()` calls `coating.layers(values)` and builds the `Stack`. `values` overrides parameter values by
 name without changing the coating.
+
+The density of a material role can be a parameter: `with_density_parameters(roles)` adds
+`rho_<role>` (for roles of nested coatings `<block>.rho_<role>`, for the substrate `rho_substrate`),
+starting at the material's density, fixed, with bounds 0.5–1.1 times it. In `stack()` a density parameter
+replaces the density of that role's material (`Coating.with_materials`, roles from
+`Coating.material_map`). `Mirror.parameters` lists the coating parameters followed by the density
+parameters, so design and fit problems vary densities like any other parameter; parameters are changed
+through `Mirror.with_parameters` and `Mirror.with_parameter`.
 
 Built-in coatings (`create` classmethods take `ParameterValue`s, i.e. numbers, `free(...)` ranges or
 `Parameter`s):

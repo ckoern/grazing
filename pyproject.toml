@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xstack"
-version = "0.1.0.dev0"
-description = "Design of X-ray multilayer mirrors with manufacturing constraints"
+version = "0.2.0"
+description = "Design of X-ray multilayer mirrors with manufacturing constraints and fitting of measured reflectivity"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

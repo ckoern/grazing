@@ -17,7 +17,7 @@ mirrors (`xstack-design`) and fitting measured reflectivity (`xstack-fit`).
 - Install the package in editable mode: `pip install -e ".[dev,gui,docs]"`. Install additional packages with pip.
 - Run checks before committing:
   - `pytest`
-  - `ruff check src tests` and `ruff format --check src tests`
+  - `ruff check src tests docs` and `ruff format --check src tests docs`
   - `mypy`
   - `sphinx-build -W --keep-going -b html docs docs/_build/html` when docs or docstrings change
 

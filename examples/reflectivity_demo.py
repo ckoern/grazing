@@ -18,12 +18,12 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from xstack.materials import get
-from xstack.merit import EvaluationContext, MeanReflectivity
-from xstack.physics.models import ParrattModel
-from xstack.structure import DepthGraded, Mirror, Periodic
-from xstack.targets import AngleScan, EnergyScan, TargetSet
-from xstack.units import deg, kev, mrad, to_deg, to_kev, to_mrad
+from xstack.core.materials import get
+from xstack.core.physics.models import ParrattModel
+from xstack.core.structure import DepthGraded, Mirror, Periodic
+from xstack.core.targets import AngleScan, EnergyScan, TargetSet
+from xstack.core.units import deg, kev, mrad, to_deg, to_kev, to_mrad
+from xstack.design.merit import EvaluationContext, MeanReflectivity
 
 
 def main(save: bool = False) -> None:

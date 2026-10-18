@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xstack"
-version = "0.1.0.dev0"
-description = "Design of X-ray multilayer mirrors with manufacturing constraints"
+version = "0.2.0"
+description = "Design of X-ray multilayer mirrors with manufacturing constraints and fitting of measured reflectivity"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -19,7 +19,11 @@ dependencies = [
 xstack = "xstack.__main__:main"
 
 [project.gui-scripts]
-xstack-gui = "xstack.gui.app:main"
+xstack-design = "xstack.gui.design.app:main"
+xstack-fit = "xstack.gui.fit.app:main"
+
+[project.entry-points."xstack.plugins"]
+design = "xstack.design.plugin"
 
 [project.optional-dependencies]
 gui = [
@@ -63,7 +67,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "PT011"]
-"src/xstack/structure/coatings/*" = ["N803"]
+"src/xstack/core/structure/coatings/*" = ["N803"]
 "src/xstack/gui/**" = ["N802", "N815"]
 
 [tool.mypy]

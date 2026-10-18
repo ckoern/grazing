@@ -33,77 +33,112 @@ See `physics_background.md` for the physics and `kernel_verification.md` for the
 
 ## 2. Package layout
 
-Modules under `src/xstack/` (all files; `__pycache__` directories omitted):
+Modules under `src/xstack/` (all files; `__pycache__` directories omitted). The layers depend only
+downward: `core` ← `design` ← `gui`. A fitting layer (`xstack.fit`, `xstack.gui.fit`) is planned
+beside `design`; design and fit never import each other.
 
 ```
 src/xstack/
   __init__.py               # package version
-  __main__.py               # command-line interface
-  units.py                  # conversion helpers (keV↔eV, deg/mrad↔rad, Å↔nm, µm, E↔λ)
-  plugins.py                # Registry[T]: named registry with register/get/names
-  parameters.py             # Parameter, Range, free(), ParameterSet, lmfit conversion
-  materials/
-    __init__.py             # get(name) for preset materials
-    material.py             # Material, VACUUM
-    providers.py            # OpticalConstantsProvider protocol, HenkeProvider, XraylibProvider,
-                            #   CombinedProvider (switches providers at an energy)
-    library.py              # MaterialLibrary, default_library(), presets
-    data/henke/             # bundled CXRO (Henke) tables
-  physics/
-    kernel.py               # reflectance(): Parratt recursion on arrays
-    fresnel.py              # InterfaceModel protocol; SharpInterface, NevotCroce, DebyeWaller
-    bragg.py                # analytic estimates for periodic and depth-graded multilayers
-    resolution.py           # convolution with instrumental resolution
-    reflectivity.py         # reflectivity of a Stack on arbitrary energies and angles
-    models.py               # ReflectivityModel protocol: ParrattModel, KinematicModel
-  structure/
-    stack.py                # Layer, Stack
-    coating.py              # Coating base class, Mirror, register_coating
-    coatings/
-      __init__.py
-      bilayer.py            # shared bilayer roles, parameters and layer construction
-      simple.py             # SingleLayer, NLayer
-      periodic.py           # Periodic: N × (H, L [, interlayers])
-      graded.py             # DepthGraded, grading laws (power_law, linear)
-      composite.py          # Composite: ordered blocks with name prefixes
-  targets.py                # Target, EnergyScan, AngleScan, Profile, TargetSet
-  merit/
+  __main__.py               # command dispatcher: `xstack design ...`
+  core/                     # physics, parameters, serialization (no Qt)
     __init__.py
-    base.py                 # FigureOfMerit, CurveMerit, EvaluationContext, Curve, CallableMerit
-    optical.py              # MeanReflectivity, SoftMinReflectivity, ProfileDeviation, Flatness,
-                            #   PeakReflectivity
-    composite.py            # WeightedSum, TimePenalized
-  manufacturing/
-    __init__.py
-    process.py              # DepositionProcess, DepositionStep
-    constraints.py          # Constraint base class, ConstraintResult, MinLayerThickness,
-                            #   MaxTotalThickness, MaxLayers, MaxCoatingTime
-    tolerance.py            # Monte Carlo thickness-error analysis
-  optim/
-    __init__.py
-    problem.py              # DesignProblem, Evaluation
-    optimizers.py           # Optimizer base class, LmfitOptimizer, OptimizationResult
-    scan.py                 # GridScan, scan(), ScanResult
-    stages.py               # Stage, BraggOutline
-    pipeline.py             # Pipeline, PipelineResult, StageResult
-    events.py               # ProgressEvent, CancellationToken, EventSink
-    tradeoff.py             # time_tradeoff, TradeoffPoint, TradeoffResult, default_limits
-  project/
-    __init__.py
-    project.py              # ProjectState, Candidate, Command, History, Project
-    commands.py             # command functions (set_mirror, store_results, run_pipeline, …)
+    units.py                # conversion helpers (keV↔eV, deg/mrad↔rad, Å↔nm, µm, E↔λ, θ↔q)
+    plugins.py              # Registry[T]: named registry with register/get/names;
+                            #   load_plugins() imports the `xstack.plugins` entry points
+    parameters.py           # Parameter, Range, free(), ParameterSet, lmfit conversion
+    serialization.py        # versioned JSON: to_data, from_data, register_serializable,
+                            #   register_component_registry
+    document.py             # Command[S], History[S], Document[S]: undoable, saveable state
     journal.py              # Journal, JournalEntry
-    serialization.py        # versioned JSON: to_data, from_data, register_serializable
-    templates.py            # ready-made project states
-  io/
+    optim/
+      __init__.py           # exports Problem, Evaluation, optimizers and events
+      problem.py            # Problem[E], Evaluation protocols
+      optimizers.py         # Optimizer base class, LmfitOptimizer, OptimizationResult, Tracker,
+                            #   prepare_parameters, optimizers registry, register_optimizer
+      events.py             # ProgressEvent, CancellationToken, EventSink
+    targets.py              # Target, EnergyScan, AngleScan, Profile, TargetSet
+    measurement.py          # MeasuredCurve: measured R(θ) or R(E) with optional uncertainties
+    materials/
+      __init__.py           # get(name) for preset materials
+      material.py           # Material, VACUUM
+      providers.py          # OpticalConstantsProvider protocol, HenkeProvider, XraylibProvider,
+                            #   CombinedProvider (switches providers at an energy)
+      library.py            # MaterialLibrary, default_library(), presets
+      data/henke/           # bundled CXRO (Henke) tables
+    physics/
+      kernel.py             # reflectance(): Parratt recursion on arrays
+      fresnel.py            # InterfaceModel protocol; SharpInterface, NevotCroce, DebyeWaller
+      bragg.py              # analytic estimates for periodic and depth-graded multilayers
+      resolution.py         # convolution with instrumental resolution
+      reflectivity.py       # reflectivity of a Stack on arbitrary energies and angles
+      models.py             # ReflectivityModel protocol: ParrattModel, KinematicModel
+    structure/
+      stack.py              # Layer, Stack
+      coating.py            # Coating base class, Mirror, register_coating
+      coatings/
+        __init__.py
+        bilayer.py          # shared bilayer roles, parameters and layer construction
+        simple.py           # SingleLayer, NLayer
+        periodic.py         # Periodic: N × (H, L [, interlayers])
+        graded.py           # DepthGraded, grading laws (power_law, linear)
+        composite.py        # Composite: ordered blocks with name prefixes
+    io/
+      __init__.py           # exports readers, parsers and reflectivity export
+      files.py              # FileHandler protocol, handler_for(registry, path): choice by suffix
+      data.py               # DataParser protocol, data_parsers registry, read_curves(path, options)
+      delimited.py          # CsvLayout, CsvParser: measured curves from CSV/TSV/column files,
+                            #   automatic reading of xstack reflectivity exports
+      models.py             # ImportedModel, ModelReader protocol, model_readers registry,
+                            #   read_models(path): start models from other applications' files
+      reflectivity.py       # export of reflectivity curves (CSV)
+  design/                   # mirror design workflow (depends on core)
     __init__.py
+    cli.py                  # `xstack design run|info`
+    plugin.py               # XstackModelReader: designs of `.xstack` files as fit models
     recipe.py               # layer_table, write_recipe_csv, write_recipe_json
-  gui/                      # PySide6 application (not imported by the core)
-    __main__.py, app.py, main_window.py, controller.py, forms.py, plots.py, preview.py,
-    style.py, workers.py
-    steps/                  # one page per workflow step (goal, materials, coating, constraints,
+    merit/
+      __init__.py
+      base.py               # FigureOfMerit, CurveMerit, EvaluationContext, Curve, CallableMerit
+      optical.py            # MeanReflectivity, SoftMinReflectivity, ProfileDeviation, Flatness,
+                            #   PeakReflectivity
+      composite.py          # WeightedSum, TimePenalized
+    manufacturing/
+      __init__.py
+      process.py            # DepositionProcess, DepositionStep
+      constraints.py        # Constraint base class, ConstraintResult, MinLayerThickness,
+                            #   MaxTotalThickness, MaxLayers, MaxCoatingTime
+      tolerance.py          # Monte Carlo thickness-error analysis
+    optim/
+      __init__.py
+      problem.py            # DesignProblem, Evaluation, require_design_problem
+      scan.py               # GridScan, scan(), ScanResult
+      stages.py             # Stage, BraggOutline
+      pipeline.py           # Pipeline, PipelineResult, StageResult
+      tradeoff.py           # time_tradeoff, TradeoffPoint, TradeoffResult, default_limits
+    project/
+      __init__.py
+      project.py            # ProjectState, Candidate, Command, Project
+      commands.py           # command functions (set_mirror, store_results, run_pipeline, …)
+      templates.py          # ready-made project states
+  fit/                      # fitting of measured reflectivity (depends on core, not on design)
+    __init__.py
+    instrument.py           # Instrument (scale, background, offset, resolution, footprint),
+                            #   smear(): Gaussian resolution at arbitrary points
+    dataset.py              # Dataset: curve + instrument + fit ranges/excluded ranges (mask)
+    problem.py              # FitProblem (Problem protocol), FitEvaluation, weightings
+    results.py              # analyze(): uncertainties and correlations; FitStatistics, FitResult
+    project.py              # FitState, StoredFit, FitProject (.xfit), command functions, run_fit
+    templates.py            # start structures of new fit projects
+    report.py               # text reports of parameters and results
+    cli.py                  # `xstack fit new|run|info|export`
+  gui/                      # PySide6 application (not imported by core or design)
+    common/                 # style.py, forms.py, files.py, workers.py
+    design/                 # the design application (`xstack-design`)
+      __main__.py, app.py, main_window.py, controller.py, plots.py, preview.py
+      steps/                # one page per workflow step (goal, materials, coating, constraints,
                             #   process, scan, optimize, analyze), base.py
-    widgets/                # parameter_table.py, journal_view.py
+      widgets/              # parameter_table.py, journal_view.py
 ```
 
 ## 3. Core concepts and interfaces
@@ -278,6 +313,8 @@ class ReflectivityModel(Protocol):
     name: str
     def evaluate(self, stack: Stack, target: Target, points: int | None = None,
                  library: MaterialLibrary | None = None) -> ReflectivityResult: ...
+    def reflectance(self, stack: Stack, energy: NDArray, theta: NDArray,
+                    polarization="unpolarized", library=None) -> NDArray: ...
 
 @dataclass(frozen=True)
 class ReflectivityResult:
@@ -294,16 +331,18 @@ class ReflectivityResult:
   sums the amplitudes of all interfaces with their phases and neglects multiple reflections; the
   intensity is tanh²(|r|). With `refraction=False` the waves propagate with the vacuum wavevector and the
   result corresponds to the plain Bragg law. It is much faster than `ParrattModel`.
+- `reflectance(stack, energy, theta, polarization, library)` evaluates a model at individual points
+  without resolution; the fitting tool uses it at the measured points.
 - `evaluate_on_target()` is the shared driver: it builds the grid of the target, applies the polarization
   and resolution, and returns a `ReflectivityResult`.
-- `physics/kernel.py` `reflectance()` implements the Parratt recursion on plain arrays. The stack of M
+- `core/physics/kernel.py` `reflectance()` implements the Parratt recursion on plain arrays. The stack of M
   media (ambient, M − 2 layers, substrate) is given by the refractive indices `n`, the layer thicknesses
   and the interface roughnesses. The optional `media` index array of shape (M,) assigns each medium to
   one of U distinct columns of `n`, so that quantities depending only on the medium are computed once.
 - **Interface roughness models** are objects with `reflection_factor` and `transmission_factor` methods
-  (`InterfaceModel` protocol, `physics/fresnel.py`). They are registered in `interface_models`:
+  (`InterfaceModel` protocol, `core/physics/fresnel.py`). They are registered in `interface_models`:
   `SharpInterface` (no roughness), `NevotCroce` (default), `DebyeWaller`.
-- `physics/bragg.py` provides closed-form estimates (Bragg period, Γ_opt, N_sat, bandwidth) used by the
+- `core/physics/bragg.py` provides closed-form estimates (Bragg period, Γ_opt, N_sat, bandwidth) used by the
   outline stage.
 
 ### 3.7 Figures of merit
@@ -411,21 +450,26 @@ class Evaluation:
 
 class Optimizer(ABC):
     type_name: ClassVar[str]
-    def run(self, problem: DesignProblem, start: ParameterSet | None = None,
-            events: EventSink | None = None, cancel: CancellationToken | None = None) -> OptimizationResult: ...
+    def run[E: Evaluation](self, problem: Problem[E], start: ParameterSet | None = None,
+            events: EventSink | None = None,
+            cancel: CancellationToken | None = None) -> OptimizationResult[E]: ...
 ```
+
+Optimizers are generic core pieces (`xstack.core.optim`) that run on any `Problem`.
+`DesignProblem` satisfies that protocol, and design and fitting use the same optimizers.
+`BraggOutline` and `GridScan` accept only a `DesignProblem` and raise `TypeError` otherwise.
 
 - `LmfitOptimizer(method=…)` wraps `lmfit.Minimizer` for `leastsq`, `least_squares`, `nelder`,
   `lbfgsb`, `powell`, `differential_evolution`, and the other lmfit methods. Global methods
-  (`GLOBAL_METHODS`) vary integer parameters, which are rounded when the coating is built; they require
-  finite bounds for all free parameters. Local methods keep integer parameters fixed. The start
+  (`GLOBAL_METHODS` in `xstack.core.optim.optimizers`) vary integer parameters, which are rounded
+  when the coating is built; they require finite bounds for all free parameters. Local methods keep integer parameters fixed. The start
   design is evaluated first, so the result is never worse than it; differential evolution also includes
   it in its initial population (unless an `init` option is given).
-- `GridScan` (optim/scan.py) is a deterministic sweep over chosen parameters, including integers. The
+- `GridScan` (design/optim/scan.py) is a deterministic sweep over chosen parameters, including integers. The
   function `scan(problem, axes, start, events, cancel)` evaluates a problem on a regular grid and returns
   a `ScanResult` (`best_values()`, merit and feasibility per grid point). Parameters not in `axes` keep
   their start values.
-- `BraggOutline` (optim/stages.py) is the analytic first estimate from the Bragg law. It sets the period
+- `BraggOutline` (design/optim/stages.py) is the analytic first estimate from the Bragg law. It sets the period
   and bounds from the target band and does not optimize. With several targets it pools them by default;
   `target=i` bases the estimate on the `i`-th target alone (`ValueError` if out of range).
 - `Stage(name, optimizer, model=None, points=None, merit=None, free=None)` bundles how much effort a run
@@ -449,10 +493,10 @@ class Optimizer(ABC):
     | 4 | `refine` | full grid | least squares, integers fixed | polish |
 
     The optional tolerance analysis is separate: `thickness_tolerance(problem, values, random_error,
-    systematic_error, samples, seed, cancel)` in `manufacturing/tolerance.py` returns a `ToleranceResult`.
+    systematic_error, samples, seed, cancel)` in `design/manufacturing/tolerance.py` returns a `ToleranceResult`.
 
 **Coating-time trade-off.** `time_tradeoff(problem, limits=None, *, points, lowest, mode, pipeline, refine,
-start, events, cancel, on_point)` (optim/tradeoff.py) is an ε-constraint sweep: the problem is optimized for a
+start, events, cancel, on_point)` (design/optim/tradeoff.py) is an ε-constraint sweep: the problem is optimized for a
 sequence of maximum coating times, each limit replacing the problem's `MaxCoatingTime` constraints by a hard
 constraint. It needs a deposition process (`ValueError` otherwise).
 - Without explicit `limits`, the problem is first optimized without a limit (a point with `limit=inf`);
@@ -472,7 +516,7 @@ constraint. It needs a deposition process (`ValueError` otherwise).
 - The last result is stored in `ProjectState.tradeoff` with the command `store_tradeoff(result)` and is part of
   the project file.
 
-**Events and cancellation.** `ProgressEvent` (optim/events.py) carries `task`, `evaluations`, `total`,
+**Events and cancellation.** `ProgressEvent` (core/optim/events.py) carries `task`, `evaluations`, `total`,
 `best_objective` (FOM plus penalties), `current_objective`, `best_values`, `elapsed`, and `best_merit`
 (FOM of the best design without penalties; NaN if that design cannot be built). `EventSink` is a callable
 receiving events. `CancellationToken` has `cancel()` and `cancelled`; optimizers check it between
@@ -514,12 +558,12 @@ class Candidate:
     notes: str = ""
 
 @dataclass(frozen=True)
-class Command:
+class Command(document.Command[ProjectState]):   # fields from xstack.core.document.Command
     description: str
     transform: Callable[[ProjectState], ProjectState]
     merge_key: str = ""               # commands with the same non-empty key may be merged in the undo history
 
-class Project:
+class Project(Document[ProjectState]):
     def execute(self, command: Command) -> None: ...
     def undo(self) -> None: ...
     def redo(self) -> None: ...
@@ -528,6 +572,11 @@ class Project:
     @classmethod
     def load(cls, path: Path | str) -> "Project": ...
 ```
+
+Documents are generic core pieces: `Document[S]` (`xstack.core.document`) provides execute,
+undo/redo, subscribe and save/load for any state type `S`, with `History[S]` as its undo stack.
+`Project` subclasses it with the file format `"xstack-project"`, and the design `Command` is a
+`Command[ProjectState]`.
 
 - **Input design and candidates.** `ProjectState.mirror` is the input design. It is only changed by
   commands such as `set_mirror`, `set_parameter`, and `promote_candidate`. Optimization results never
@@ -545,12 +594,16 @@ class Project:
   `rename_candidate`, `select_candidate`, `promote_candidate`, `store_results`, `store_pipeline_result`,
   `rename_project`, `set_notes`. `History` keeps the undo and redo stacks.
 - Scripted use: `project.execute(commands.set_parameter("N", vary=True, min=20, max=80))`.
-- **Journal**: `Journal` is an append-only list of `JournalEntry(timestamp, kind, description, data)`.
+- **Journal** (`xstack.core.journal`): `Journal` is an append-only list of
+  `JournalEntry(timestamp, kind, description, data)`.
   Executed commands and optimization runs (`record_run`) are logged. Undo adds an entry and does not
   delete one. The journal is saved with the project.
-- **Serialization**: versioned JSON (`SCHEMA_VERSION = 1`) through `to_data()` and `from_data()`. Every
-  registered class is written with a type tag (`register_serializable(tag, cls)`) and its parameters, and
-  plugins serialize without extra code. Callables are stored by reference.
+- **Serialization**: versioned JSON (`SCHEMA_VERSION = 1`) through `to_data()` and `from_data()` in
+  `xstack.core.serialization`. Every registered class is written with a type tag
+  (`register_serializable(tag, cls)`) and its parameters, and plugins serialize without extra code.
+  Registries of serializable components are attached with `register_component_registry(prefix, registry)`.
+  Serializable classes and registries register themselves in the module that defines them. Callables are
+  stored by reference.
 
 ### 3.11 Plugins and registries
 
@@ -567,6 +620,8 @@ merits: Registry[type[FigureOfMerit]]       # register_merit
 optimizers: Registry[type[Optimizer]]       # register_optimizer
 models: Registry[ReflectivityModel]
 interface_models: Registry[InterfaceModel]
+model_readers: Registry[ModelReader]        # filled by plugins, e.g. design's `.xstack` reader
+data_parsers: Registry[DataParser]          # "csv" built in; further formats from plugins
 ```
 
 A plugin class is registered with its decorator, for example:
@@ -582,6 +637,49 @@ class MyCoating(Coating):
 The registries are the single source of names. The serializer and the GUI read the same registries, so
 a registered class appears in serialization and in the GUI's type choices without other code.
 
+Packages contribute to registries they don't own through entry points in the group `xstack.plugins`.
+Each entry point names a module that registers its components when imported:
+
+```toml
+[project.entry-points."xstack.plugins"]
+design = "xstack.design.plugin"
+```
+
+`load_plugins()` imports all of them once; a plugin that fails to load is skipped with a
+`PluginWarning`. Lookups in registries filled by plugins (`reader_for(path)`, `parser_for(path)`) call it first. This
+is how fit reads `.xstack` designs without importing `xstack.design`, and how third-party packages
+add components.
+
+### 3.12 Fitting
+
+A fit compares one structure model (a `Mirror`) with one or more measured curves.
+
+- `MeasuredCurve` (`core/measurement.py`): R(θ) at a fixed energy or R(E) at a fixed angle, with
+  optional uncertainties. Read with `read_curves(path, layout)`; `CsvLayout` describes columns, the
+  quantity of the x column (θ, 2θ, q, energy) and its unit.
+- `Instrument` (`fit/instrument.py`): R_meas(x) = scale · F(θ) · (R ⊛ G_σ)(x + offset) + background with
+  Gaussian resolution σ and the footprint factor F of a Gaussian beam on a sample of finite length.
+  All six quantities are parameters and can be fitted. The convolution at the measured points uses a
+  uniform grid (step σ/10) per cluster of points, or Gauss–Hermite quadrature when cheaper.
+- `Dataset` (`fit/dataset.py`): a curve, its instrument, fit `ranges` and `excluded` ranges, a weight
+  and an enabled flag. The selection is a mask over all measured points, so excluded points stay
+  available for plots and the selection can be changed and undone.
+- `FitProblem` (`fit/problem.py`) implements the core `Problem` protocol. Its parameters are the coating
+  parameters followed by `"<dataset>.<instrument parameter>"` for every dataset; parameters shared
+  between datasets use expressions (`expr="a.offset"`). Weightings: `"log"` (log₁₀ residuals),
+  `"linear"`, `"chi2"` (residuals over the measured σ). Any core optimizer can fit it.
+- `analyze()` (`fit/results.py`) computes uncertainties and correlations from a finite-difference
+  Jacobian at the best fit, C = s²(JᵀJ)⁻¹ with s² = 1 for χ² weighting and the reduced objective
+  otherwise. It does not depend on the optimizer.
+- `FitProject` (`fit/project.py`) stores `FitState` in `.xfit` files with undo history and journal.
+  The structure is defined in the fit project itself (`fit/templates.py` provides start
+  structures); `import_model(path)` optionally reads one through the model-reader registry, e.g. a
+  design from an `.xstack` file. `run_fit` runs the `optimizers` of the state as stages, each from
+  the best values of the previous one. Every stored result is a `StoredFit` (name, result, fitted
+  structure, model) in `FitState.results`; `apply_fit` restores one.
+
+`examples/fit_reflectivity.py` shows a complete fit.
+
 ## 4. Typical library usage
 
 Parameters are given as `free(value, min, max)` to vary them, or as plain numbers to fix them.
@@ -589,21 +687,21 @@ Parameters are given as `free(value, min, max)` to vary them, or as plain number
 ```python
 import numpy as np
 
-from xstack.io.recipe import write_recipe_csv
-from xstack.manufacturing import (
+from xstack.design.recipe import write_recipe_csv
+from xstack.design.manufacturing import (
     DepositionProcess, MaxCoatingTime, MaxTotalThickness, MinLayerThickness,
 )
-from xstack.materials import get
-from xstack.merit import MeanReflectivity, TimePenalized
-from xstack.optim import Pipeline
-from xstack.optim.problem import DesignProblem
-from xstack.parameters import free
-from xstack.physics.models import ParrattModel
-from xstack.project import Project, ProjectState
-from xstack.project.commands import run_pipeline
-from xstack.structure import Mirror, Periodic
-from xstack.targets import EnergyScan, TargetSet
-from xstack.units import deg
+from xstack.core.materials import get
+from xstack.design.merit import MeanReflectivity, TimePenalized
+from xstack.design.optim import Pipeline
+from xstack.design.optim.problem import DesignProblem
+from xstack.core.parameters import free
+from xstack.core.physics.models import ParrattModel
+from xstack.design.project import Project, ProjectState
+from xstack.design.project.commands import run_pipeline
+from xstack.core.structure import Mirror, Periodic
+from xstack.core.targets import EnergyScan, TargetSet
+from xstack.core.units import deg
 
 W, Si = get("W"), get("Si")
 coating = Periodic.create(

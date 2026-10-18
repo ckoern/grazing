@@ -1,0 +1,276 @@
+"""Fit of a measured X-ray reflectivity curve of a periodic W/Si multilayer.
+
+Scenario: a W/Si multilayer designed with 20 bilayers of period 4.0 nm was measured with a
+Cu K-alpha reflectometer (8048 eV). The measurement is a θ/2θ scan stored as a CSV file with
+the columns 2θ (deg), reflectivity and its uncertainty. The fit determines the deposited
+period d, the W fraction gamma and the interface roughnesses, together with the instrument
+parameters intensity scale, background and angle offset. The angular resolution of the
+instrument is known and kept fixed.
+
+The script
+
+1. reads the measurement with a `CsvLayout` describing the file (without ``--data``, it first
+   writes a synthetic measurement with known true parameters to a temporary file),
+2. builds the structure model, or imports it from an ``.xstack`` design file (``--model``),
+3. sets up the instrument parameters and selects the fit ranges: the region below the critical
+   angle is left out, and a range with a detector artifact is excluded,
+4. runs a global search (differential evolution) followed by a least-squares refinement,
+5. prints the parameters with uncertainties and strong correlations, and plots measured and
+   fitted curves with the residuals.
+
+Run it with ``python examples/fit_reflectivity.py``. ``--plot`` shows the curves, ``--save PATH``
+writes the plot to a file instead, ``--project PATH`` saves the fit as an ``.xfit`` project that
+``xstack fit info`` and ``xstack fit run`` can use, and ``--quick`` reduces the global search.
+``--write-data DIR`` writes the synthetic measurements at Cu K-alpha and Mo K-alpha as CSV files
+(the files in ``examples/data``, e.g. for importing into ``xstack-fit``) and exits.
+"""
+
+import argparse
+import tempfile
+from pathlib import Path
+
+import numpy as np
+
+from xstack.core.io import CsvLayout, read_curves
+from xstack.core.materials import get
+from xstack.core.measurement import MeasuredCurve
+from xstack.core.optim import LmfitOptimizer
+from xstack.core.parameters import free
+from xstack.core.structure import Mirror, Periodic
+from xstack.core.units import deg, to_deg
+from xstack.fit.dataset import Dataset
+from xstack.fit.project import (
+    FitProject,
+    FitState,
+    add_dataset,
+    import_model,
+    run_fit,
+    set_mirror,
+    set_optimizers,
+    set_parameter,
+    set_ranges,
+    set_weighting,
+    store_result,
+)
+from xstack.fit.report import format_result
+
+ENERGY = 8048.0  # Cu K-alpha in eV
+RESOLUTION = deg(0.004)  # Gaussian σ of the angular resolution
+FIT_RANGES = [(deg(0.35), deg(1.6)), (deg(1.8), deg(3.0))]
+EXCLUDED = [(deg(2.05), deg(2.15))]  # detector artifact
+TRUE_VALUES = {"d": 4.06, "gamma": 0.38, "sigma_H": 0.32, "sigma_L": 0.45}
+
+
+def design_mirror(**values: float) -> Mirror:
+    """Return the W/Si multilayer with the nominal (design) or the given parameter values."""
+    params = {"d": 4.0, "gamma": 0.4, "sigma_H": 0.3, "sigma_L": 0.3} | values
+    return Mirror(Periodic.create(get("W"), get("Si"), N=20, **params), get("Si"))
+
+
+MO_KA = 17479.0  # Mo K-alpha in eV
+DATA_FILES = {"cu_ka": (ENERGY, 6.0, True), "mo_ka": (MO_KA, 2.8, False)}
+"""Synthetic measurements written by ``--write-data``: energy (eV), largest 2θ (deg) and whether
+the detector artifact is included."""
+
+
+def write_synthetic_measurement(
+    path: Path,
+    seed: int,
+    energy: float = ENERGY,
+    two_theta_max: float = 6.0,
+    artifact: bool = True,
+) -> None:
+    """Simulate a θ/2θ measurement with known parameters, counting noise and an artifact.
+
+    Args:
+        path: CSV file to write (columns 2θ in deg, R, dR, after comment lines).
+        seed: Random seed of the counting noise.
+        energy: Photon energy in eV.
+        two_theta_max: Largest scattering angle 2θ in deg.
+        artifact: Add a detector artifact (3 × counts) at 2θ = 4.2 ± 0.08°.
+    """
+    two_theta = np.arange(0.1, two_theta_max, 0.005)
+    curve = MeasuredCurve("angle", deg(two_theta / 2), np.ones_like(two_theta), energy=energy)
+    instrument = {
+        "scale": 0.92,
+        "background": 2e-7,
+        "offset": deg(0.006),
+        "resolution": RESOLUTION,
+        "beam_width": 0.05e6,  # 50 µm in nm
+        "sample_length": 20e6,  # 20 mm in nm
+    }
+    truth = FitState(
+        mirror=design_mirror(**TRUE_VALUES),
+        datasets=(Dataset.create("sim", curve, **instrument),),
+    )
+    model = truth.problem().simulate(truth.datasets[0])
+    incident_counts = 1e7
+    rng = np.random.default_rng(seed)
+    counts = rng.poisson(model * incident_counts).astype(float)
+    if artifact:
+        counts[np.abs(two_theta - 4.2) < 0.08] *= 3.0
+    reflectivity = counts / incident_counts
+    sigma = np.sqrt(np.maximum(counts, 1.0)) / incident_counts
+    structure = ", ".join(
+        f"{k} = {v}{'' if k == 'gamma' else ' nm'}" for k, v in TRUE_VALUES.items()
+    )
+    header = [
+        "# Synthetic X-ray reflectivity measurement (theta/2theta scan), xstack example data.",
+        f"# Generated by: python examples/fit_reflectivity.py --write-data DIR (seed {seed})",
+        f"# Photon energy: {energy / 1000:.4f} keV, unpolarized",
+        f"# Sample: W/Si multilayer, 20 bilayers on Si, W on top; {structure}",
+        "# Instrument: scale 0.92, background 2e-7, angle offset 0.006 deg, resolution sigma "
+        "0.004 deg, beam 0.05 mm FWHM, sample 20 mm",
+        f"# Noise: Poisson counting statistics with {incident_counts:.0e} incident counts"
+        + ("; detector artifact at 2theta = 4.12-4.28 deg" if artifact else ""),
+        "# Columns: 2theta in deg, reflectivity, standard uncertainty of the reflectivity",
+        "2theta_deg,R,dR",
+    ]
+    rows = np.column_stack([two_theta, reflectivity, sigma])
+    lines = [f"{a:.4f},{r:.6e},{u:.3e}" for a, r, u in rows]
+    path.write_text("\n".join(header + lines) + "\n")
+
+
+def build_project(data: Path, model: Path | None) -> FitProject:
+    """Set up the fit: data, structure model, parameters and fit ranges."""
+    project = FitProject()
+    layout = CsvLayout(
+        x_column="2theta_deg",
+        reflectivity_column="R",
+        uncertainty_column="dR",
+        quantity="two_theta",
+        energy=ENERGY,
+    )
+    (curve,) = read_curves(data, layout)
+    project.execute(
+        add_dataset(
+            Dataset.create(
+                "cu_ka",
+                curve,
+                scale=free(1.0, 0.5, 1.5),
+                background=free(1e-7, 0.0, 1e-5),
+                offset=free(0.0, -deg(0.02), deg(0.02)),
+                resolution=RESOLUTION,
+                beam_width=0.05e6,
+                sample_length=20e6,
+            )
+        )
+    )
+    project.execute(set_ranges("cu_ka", FIT_RANGES, EXCLUDED))
+    if model is not None:
+        project.execute(import_model(model))
+    else:
+        project.execute(set_mirror(design_mirror(), source="nominal design"))
+    for name, (lo, hi) in {
+        "d": (3.8, 4.2),
+        "gamma": (0.25, 0.55),
+        "sigma_H": (0.0, 0.8),
+        "sigma_L": (0.0, 0.8),
+    }.items():
+        project.execute(set_parameter(name, vary=True, min=lo, max=hi))
+    project.execute(set_weighting("chi2"))
+    return project
+
+
+def fit(project: FitProject, quick: bool, seed: int) -> None:
+    """Run a global search followed by a least-squares refinement."""
+    stages = [
+        LmfitOptimizer(
+            "differential_evolution",
+            max_evaluations=600 if quick else 4000,
+            options=(("seed", seed), ("popsize", 8 if quick else 15), ("polish", False)),
+        ),
+        LmfitOptimizer("least_squares"),
+    ]
+    project.execute(set_optimizers(stages))
+    result = run_fit(project.state)
+    project.execute(store_result(result))
+    stats = result.statistics
+    quality = f"χ²_red {stats.reduced_objective:.3f}" if stats else result.note
+    print(f"  {result.method}: {result.evaluations} evaluations, {quality}")
+
+
+def plot(project: FitProject, save: str | None) -> None:
+    """Plot measured and fitted curves with the normalized residuals."""
+    import matplotlib.pyplot as plt
+
+    problem = project.state.problem()
+    dataset = problem.datasets[0]
+    x, measured, sigma = dataset.curve.arrays()
+    assert sigma is not None
+    model = problem.simulate(dataset)
+    fitted = problem.fit_mask(dataset)
+    angle = to_deg(x)
+    fig, (top, bottom) = plt.subplots(
+        2, 1, sharex=True, figsize=(7, 5), height_ratios=(3, 1), constrained_layout=True
+    )
+    top.semilogy(angle, measured, ".", ms=2, color="0.6", label="measured (not fitted)")
+    top.semilogy(angle[fitted], measured[fitted], ".", ms=2, label="measured (fitted)")
+    top.semilogy(angle, model, lw=1, label="fit")
+    top.set(ylabel="reflectivity", title="W/Si multilayer, Cu K-alpha")
+    top.legend()
+    bottom.plot(angle[fitted], ((model - measured) / sigma)[fitted], ".", ms=2)
+    bottom.axhline(0.0, color="0.3", lw=0.8)
+    bottom.set(xlabel="grazing angle θ (deg)", ylabel="(fit − meas.)/σ")
+    for lo, hi in EXCLUDED:
+        for ax in (top, bottom):
+            ax.axvspan(to_deg(lo), to_deg(hi), color="0.9")
+    if save:
+        fig.savefig(save, dpi=150)
+        print(f"saved {save}")
+    else:
+        plt.show()
+    plt.close(fig)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Run the fit and print the results.
+
+    Args:
+        argv: Command-line arguments; defaults to ``sys.argv[1:]``.
+    """
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0] if __doc__ else None)
+    parser.add_argument("--data", type=Path, help="measured CSV (2theta_deg, R, dR columns)")
+    parser.add_argument("--model", type=Path, help="design file (.xstack) as starting model")
+    parser.add_argument("--plot", action="store_true", help="show measured and fitted curves")
+    parser.add_argument("--save", metavar="PATH", help="write the plot to a file")
+    parser.add_argument("--project", type=Path, help="save the fit as an .xfit project")
+    parser.add_argument("--quick", action="store_true", help="use a small global search")
+    parser.add_argument("--seed", type=int, default=0, help="random seed")
+    parser.add_argument(
+        "--write-data", type=Path, metavar="DIR", help="write the synthetic measurements and exit"
+    )
+    args = parser.parse_args(argv)
+
+    if args.write_data is not None:
+        args.write_data.mkdir(parents=True, exist_ok=True)
+        for name, (energy, top, artifact) in DATA_FILES.items():
+            path = args.write_data / f"WSi_multilayer_{name}.csv"
+            write_synthetic_measurement(path, args.seed, energy, top, artifact)
+            print(f"wrote {path}")
+        return
+
+    with tempfile.TemporaryDirectory() as tmp:
+        data = args.data
+        if data is None:
+            data = Path(tmp) / "measurement.csv"
+            write_synthetic_measurement(data, args.seed)
+            print("True values of the synthetic measurement:")
+            print("  " + ", ".join(f"{k} = {v}" for k, v in TRUE_VALUES.items()))
+            print("  cu_ka.scale = 0.92, cu_ka.background = 2e-07, cu_ka.offset = 0.006 deg\n")
+        project = build_project(data, args.model)
+        print("Fit")
+        fit(project, args.quick, args.seed)
+    result = project.state.result
+    assert result is not None
+    print()
+    print(format_result(result))
+    if args.project:
+        project.save(args.project)
+        print(f"\nsaved {args.project}")
+    if args.plot or args.save:
+        plot(project, args.save)
+
+
+if __name__ == "__main__":
+    main()

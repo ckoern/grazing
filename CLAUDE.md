@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-Guidance for working on xstack, a Python library and PySide6 GUI for designing X-ray multilayer mirrors.
+Guidance for working on xstack, a Python library and PySide6 GUIs for designing X-ray multilayer
+mirrors (`xstack-design`) and fitting measured reflectivity (`xstack-fit`).
 
 ## Key documents
 - `xstack_concept.md`: product concept and requirements
@@ -9,6 +10,7 @@ Guidance for working on xstack, a Python library and PySide6 GUI for designing X
 - `docs/gui_design.md`: GUI design and layout
 - `docs/kernel_verification.md`: reflectivity kernel test strategy
 - `docs/milestones.md`: development milestones
+- `docs/fitting_plan.md`: plan and decisions for the fitting tool (`feature/fitting`)
 
 ## Environment
 - Use the conda environment `xstack` (Python 3.12): `conda run -n xstack <cmd>` or `conda activate xstack`.
@@ -19,14 +21,21 @@ Guidance for working on xstack, a Python library and PySide6 GUI for designing X
   - `mypy`
 
 ## Code style
-- Target Python 3.12. Use type hints everywhere. The core package (`xstack` without `xstack.gui`) passes `mypy --strict`.
+- Target Python 3.12. Use type hints everywhere. Everything except `xstack.gui` passes `mypy --strict`.
 - Formatting and linting with ruff (line length 100). Configuration lives in `pyproject.toml`.
-- Use numpy for numerics and lmfit for optimization. The core library must not import Qt. Only `xstack.gui` may.
+- Package layers: `xstack.core` (shared physics, structure, parameters, serialization) ←
+  `xstack.design` and `xstack.fit` ← `xstack.gui` (`gui.common`, `gui.design`, `gui.fit`). Lower
+  layers never import higher ones, and design and fit never import each other, so that each can be
+  installed without the other. They cooperate through registries filled from entry points (e.g.
+  design provides the reader of `.xstack` files as a model source for fit).
+  `tests/test_package.py` checks the layering. Only `xstack.gui` imports Qt.
+- Use numpy for numerics and lmfit for optimization.
 - Prefer frozen dataclasses for physical value objects. Mutable state lives in the `Project`.
 - Internal units: lengths in nm, energies in eV, angles in rad, time in s, density in g/cm³.
-  Convert at the boundaries with `xstack.units`.
+  Convert at the boundaries with `xstack.core.units`.
 - Extension points (coatings, constraints, figures of merit, optimizers, models, providers) use
   protocols and registries. Add new kinds by registering new classes, not by editing existing dispatch code.
+  Serializable classes register themselves in the module that defines them.
 
 ## Documentation
 - Every public module, function, class and method has a Google-style docstring (`Args:`,
@@ -45,3 +54,17 @@ Guidance for working on xstack, a Python library and PySide6 GUI for designing X
   imported by the library.
 - Reference datasets in `tests/data/` carry a provenance header (source, version, inputs).
 - Every kernel bug gets a regression test.
+
+## Working with subagents
+- Delegate work that doesn't need the main model: Sonnet (`model: "sonnet"`) for well-specified
+  moderate tasks (tests from a spec, self-contained GUI pages, scaffolding), Haiku
+  (`model: "haiku"`) for trivial mechanical tasks (renames, small text and doc edits, boilerplate).
+  Keep design decisions, physics and numerical kernel work, cross-cutting integration and review
+  in the main session.
+- Split delegated work by file so agents don't collide, and give precise prompts that point to
+  the conventions in this file.
+- Review every agent's result: check `git show --stat`, rerun the checks yourself and make sure the
+  reported tests exist. Agents that find bugs in `src/` mark the test `xfail` and report the bug
+  instead of fixing it.
+- Parallel agents in worktrees must not run `pip install -e` (shared conda env). Use
+  `PYTHONPATH=<worktree>/src` and `conda run --cwd <worktree>` with absolute paths.

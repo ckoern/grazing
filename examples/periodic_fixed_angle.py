@@ -19,16 +19,16 @@ budget.
 
 import argparse
 
-from xstack.manufacturing import MinLayerThickness
-from xstack.materials import default_library, get
-from xstack.merit import MeanReflectivity
-from xstack.optim import DesignProblem, Pipeline
-from xstack.optim.pipeline import PipelineResult, StageResult
-from xstack.parameters import free
-from xstack.physics import bragg
-from xstack.structure import Mirror, Periodic
-from xstack.targets import EnergyScan, TargetSet
-from xstack.units import deg, energy_to_wavelength, to_deg
+from xstack.core.materials import default_library, get
+from xstack.core.parameters import free
+from xstack.core.physics import bragg
+from xstack.core.structure import Mirror, Periodic
+from xstack.core.targets import EnergyScan, TargetSet
+from xstack.core.units import deg, energy_to_wavelength, to_deg
+from xstack.design.manufacturing import MinLayerThickness
+from xstack.design.merit import MeanReflectivity
+from xstack.design.optim import DesignProblem, Pipeline
+from xstack.design.optim.pipeline import PipelineResult, StageResult
 
 ENERGY = 8048.0  # Cu K-alpha in eV
 ANGLE = deg(1.0)

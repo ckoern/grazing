@@ -1,7 +1,10 @@
 # xstack GUI: design and layout
 
-Stack: PySide6, pyqtgraph for interactive plots. The GUI is the package `xstack.gui`
-(`python -m xstack.gui`).
+Stack: PySide6, pyqtgraph for interactive plots. There are two applications: the design application
+(package `xstack.gui.design`, sections 1–4) and the fit application (package `xstack.gui.fit`,
+section 5). Shared components live in `xstack.gui.common`.
+Launch them with `xstack-design [PROJECT.xstack]` or `python -m xstack.gui.design`, and
+`xstack-fit [PROJECT.xfit]` or `python -m xstack.gui.fit`.
 
 ## 1. Principles
 
@@ -12,7 +15,7 @@ Stack: PySide6, pyqtgraph for interactive plots. The GUI is the package `xstack.
   pushes it onto a `QUndoStack`. Undo/redo and the history view stay in sync with the core journal.
 - **Input design and results are separate.** The Coating page edits the input design. Optimization runs,
   scans and estimates never change it; their results are stored as candidates (see section 2.1).
-- **Generated forms.** `forms.DataclassForm` builds editors from the dataclass fields of a value (label
+- **Generated forms.** `gui.common.forms.DataclassForm` builds editors from the dataclass fields of a value (label
   and unit metadata, `Literal` fields as choices). The parameter table (`widgets/parameter_table.py`)
   shows the parameters of the coating.
 - **Responsive.** Long calculations run in a worker thread and are cancellable. Results stream in through
@@ -142,7 +145,7 @@ primary button variant.
   - *Last run* table: Stage, Evaluations, Best objective (on the stage's grid), Figure of merit on the
     full problem, Time (s).
 - **Trade-off**: best figure of merit for a series of maximum coating times (ε-constraint sweep, see
-  `optim/tradeoff.py`). Needs a deposition process; without one, the page explains this and *Run
+  `design/optim/tradeoff.py`). Needs a deposition process; without one, the page explains this and *Run
   trade-off* is disabled.
   - *Time limits*: *Automatic range* optimizes the design without a limit first and then uses *Number of
     limits* limits from *Shortest limit* (% of that design's coating time, default 20 %) up to just below
@@ -213,7 +216,7 @@ primary button variant.
 
 ### 2.6 Design language
 
-Defined in `xstack.gui.style`.
+Defined in `xstack.gui.common.style`.
 
 - **Themes**: `light` and `dark`, plus `system`, which follows the operating system. The choice is set
   under View > Theme and saved in the settings. `apply_style` is called once at start-up by the application
@@ -235,39 +238,62 @@ Defined in `xstack.gui.style`.
 ```
 src/xstack/gui/
   __init__.py
-  __main__.py            # python -m xstack.gui
-  app.py                 # QApplication setup, theme from settings, main()
-  controller.py          # ProjectController (owns Project and QUndoStack), CommandAdapter
-  main_window.py         # MainWindow: docks, splitter, workflow and plot tabs, actions, menus, settings
-  forms.py               # DataclassForm: editor generated from dataclass fields
-  files.py               # ask_save_path, with_suffix: save dialogs that append the file extension
-  plots.py               # pyqtgraph widgets: ReflectivityPlot, LayerProfilePlot, DesignMapPlot,
-                         #   ConvergencePlot, TradeoffPlot; scan_axis, bilayer_profile, quantity_value
-  preview.py             # compute_preview, compute_curves: calculations for the live views
-  style.py               # design language: THEMES, COLORS, PLOT_PALETTE, apply_style, set_variant,
-                         #   restyle_plots, icon
-  workers.py             # Task, LatestRunner (latest-request-wins), Job and JobRunner (one at a time)
-  steps/
-    __init__.py          # exports the pages
-    base.py              # StepPage: base of all pages, signals and set_state/set_preview
-    goal.py              # GoalPage
-    materials.py         # MaterialsPage, MaterialDialog
-    coating.py           # CoatingPage, convert_coating, has_constant_gamma, set_constant_gamma
-    estimate.py          # EstimatePage: Bragg-law estimates (plain and refraction-corrected)
-    constraints.py       # ConstraintsPage
-    process.py           # ProcessPage
-    scan.py              # ScanPage
-    optimize.py          # OptimizePage
-    tradeoff.py          # TradeoffPage: coating-time trade-off settings, results table, store as candidate
-    analyze.py           # AnalyzePage: error model, tolerance analysis, recipe export
-  widgets/
+  common/                # shared by all GUI applications
     __init__.py
-    design_comparison.py # DesignComparisonView: Parameters tab (selected candidate vs input design)
+    controller.py        # DocumentController (owns a core Document and QUndoStack), CommandAdapter
+    pages.py             # StepPage: base of all workflow pages; StructureCommands
+    coating.py           # CoatingPage, convert_coating, has_constant_gamma, set_constant_gamma
+    materials.py         # MaterialsPage, MaterialDialog
+    parameter_table.py   # ParameterTableModel, ParameterTable (optional display units)
+    profile.py           # LayerProfilePlot, bilayer_profile
     journal_view.py      # JournalView
-    parameter_table.py   # ParameterTableModel, ParameterTable
-    tolerance_view.py    # ToleranceView: Tolerance tab (histogram and sample reflectivity)
+    forms.py             # DataclassForm: editor generated from dataclass fields
+    files.py             # ask_save_path, with_suffix: save dialogs that append the file extension
+    style.py             # design language: THEMES, COLORS, PLOT_PALETTE, apply_style, set_variant,
+                         #   restyle_plots, icon
+    workers.py           # Task, LatestRunner (latest-request-wins), Job and JobRunner (one at a time)
+  design/                # the design application
+    __init__.py
+    __main__.py            # python -m xstack.gui.design
+    app.py                 # QApplication setup, theme from settings, main()
+    controller.py          # ProjectController: DocumentController of the design Project, templates
+    main_window.py         # MainWindow: docks, splitter, workflow and plot tabs, actions, menus, settings
+    plots.py               # pyqtgraph widgets: ReflectivityPlot, DesignMapPlot,
+                           #   ConvergencePlot, TradeoffPlot; scan_axis, quantity_value
+    preview.py             # compute_preview, compute_curves: calculations for the live views
+    steps/
+      __init__.py          # exports the pages
+      base.py              # DESIGN_COMMANDS: the design's commands for the shared structure pages
+      goal.py              # GoalPage
+      materials.py         # MaterialsPage of the design (shared page with design commands)
+      coating.py           # CoatingPage of the design, set_constant_gamma with design commands
+      estimate.py          # EstimatePage: Bragg-law estimates (plain and refraction-corrected)
+      constraints.py       # ConstraintsPage
+      process.py           # ProcessPage
+      scan.py              # ScanPage
+      optimize.py          # OptimizePage
+      tradeoff.py          # TradeoffPage: coating-time trade-off settings, results table, store as candidate
+      analyze.py           # AnalyzePage: error model, tolerance analysis, recipe export
+    widgets/
+      __init__.py
+      design_comparison.py # DesignComparisonView: Parameters tab (selected candidate vs input design)
+      parameter_table.py   # ParameterTable with design commands
+      tolerance_view.py    # ToleranceView: Tolerance tab (histogram and sample reflectivity)
+  fit/                   # the fit application (section 5)
+    __main__.py, app.py
+    controller.py          # FitController: DocumentController of the FitProject, templates
+    main_window.py         # MainWindow: datasets dock, workflow and plot tabs, jobs, files
+    preview.py             # compute_preview: measured and modeled curves, residuals, goodness of fit
+    plots.py               # FitReflectivityPlot (with range drawing), CorrelationPlot, ConvergencePlot
+    steps/                 # DataPage, StructurePage, MaterialsPage, ParametersPage, FitPage, ResultsPage;
+                           #   base.py: FIT_COMMANDS, display_unit
+    widgets/               # ImportDialog
 ```
 
+- The shared structure pages (coating, materials, parameter table) emit the commands of the
+  application that uses them; each application passes its `StructureCommands` (`DESIGN_COMMANDS`,
+  `FIT_COMMANDS`). `gui.common` imports neither application, and the applications don't import each
+  other (`tests/test_package.py`).
 - `ProjectController` is the single point of truth for the GUI. It emits `stateChanged`, `journalChanged`,
   `fileChanged`, and `errorOccurred`. `MainWindow` subscribes to these and refreshes the pages, the
   candidate list, the plots, and the title.
@@ -288,3 +314,52 @@ src/xstack/gui/
   or with File > Rename project…. Both use the undoable `rename_project` command. Empty names are rejected.
 - The Open recent menu lists the last 8 files.
 - The undo stack is not saved. The journal is.
+
+## 5. The fit application (`xstack-fit`)
+
+The fit application fits measured reflectivity curves with a structure model. It works on its own;
+importing a design from `xstack-design` is an optional shortcut. The window frame, styling, undo,
+journal, background jobs and file handling are the same as in the design application.
+
+```
+ Menu      File  Edit  Fit  View
+ Toolbar   [New] [Open] [Save] | (undo) (redo) | [Run fit] [Stop]
+ +-------------+-------------------------------------+-------------------------------------+
+ | Datasets    | project name                        | [Reflectivity][Correlations]        |
+ | ☑ ■ cu_ka   | structure · model · data summary    | [Layer profile][Convergence]        |
+ | ☑ ■ mo_ka   | [1 Data][2 Structure][3 Materials]  |                                     |
+ |             | [4 Parameters][5 Fit][6 Results]    |  measured points and fit (log),     |
+ |             | help card, page                     |  fit ranges shaded, residuals below |
+ | [Add data…] |                [← Back] [Next: … →] |                                     |
+ +-------------+-------------------------------------+-------------------------------------+
+ Bottom docks: [Journal] [History]
+ Status bar:  χ²_red · fitted of total points · free parameters · ⚠ problems      [progress]
+```
+
+- **Datasets dock**: one entry per dataset with its plot color, photon energy (or angle) and fitted
+  points. The check box includes the dataset in the fit; the selected dataset is edited on the Data page
+  and its ranges are shaded in the plot. *Add data…* opens the import dialog (file, columns, quantity
+  and unit of x, photon energy with presets, polarization, percent, preview of the values read; a
+  photon energy or wavelength stated in the file's comment lines is taken over);
+  xstack reflectivity exports are read without settings, one dataset per target.
+- **Data**: settings of the selected dataset (name, included, energy or angle, polarization, weight) and
+  its fit ranges and excluded ranges, with the number of points in each. In the reflectivity plot,
+  Shift-drag adds a fit range, Ctrl-drag an excluded range, also on top of existing ranges;
+  a drag without modifier moves a shaded range or its edges.
+- **Structure**: the shared coating page (coating type, options, layers, substrate roughness), a start
+  structure from a template or from an `.xstack` design project (input design or a candidate), and the
+  reflectivity and roughness model.
+- **Materials**: the shared materials page.
+- **Parameters**: all fit parameters, coating parameters followed by `<dataset>.<instrument parameter>`;
+  angles are shown in degrees, beam width and sample length in mm. *Share between datasets* ties an
+  instrument parameter of all datasets to one dataset with expressions.
+- **Fit**: residual weighting (χ², logarithmic, linear) and the optimizer stages (local refinement,
+  global search then refinement, or custom stages). *Run fit* runs in the background with a live preview
+  and convergence plot; *Stop* keeps the best values so far.
+- **Results**: the saved fits. Every fit is saved as “fit N” in the project and its values are applied.
+  Saved fits can be renamed, deleted and applied again (restoring structure, model and parameters). The
+  page shows χ²_red (or objective per degree of freedom), values with uncertainties, notes (*at bound*,
+  *undetermined*) and strong correlations, and exports the report (text) and the curves (CSV). The
+  Correlations tab shows the correlation matrix of the selected fit.
+- **Files**: `.xfit` projects (`xstack.fit.project.FitProject`) with measured data, structure, settings,
+  saved fits and the journal.

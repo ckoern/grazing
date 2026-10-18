@@ -5,12 +5,15 @@ from typing import Any
 
 import numpy as np
 import pyqtgraph as pg
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
     QFrame,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
@@ -22,13 +25,14 @@ from PySide6.QtWidgets import (
 )
 
 from xstack.core.materials import Material, MaterialLibrary, default_library
-from xstack.core.structure.coating import Mirror
+from xstack.core.parameters import Parameter
+from xstack.core.structure.coating import SUBSTRATE, Mirror, density_parameter_name
 from xstack.gui.common.pages import StepPage, StructureCommands
 from xstack.gui.common.style import PLOT_PALETTE as PALETTE
 
 __all__ = ["MaterialDialog", "MaterialsPage"]
 
-_SUBSTRATE = "substrate"
+_SUBSTRATE = SUBSTRATE
 
 
 class MaterialDialog(QDialog):
@@ -101,15 +105,19 @@ class MaterialsPage(StepPage):
         self._loading = False
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel("<b>Materials</b> of the coating roles and the substrate"))
-        self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Role", "Material", "Density (g/cm³)"])
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(
+            ["Role", "Material", "Density (g/cm³)", "Density parameter"]
+        )
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.setFrameShape(QFrame.Shape.NoFrame)
         self.table.setAlternatingRowColors(True)
         self.table.setToolTip(
-            "One row per coating role and the substrate. Choose the material and edit its density."
+            "One row per coating role and the substrate. Choose the material and edit its "
+            "density. Density parameter makes the density a parameter (rho_<role>) that can be "
+            "varied like the coating parameters."
         )
         self.table.itemChanged.connect(self._density_edited)
         layout.addWidget(self.table)
@@ -161,9 +169,29 @@ class MaterialsPage(StepPage):
             )
             combo.setToolTip(f"Material of the role '{role}'.")
             self.table.setCellWidget(row, 1, combo)
-            density_item = QTableWidgetItem(f"{material.density:g}")
-            density_item.setToolTip("Mass density in g/cm³ (editable).")
+            parameter = self._density_parameter(role)
+            density = material.density if parameter is None else parameter.value
+            density_item = QTableWidgetItem(f"{density:g}")
+            density_item.setToolTip(
+                "Mass density in g/cm³ (editable)."
+                if parameter is None
+                else f"Value of the density parameter {parameter.name} in g/cm³ (editable); "
+                "vary it and set its bounds in the parameter table."
+            )
             self.table.setItem(row, 2, density_item)
+            check = QCheckBox()
+            check.setChecked(parameter is not None)
+            check.setToolTip(
+                f"Make the density of '{role}' a parameter ({density_parameter_name(role)}) that "
+                "can be varied, e.g. fitted to a measurement."
+            )
+            check.toggled.connect(lambda on, r=role: self._toggle_density_parameter(r, on))
+            holder = QWidget()
+            box = QHBoxLayout(holder)
+            box.setContentsMargins(0, 0, 0, 0)
+            box.addWidget(check)
+            box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setCellWidget(row, 3, holder)
         self._fit_table_height()
         self._loading = False
         self._plot_constants(roles)
@@ -215,13 +243,33 @@ class MaterialsPage(StepPage):
         if self._loading or item.column() != 2:
             return
         role, material = self._roles()[item.row()]
+        parameter = self._density_parameter(role)
         try:
-            updated = material.with_density(float(item.text()))
+            value = float(item.text())
+            updated = material.with_density(value)
         except ValueError as exc:
             self.errorOccurred.emit(f"Invalid density: {exc}")
             self._load()
             return
-        self._replace_material(role, updated)
+        if parameter is not None:
+            self.commandRequested.emit(self.commands.set_parameter(parameter.name, value=value))
+        else:
+            self._replace_material(role, updated)
+
+    def _density_parameter(self, role: str) -> Parameter | None:
+        if self._mirror is None:
+            return None
+        name = density_parameter_name(role)
+        return self._mirror.densities.get(name)
+
+    def _toggle_density_parameter(self, role: str, on: bool) -> None:
+        if self._loading or self._mirror is None:
+            return
+        if on:
+            mirror = self._mirror.with_density_parameters([role])
+        else:
+            mirror = self._mirror.without_density_parameters([role])
+        self.commandRequested.emit(self.commands.set_mirror(mirror))
 
     def _define_material(self) -> None:
         dialog = MaterialDialog(self)

@@ -178,3 +178,20 @@ def test_uncertainties_scale_with_noise() -> None:
         assert result.statistics is not None
         errors.append(result.statistics.error("t"))
     assert errors[1] / errors[0] == pytest.approx(4.0, rel=0.1)
+
+
+def test_layer_density() -> None:
+    """A film at 92 % of the bulk density: the critical angle determines the density."""
+    pt = get("Pt")
+    truth = Mirror(SingleLayer.create(pt, t=25.0, sigma=0.4), get("Si"))
+    truth = truth.with_density_parameters(["M"]).with_parameter("rho_M", value=0.92 * pt.density)
+    (data,) = measure(truth, (Dataset.create("a", angle_curve(0.15, 2.5, 400, CU_KA)),), 0.02, 6)
+    data = Dataset.create("a", data.curve, scale=free(1.0, 0.5, 1.5))
+    start = Mirror(
+        SingleLayer.create(pt, t=free(24.0, 15.0, 40.0), sigma=free(0.3, 0.0, 2.0)), get("Si")
+    )
+    start = start.with_density_parameters(["M"]).with_parameter("rho_M", vary=True)
+    problem = FitProblem(start, (data,), weighting="chi2")
+    assert "rho_M" in problem.parameters.free_names()
+    result = fit(problem)
+    assert_recovered(result, {"rho_M": 0.92 * pt.density, "t": 25.0, "sigma": 0.4, "a.scale": 1.0})

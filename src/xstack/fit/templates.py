@@ -55,7 +55,7 @@ def for_fit(mirror: Mirror) -> Mirror:
         elif name.split(".")[-1].startswith("sigma"):
             value = min(max(p.value, lo), hi) or 0.3
             parameters = parameters.replace(name, value=value, vary=True, min=lo, max=hi)
-    return mirror.with_coating(mirror.coating.with_parameters(parameters))
+    return mirror.with_parameters(parameters)
 
 
 def _periodic() -> FitState:

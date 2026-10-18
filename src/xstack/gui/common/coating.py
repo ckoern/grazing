@@ -371,11 +371,12 @@ class CoatingPage(StepPage):
             self.layers_box.setVisible(isinstance(coating, NLayer))
             if isinstance(coating, NLayer):
                 self._show_layers(coating)
+            parameters = mirror.parameters if mirror is not None else coating.parameters
             try:
-                evaluated = coating.parameters.evaluate()
+                evaluated = parameters.evaluate()
             except ValueError:
                 evaluated = {}
-            self.parameter_table.set_parameters(coating.parameters, evaluated)
+            self.parameter_table.set_parameters(parameters, evaluated)
         self._loading = False
 
     def _show_layers(self, coating: NLayer) -> None:

@@ -1,9 +1,10 @@
 """Composite coating made of several coatings stacked on top of each other."""
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
-from typing import ClassVar
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from typing import ClassVar, Self
 
+from xstack.core.materials import Material
 from xstack.core.parameters import ParameterSet
 from xstack.core.structure.coating import Coating, register_coating
 from xstack.core.structure.stack import Layer
@@ -52,6 +53,34 @@ class Composite(Coating):
             The coating.
         """
         return cls(name, (), ParameterSet(), blocks=tuple(blocks))
+
+    def material_map(self) -> dict[str, Material]:
+        """Return the materials of the blocks' roles, prefixed with the block names.
+
+        Returns:
+            Materials by role, e.g. ``{"cap.H": …, "ml.L": …}``.
+        """
+        return {
+            f"{b.name}.{role}": material
+            for b in self.blocks
+            for role, material in b.material_map().items()
+        }
+
+    def with_materials(self, materials: Mapping[str, Material]) -> Self:
+        """Return a copy with other materials for some roles of the blocks.
+
+        Args:
+            materials: New materials by prefixed role, as returned by `material_map`.
+
+        Returns:
+            The modified coating.
+        """
+        blocks = []
+        for b in self.blocks:
+            prefix = b.name + "."
+            own = {r[len(prefix) :]: m for r, m in materials.items() if r.startswith(prefix)}
+            blocks.append(b.with_materials(own) if own else b)
+        return replace(self, blocks=tuple(blocks))
 
     def block(self, name: str) -> Coating:
         """Return a block by name, with the parameters currently set in the composite.

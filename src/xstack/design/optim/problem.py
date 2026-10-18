@@ -109,7 +109,7 @@ class DesignProblem:
         return replace(self, **changes)
 
     def with_parameters(self, parameters: ParameterSet) -> "DesignProblem":
-        """Return a copy with different coating parameters.
+        """Return a copy with different design parameters (coating and density parameters).
 
         Args:
             parameters: The new parameter set (same names).
@@ -117,8 +117,7 @@ class DesignProblem:
         Returns:
             The modified problem.
         """
-        coating = self.mirror.coating.with_parameters(parameters)
-        return replace(self, mirror=self.mirror.with_coating(coating))
+        return replace(self, mirror=self.mirror.with_parameters(parameters))
 
     def bounds_hints(self) -> dict[str, tuple[float, float]]:
         """Return parameter bounds implied by the hard constraints.

@@ -122,7 +122,7 @@ def set_coating(coating: Coating) -> Command:
 
 
 def set_parameter(name: str, **changes: Any) -> Command:
-    """Modify one coating parameter (value, free/fixed, bounds, expression, ...).
+    """Modify one design parameter, a coating or density parameter (value, bounds, expression…).
 
     Consecutive edits of the same parameter form a single undo step.
 
@@ -136,15 +136,13 @@ def set_parameter(name: str, **changes: Any) -> Command:
     summary = ", ".join(f"{k}={v!r}" for k, v in changes.items())
 
     def transform(state: ProjectState) -> ProjectState:
-        mirror = _require_mirror(state)
-        coating = mirror.coating.with_parameter(name, **changes)
-        return state.evolve(mirror=mirror.with_coating(coating))
+        return state.evolve(mirror=_require_mirror(state).with_parameter(name, **changes))
 
     return Command(f"Set {name}: {summary}", transform, merge_key=f"parameter:{name}")
 
 
 def set_parameters(parameters: ParameterSet, description: str = "Set parameters") -> Command:
-    """Replace all coating parameters.
+    """Replace all design parameters (coating and density parameters).
 
     Args:
         parameters: The new parameter set (same names).
@@ -156,7 +154,7 @@ def set_parameters(parameters: ParameterSet, description: str = "Set parameters"
 
     def transform(state: ProjectState) -> ProjectState:
         mirror = _require_mirror(state)
-        return state.evolve(mirror=mirror.with_coating(mirror.coating.with_parameters(parameters)))
+        return state.evolve(mirror=mirror.with_parameters(parameters))
 
     return Command(description, transform)
 

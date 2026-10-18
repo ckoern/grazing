@@ -1,8 +1,8 @@
 # xstack
 
-xstack is a Python library and PySide6 GUI for designing X-ray multilayer mirrors. It models
-periodic and depth-graded coatings and supports staged optimization under manufacturing
-constraints.
+xstack is a Python library with two PySide6 applications: `xstack-design` for designing X-ray
+multilayer mirrors and `xstack-fit` for fitting measured reflectivity curves. It models periodic
+and depth-graded coatings and supports staged optimization under manufacturing constraints.
 
 ## Setup
 
@@ -33,12 +33,13 @@ Set up and run a fit of measured reflectivity from the command line:
 
 ```bash
 xstack fit new fit.xfit --model design.xstack --data scan.csv --quantity two_theta --energy 8.048
-xstack fit run fit.xfit [--method least_squares] [-v]
+xstack fit run fit.xfit [--method least_squares] [--output OUT] [-v]
 xstack fit info fit.xfit
 xstack fit export fit.xfit curves.csv
 ```
 
-`examples/fit_reflectivity.py` shows a fit with the library.
+`xstack fit new` also takes `--unit`, `--columns`, `--percent`, `--range LO:HI` and `--weighting`
+(see `xstack fit new --help`). `examples/fit_reflectivity.py` shows a fit with the library.
 
 (`python -m xstack design ...` is equivalent.) Start the design GUI:
 
@@ -56,6 +57,12 @@ or `python -m xstack.gui.fit`. To try it, import the synthetic measurements in `
 (a W/Si multilayer measured at Cu Kα and Mo Kα; true parameters in the file headers) with
 *Add data…*.
 
+## Examples
+
+`examples/` holds scripts for the library (run with `python examples/<name>.py`; `--quick` reduces
+the optimization budget, `--plot` or `--save PATH` shows or saves the plot): `reflectivity_demo.py`,
+`periodic_fixed_angle.py`, `graded_time_penalty.py`, `coupled_angles.py` and `fit_reflectivity.py`.
+
 ## Checks
 
 ```bash
@@ -72,3 +79,5 @@ mypy
 - [GUI design](docs/gui_design.md)
 - [Kernel verification](docs/kernel_verification.md)
 - [Milestones](docs/milestones.md)
+- [Fitting tool plan](docs/fitting_plan.md)
+- [Product concept](xstack_concept.md)

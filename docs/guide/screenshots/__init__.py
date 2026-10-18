@@ -11,6 +11,7 @@ from the repository root.
 import importlib
 import pkgutil
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -40,20 +41,21 @@ def screenshot(function: Callable[[], None]) -> Callable[[], None]:
 
 def app() -> QApplication:
     """Return the application, created with the light theme on first use."""
+    from xstack.gui.common.garbage import GarbageCollector
     from xstack.gui.common.style import apply_style
 
     instance = QApplication.instance()
     if not isinstance(instance, QApplication):
         instance = QApplication([sys.argv[0]])
         apply_style(instance, "light")
+        GarbageCollector(parent=instance)
     return instance
 
 
 def settings() -> QSettings:
     """Return throw-away settings, so screenshots don't depend on the user's settings."""
-    path = IMAGES.parent / "_build_settings.ini"
-    path.unlink(missing_ok=True)
-    return QSettings(str(path), QSettings.Format.IniFormat)
+    directory = Path(tempfile.mkdtemp(prefix="xstack-guide-"))
+    return QSettings(str(directory / "settings.ini"), QSettings.Format.IniFormat)
 
 
 def pump(
@@ -124,5 +126,4 @@ def main(names: list[str]) -> int:
         if not names or name in names:
             print(f"{name} …", flush=True)
             function()
-    (IMAGES.parent / "_build_settings.ini").unlink(missing_ok=True)
     return 0

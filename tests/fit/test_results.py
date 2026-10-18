@@ -14,7 +14,7 @@ from xstack.core.serialization import from_data, to_data
 from xstack.core.structure import Mirror, SingleLayer
 from xstack.fit.dataset import Dataset
 from xstack.fit.problem import FitProblem, Weighting
-from xstack.fit.results import FitResult, FitStatistics, analyze
+from xstack.fit.results import STRONG_CORRELATION, FitResult, FitStatistics, analyze
 
 PT, SI = materials.get("Pt"), materials.get("Si")
 ANGLES = np.linspace(0.002, 0.012, 60)
@@ -184,8 +184,9 @@ class TestStrongCorrelations:
             (0.1, -0.85, 0.0, 1.0),
         )
         stats = make_stats(c)
-        assert stats.strong_correlations() == [("a", "c", -0.99), ("a", "b", 0.95)]
-        assert [p[:2] for p in stats.strong_correlations(0.8)] == [
+        assert stats.strong_correlations(0.9) == [("a", "c", -0.99), ("a", "b", 0.95)]
+        assert STRONG_CORRELATION == 0.8
+        assert [p[:2] for p in stats.strong_correlations()] == [
             ("a", "c"),
             ("a", "b"),
             ("b", "d"),

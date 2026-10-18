@@ -915,6 +915,7 @@ class MainWindow(QMainWindow):
             self._redraw()
 
     def _on_file_changed(self, _path: object) -> None:
+        self.name_edit.setText(self.controller.state.name)
         self._update_title()
 
     def _on_clean_changed(self, _clean: bool) -> None:

@@ -19,7 +19,43 @@ from xstack.core.structure.coatings.periodic import Periodic
 from xstack.core.structure.coatings.simple import SingleLayer
 from xstack.fit.project import FitState
 
-__all__ = ["TEMPLATES", "new_state"]
+__all__ = ["ROUGHNESS_RANGE", "TEMPLATES", "for_fit", "new_state"]
+
+ROUGHNESS_RANGE = (0.0, 3.0)
+"""Bounds in nm of the roughness parameters freed by `for_fit`."""
+
+
+def for_fit(mirror: Mirror) -> Mirror:
+    """Adapt a starting structure for fitting.
+
+    The number of layers is known from the deposition, the roughness is what a measurement
+    determines: integer parameters (e.g. the number of bilayers) are fixed, and the roughness
+    parameters (``sigma…``) are freed within `ROUGHNESS_RANGE`, starting at 0.3 nm if they were
+    zero. Parameters with expressions are left unchanged.
+
+    Args:
+        mirror: The structure, e.g. from `xstack.core.structure.presets.build_mirror`.
+
+    Returns:
+        The adapted structure.
+
+    Examples:
+        >>> from xstack.core.structure.presets import StructureChoice, build_mirror
+        >>> mirror = for_fit(build_mirror(StructureChoice("periodic", ("W", "Si"))))
+        >>> mirror.parameters["N"].vary, mirror.parameters["sigma_H"].vary
+        (False, True)
+    """
+    parameters = mirror.parameters
+    lo, hi = ROUGHNESS_RANGE
+    for name, p in mirror.parameters.items():
+        if p.expr is not None:
+            continue
+        if p.integer and p.vary:
+            parameters = parameters.replace(name, vary=False)
+        elif name.split(".")[-1].startswith("sigma"):
+            value = min(max(p.value, lo), hi) or 0.3
+            parameters = parameters.replace(name, value=value, vary=True, min=lo, max=hi)
+    return mirror.with_coating(mirror.coating.with_parameters(parameters))
 
 
 def _periodic() -> FitState:

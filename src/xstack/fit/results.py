@@ -24,7 +24,10 @@ from xstack.core.parameters import ParameterSet
 from xstack.core.serialization import register_serializable
 from xstack.fit.problem import FitEvaluation, FitProblem, Weighting
 
-__all__ = ["FitResult", "FitStatistics", "analyze"]
+__all__ = ["STRONG_CORRELATION", "FitResult", "FitStatistics", "analyze"]
+
+STRONG_CORRELATION = 0.8
+"""Absolute correlation coefficient from which parameters count as strongly correlated."""
 
 _RELATIVE_STEP = 1e-5
 _SINGULAR = 1e-10
@@ -98,7 +101,9 @@ class FitStatistics:
         """
         return self.correlation[self._index(a)][self._index(b)]
 
-    def strong_correlations(self, threshold: float = 0.9) -> list[tuple[str, str, float]]:
+    def strong_correlations(
+        self, threshold: float = STRONG_CORRELATION
+    ) -> list[tuple[str, str, float]]:
         """Return pairs of parameters with a large absolute correlation.
 
         Args:

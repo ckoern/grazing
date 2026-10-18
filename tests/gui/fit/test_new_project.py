@@ -85,3 +85,23 @@ def test_default_factory_builds_project_wizard(qtbot: QtBot, settings: QSettings
     wizard = window.wizard_factory()
     assert isinstance(wizard, ProjectWizard)
     assert wizard.suffix == ".xfit"
+
+
+def test_name_field_shows_new_project_name_while_focused(qtbot: QtBot, settings: QSettings) -> None:
+    setup = ProjectSetup("Fresh name", None, StructureChoice("single_layer", ("Pt",)))
+    window = make(qtbot, settings, setup)
+    window.show()
+    window.name_edit.setFocus()
+    qtbot.waitUntil(window.name_edit.hasFocus, timeout=2000)
+    window.new_project_wizard()
+    assert window.name_edit.text() == "Fresh name"
+
+
+def test_wizard_structure_is_prepared_for_fitting(qtbot: QtBot, settings: QSettings) -> None:
+    setup = ProjectSetup("p", None, StructureChoice("periodic", ("W", "Si")))
+    window = make(qtbot, settings, setup)
+    window.new_project_wizard()
+    mirror = window.controller.state.mirror
+    assert mirror is not None
+    assert not mirror.parameters["N"].vary
+    assert mirror.parameters["sigma_H"].vary

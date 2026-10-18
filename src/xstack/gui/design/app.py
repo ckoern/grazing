@@ -7,6 +7,7 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 
 from xstack import __version__
+from xstack.gui.common.garbage import GarbageCollector
 from xstack.gui.common.style import Theme, apply_style
 from xstack.gui.design.main_window import MainWindow
 
@@ -31,11 +32,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     saved = QSettings("xstack", "xstack").value("theme", "system")
     theme: Theme = saved if saved in ("light", "dark") else "system"
     apply_style(app, theme)
+    collector = GarbageCollector(parent=app)
     window = MainWindow()
     if args:
         window.open_project(args[0])
     window.show()
-    return int(app.exec())
+    status = int(app.exec())
+    collector.stop()
+    return status
 
 
 if __name__ == "__main__":

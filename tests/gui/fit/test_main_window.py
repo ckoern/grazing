@@ -1,8 +1,10 @@
 """Tests for `xstack.gui.fit.main_window`."""
 
+import time
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
 import pytest
@@ -11,7 +13,7 @@ from pytestqt.qtbot import QtBot
 
 from tests.gui.fit.helpers import ANGLES, make_state
 from xstack.core.measurement import MeasuredCurve
-from xstack.core.optim.optimizers import LmfitOptimizer
+from xstack.core.optim.optimizers import LmfitOptimizer, Optimizer, Tracker
 from xstack.core.units import deg
 from xstack.fit.dataset import Dataset
 from xstack.fit.problem import FitProblem
@@ -273,16 +275,30 @@ def test_run_fit_saves_result(qtbot: QtBot, fit_window: MainWindow) -> None:
     assert fit_window.correlation_plot.statistics is None
 
 
+@dataclass(frozen=True)
+class UntilCancelled(Optimizer):
+    """Evaluates the start values repeatedly until the run is cancelled."""
+
+    type_name: ClassVar[str] = "until_cancelled"
+
+    def run(self, problem, start=None, events=None, cancel=None):
+        params = start if start is not None else problem.parameters
+        tracker = Tracker(problem, "until cancelled", events, cancel, None)
+        while not tracker.cancelled:
+            tracker.record(problem.evaluate(params.value_dict()))
+            time.sleep(0.005)
+        return tracker.result(params, "stopped")
+
+
 def test_stop_saves_cancelled_result(qtbot: QtBot, fit_window: MainWindow) -> None:
     project = FitProject(perturbed(periodic_state()))
-    project.execute(set_optimizers((LmfitOptimizer("nelder", max_evaluations=100000),)))
+    project.execute(set_optimizers((UntilCancelled(),)))
     fit_window.controller.replace_project(project)
     wait_preview(qtbot, fit_window)
     fit_window.fit_page.run()
     qtbot.waitUntil(lambda: fit_window.job_runner.running, timeout=5000)
     assert fit_window.stop_action.isEnabled()
     assert not fit_window.run_action.isEnabled()
-    qtbot.waitUntil(lambda: bool(fit_window.convergence_plot._data), timeout=20000)
     fit_window.stop_action.trigger()
     qtbot.waitUntil(
         lambda: not fit_window.job_runner.running and len(fit_window.controller.state.results) == 1,

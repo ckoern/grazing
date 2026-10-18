@@ -1,6 +1,6 @@
 """Performance benchmarks of the reflectivity kernel.
 
-Skipped by default. Run with ``pytest tests/physics/test_benchmark.py -o addopts=""``.
+Skipped by default. Run with ``pytest tests/core/physics/test_benchmark.py -o addopts=""``.
 """
 
 from typing import Any

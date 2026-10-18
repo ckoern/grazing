@@ -46,7 +46,15 @@ xstack fit export fit.xfit curves.csv
 xstack-design [project.xstack]
 ```
 
-or `python -m xstack.gui.design`.
+or `python -m xstack.gui.design`. Start the fit GUI:
+
+```bash
+xstack-fit [project.xfit]
+```
+
+or `python -m xstack.gui.fit`. To try it, import the synthetic measurements in `examples/data/`
+(a W/Si multilayer measured at Cu Kα and Mo Kα; true parameters in the file headers) with
+*Add data…*.
 
 ## Checks
 

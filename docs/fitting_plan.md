@@ -38,7 +38,11 @@ existing physics, structure and parameter machinery. The current GUI becomes `xs
    with the library (load data, import or build the model, set up instrument and parameters,
    fit, report and plot the results). Verified by round-trip tests (simulate, add noise, fit,
    recover the parameters).
-4. **`xstack-fit` GUI.** Reuses `gui.common`. Steps: Data → Model → Parameters → Fit → Results,
-   with residual and correlation views. Imports the starting model from an `.xstack` file.
+4. **`xstack-fit` GUI.** Reuses `gui.common`. Steps: Data → Structure → Materials → Parameters →
+   Fit → Results, with residual and correlation views. The fit tool works without the design tool:
+   coating type and materials are edited in the fit GUI itself (the coating and materials pages
+   move to `gui.common`); importing a design from an `.xstack` file is optional. Every fit is
+   saved in the project (“fit N”) and can be renamed, deleted and applied again. Fit ranges are
+   drawn in the plot (Shift-drag: fit range, Ctrl-drag: excluded range).
 5. **Later.** Per-layer deviations, roughness growth with depth, MCMC uncertainties, batch fits,
    further file formats.

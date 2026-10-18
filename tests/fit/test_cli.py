@@ -246,8 +246,8 @@ def test_run(project_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert "free" in text
     fitted = FitProject.load(out).state
     assert fitted.result is not None
-    assert fitted.optimizer.method == "least_squares"  # type: ignore[attr-defined]
-    assert fitted.optimizer.max_evaluations == 20  # type: ignore[attr-defined]
+    assert fitted.optimizers[-1].method == "least_squares"  # type: ignore[attr-defined]
+    assert fitted.optimizers[-1].max_evaluations == 20  # type: ignore[attr-defined]
     assert FitProject.load(project_file).state.result is None
     assert fitted.mirror != before.mirror
 

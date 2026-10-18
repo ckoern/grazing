@@ -128,7 +128,8 @@ src/xstack/
     dataset.py              # Dataset: curve + instrument + fit ranges/excluded ranges (mask)
     problem.py              # FitProblem (Problem protocol), FitEvaluation, weightings
     results.py              # analyze(): uncertainties and correlations; FitStatistics, FitResult
-    project.py              # FitState, FitProject (.xfit), command functions, run_fit
+    project.py              # FitState, StoredFit, FitProject (.xfit), command functions, run_fit
+    templates.py            # start structures of new fit projects
     report.py               # text reports of parameters and results
     cli.py                  # `xstack fit new|run|info|export`
   gui/                      # PySide6 application (not imported by core or design)
@@ -670,9 +671,12 @@ A fit compares one structure model (a `Mirror`) with one or more measured curves
 - `analyze()` (`fit/results.py`) computes uncertainties and correlations from a finite-difference
   Jacobian at the best fit, C = s²(JᵀJ)⁻¹ with s² = 1 for χ² weighting and the reduced objective
   otherwise. It does not depend on the optimizer.
-- `FitProject` (`fit/project.py`) stores `FitState` in `.xfit` files with undo history and journal;
-  `import_model(path)` reads the starting model through the model-reader registry, e.g. a design
-  from an `.xstack` file.
+- `FitProject` (`fit/project.py`) stores `FitState` in `.xfit` files with undo history and journal.
+  The structure is defined in the fit project itself (`fit/templates.py` provides start
+  structures); `import_model(path)` optionally reads one through the model-reader registry, e.g. a
+  design from an `.xstack` file. `run_fit` runs the `optimizers` of the state as stages, each from
+  the best values of the previous one. Every stored result is a `StoredFit` (name, result, fitted
+  structure, model) in `FitState.results`; `apply_fit` restores one.
 
 `examples/fit_reflectivity.py` shows a complete fit.
 

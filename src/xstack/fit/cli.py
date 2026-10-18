@@ -165,7 +165,7 @@ def _new(args: argparse.Namespace) -> int:
 def _run(args: argparse.Namespace) -> int:
     project = FitProject.load(args.project)
     if args.method or args.max_evaluations is not None:
-        current = project.state.optimizer
+        current = project.state.optimizers[-1]
         method = args.method or (current.method if isinstance(current, LmfitOptimizer) else None)
         project.execute(
             set_optimizer(LmfitOptimizer(method or "least_squares", args.max_evaluations))

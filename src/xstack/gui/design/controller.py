@@ -2,9 +2,11 @@
 
 from PySide6.QtCore import QObject
 
+from xstack.core.structure.presets import COATING_KINDS, build_mirror
 from xstack.design.project import Project, ProjectState
 from xstack.design.project.templates import new_state
 from xstack.gui.common.controller import CommandAdapter, DocumentController
+from xstack.gui.common.wizard import ProjectSetup
 
 __all__ = ["CommandAdapter", "ProjectController"]
 
@@ -31,6 +33,31 @@ class ProjectController(DocumentController):
         """The current project state."""
         state: ProjectState = self._project.state
         return state
+
+    def new_from_setup(self, setup: ProjectSetup) -> None:
+        """Replace the current project with a new one from the choices of the project wizard.
+
+        Targets, figure of merit and constraints come from the template matching the coating
+        kind (single layer and individual layers: ``"single_layer"``; periodic: ``"periodic"``;
+        depth-graded: ``"depth_graded"``); the structure and the name from the wizard.
+
+        Args:
+            setup: The wizard's choices.
+
+        Raises:
+            KeyError: If a material of the structure is not in the library.
+        """
+        kind = setup.structure.kind
+        template = {
+            "periodic": "periodic",
+            "single_layer": "single_layer",
+            "layers": "single_layer",
+        }
+        state = new_state(template.get(kind, "depth_graded"))
+        state = state.evolve(name=setup.name, mirror=build_mirror(setup.structure))
+        project = Project(state)
+        project.journal.add("file", f"New project {setup.name!r} ({COATING_KINDS[kind]})")
+        self.replace_project(project, None)
 
     def new_project(self, template: str = "periodic") -> None:
         """Replace the current project with a new one from a template.

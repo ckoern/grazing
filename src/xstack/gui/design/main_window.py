@@ -1,6 +1,7 @@
 """Main window of the xstack application."""
 
 import functools
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -65,6 +66,7 @@ from xstack.gui.common.style import (
     restyle_plots,
     set_variant,
 )
+from xstack.gui.common.wizard import ProjectWizard
 from xstack.gui.common.workers import Job, JobRunner, LatestRunner
 from xstack.gui.design.controller import ProjectController
 from xstack.gui.design.plots import (
@@ -185,6 +187,9 @@ class MainWindow(QMainWindow):
         self.controller = controller or ProjectController(parent=self)
         self.settings = settings or QSettings("xstack", "xstack")
         self.confirm_close = confirm_close
+        self.wizard_factory: Callable[[], ProjectWizard] = lambda: ProjectWizard(
+            "design project", ".xstack", PROJECT_FILTER, parent=self
+        )
         self.setDockNestingEnabled(True)
         self._build_central()
         self._build_docks()
@@ -574,10 +579,10 @@ class MainWindow(QMainWindow):
             action = QAction(name.replace("_", " ").capitalize(), self)
             action.triggered.connect(lambda _=False, n=name: self.new_project(n))
             self.new_actions[name] = action
-        self.new_action = QAction("&New", self)
+        self.new_action = QAction("&New…", self)
         self.new_action.setShortcut(QKeySequence.StandardKey.New)
-        self.new_action.setToolTip("New project from the periodic multilayer template")
-        self.new_action.triggered.connect(lambda: self.new_project("periodic"))
+        self.new_action.setToolTip("New project: name, location and coating chosen in a wizard")
+        self.new_action.triggered.connect(lambda: self.new_project_wizard())
         self.open_action = QAction("&Open…", self)
         self.open_action.setShortcut(QKeySequence.StandardKey.Open)
         self.open_action.triggered.connect(lambda: self.open_project())
@@ -606,7 +611,8 @@ class MainWindow(QMainWindow):
 
     def _build_menus(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
-        new_menu = file_menu.addMenu("&New project")
+        file_menu.addAction(self.new_action)
+        new_menu = file_menu.addMenu("New from &template")
         for action in self.new_actions.values():
             new_menu.addAction(action)
         file_menu.addAction(self.open_action)
@@ -1295,6 +1301,27 @@ class MainWindow(QMainWindow):
         if answer == QMessageBox.StandardButton.Save:
             return self.save_project()
         return answer == QMessageBox.StandardButton.Discard
+
+    def new_project_wizard(self) -> bool:
+        """Create a new project with the project wizard and save it if a location was chosen.
+
+        Returns:
+            Whether a new project was created.
+        """
+        if not self._maybe_save():
+            return False
+        wizard = self.wizard_factory()
+        if not wizard.exec():
+            return False
+        setup = wizard.setup()
+        try:
+            self.controller.new_from_setup(setup)
+        except (KeyError, ValueError) as exc:
+            self._show_error(f"Cannot create the project: {exc}")
+            return False
+        if setup.path is not None:
+            self.save_project_as(setup.path)
+        return True
 
     def new_project(self, template: str = "periodic") -> None:
         """Start a new project from a template.

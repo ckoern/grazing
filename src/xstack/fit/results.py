@@ -250,7 +250,10 @@ def analyze(problem: FitProblem) -> FitStatistics:
     if problem.weighting != "chi2":
         covariance *= objective / dof
     errors = np.sqrt(np.diag(covariance))
-    correlation = np.clip(covariance / np.outer(errors, errors), -1.0, 1.0)
+    scale = np.outer(errors, errors)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        correlation = np.where(scale > 0, np.clip(covariance / scale, -1.0, 1.0), np.nan)
+    np.fill_diagonal(correlation, 1.0)
     return FitStatistics(
         names,
         tuple(params[n].value for n in names),

@@ -23,16 +23,23 @@ from xstack.fit.project import (
     SCHEMA_VERSION,
     FitProject,
     FitState,
+    StoredFit,
     add_dataset,
+    apply_fit,
     import_model,
     remove_dataset,
+    remove_fit,
+    rename_dataset,
+    rename_fit,
     rename_project,
     replace_dataset,
     run_fit,
+    set_coating,
     set_mirror,
     set_model,
     set_notes,
     set_optimizer,
+    set_optimizers,
     set_parameter,
     set_parameters,
     set_ranges,
@@ -84,7 +91,7 @@ class TestState:
         assert state.weighting == "log"
         assert state.result is None
         assert state.model == ParrattModel()
-        assert state.optimizer == LmfitOptimizer("least_squares")
+        assert state.optimizers == (LmfitOptimizer("least_squares"),)
 
     def test_evolve(self) -> None:
         state = FitState().evolve(name="x")
@@ -133,17 +140,34 @@ class TestCommands:
         assert project.state.notes == ""
         assert not project.history.can_undo
 
-    def test_set_mirror_resets_result_and_keeps_model(self) -> None:
-        project = FitProject(
-            make_state().evolve(
-                model=KinematicModel(), result=FitResult(make_state().problem().parameters, None)
-            )
+    def test_set_mirror_keeps_saved_fits_and_model(self) -> None:
+        stored = StoredFit(
+            "fit 1", FitResult(make_state().problem().parameters, None), make_mirror()
         )
+        project = FitProject(make_state().evolve(model=KinematicModel(), results=(stored,)))
         project.execute(set_mirror(make_mirror(40.0), source="file.xstack: x"))
-        assert project.state.result is None
+        assert project.state.results == (stored,)
         assert project.state.mirror == make_mirror(40.0)
         assert project.state.model == KinematicModel()
         assert project.state.model_source == "file.xstack: x"
+
+    def test_set_mirror_without_source_keeps_source(self) -> None:
+        project = FitProject(make_state().evolve(model_source="a.xstack: run 1"))
+        project.execute(set_mirror(make_mirror(40.0)))
+        assert project.state.model_source == "a.xstack: run 1"
+
+    def test_set_coating(self) -> None:
+        project = make_project()
+        coating = SingleLayer.create(PT, t=25.0, name="thin")
+        project.execute(set_coating(coating))
+        assert project.state.mirror is not None
+        assert project.state.mirror.coating == coating
+        assert project.state.mirror.substrate == SI
+
+    def test_set_coating_without_mirror(self) -> None:
+        project = FitProject()
+        with pytest.raises(ValueError, match="no structure model"):
+            project.execute(set_coating(SingleLayer.create(PT)))
 
     def test_set_mirror_with_model(self) -> None:
         project = make_project()
@@ -163,7 +187,15 @@ class TestCommands:
     def test_set_optimizer(self) -> None:
         project = make_project()
         project.execute(set_optimizer(LmfitOptimizer("nelder", max_evaluations=50)))
-        assert project.state.optimizer == LmfitOptimizer("nelder", max_evaluations=50)
+        assert project.state.optimizers == (LmfitOptimizer("nelder", max_evaluations=50),)
+
+    def test_set_optimizers(self) -> None:
+        project = make_project()
+        stages = (LmfitOptimizer("nelder"), LmfitOptimizer("least_squares"))
+        project.execute(set_optimizers(stages))
+        assert project.state.optimizers == stages
+        with pytest.raises(ValueError, match="at least one"):
+            project.execute(set_optimizers(()))
 
     def test_noop_not_recorded(self) -> None:
         project = make_project()
@@ -391,6 +423,108 @@ class TestStoreResult:
         )
 
 
+class TestSavedFits:
+    def store(self, project: FitProject, t: float, name: str | None = None) -> FitResult:
+        result = FitResult(
+            project.state.problem().parameters.with_values({"t": t}), None, method="manual"
+        )
+        project.execute(store_result(result, name=name))
+        return result
+
+    def test_names_count_up(self) -> None:
+        project = make_project()
+        self.store(project, 35.0)
+        self.store(project, 36.0)
+        assert [f.name for f in project.state.results] == ["fit 1", "fit 2"]
+        assert project.state.result is project.state.results[-1].result
+
+    def test_name_skips_used_names(self) -> None:
+        project = make_project()
+        self.store(project, 35.0, name="fit 2")
+        self.store(project, 36.0)
+        assert [f.name for f in project.state.results] == ["fit 2", "fit 3"]
+
+    def test_duplicate_name_rejected(self) -> None:
+        project = make_project()
+        self.store(project, 35.0, name="best")
+        with pytest.raises(ValueError, match="already exists"):
+            self.store(project, 36.0, name="best")
+
+    def test_stored_fit_keeps_fitted_structure_and_model(self) -> None:
+        project = FitProject(make_state().evolve(model=KinematicModel()))
+        self.store(project, 35.0)
+        stored = project.state.stored("fit 1")
+        assert stored.mirror.parameters["t"].value == 35.0
+        assert stored.model == KinematicModel()
+
+    def test_apply_restores_structure_model_and_instrument(self) -> None:
+        project = make_project(scale=True)
+        parameters = project.state.problem().parameters.with_values({"t": 35.0, "a.scale": 1.5})
+        project.execute(store_result(FitResult(parameters, None)))
+        project.execute(set_parameter("t", value=20.0))
+        project.execute(set_parameter("a.scale", value=1.0))
+        project.execute(set_model(KinematicModel()))
+        project.execute(apply_fit("fit 1"))
+        state = project.state
+        assert state.mirror is not None
+        assert state.mirror.parameters["t"].value == 35.0
+        assert state.dataset("a").instrument.parameters["scale"].value == 1.5
+        assert state.model == ParrattModel()
+
+    def test_apply_restores_changed_coating(self) -> None:
+        project = make_project()
+        self.store(project, 35.0)
+        project.execute(set_coating(SingleLayer.create(PT, t=20.0, name="other")))
+        project.execute(apply_fit("fit 1"))
+        assert project.state.mirror is not None
+        assert project.state.mirror.coating.name == "layer"
+
+    def test_rename_and_remove(self) -> None:
+        project = make_project()
+        self.store(project, 35.0)
+        self.store(project, 36.0)
+        project.execute(rename_fit("fit 1", "first"))
+        assert [f.name for f in project.state.results] == ["first", "fit 2"]
+        with pytest.raises(ValueError, match="already exists"):
+            project.execute(rename_fit("first", "fit 2"))
+        with pytest.raises(ValueError, match="empty"):
+            project.execute(rename_fit("first", " "))
+        project.execute(remove_fit("first"))
+        assert [f.name for f in project.state.results] == ["fit 2"]
+        project.undo()
+        assert [f.name for f in project.state.results] == ["first", "fit 2"]
+
+    def test_unknown_saved_fit(self) -> None:
+        project = make_project()
+        for command in (apply_fit("x"), rename_fit("x", "y"), remove_fit("x")):
+            with pytest.raises(KeyError, match="unknown saved fit"):
+                project.execute(command)
+
+    def test_saved_fits_survive_save_and_load(self, tmp_path: Path) -> None:
+        project = make_project()
+        self.store(project, 35.0)
+        project.save(tmp_path / "p.xfit")
+        assert FitProject.load(tmp_path / "p.xfit").state.results == project.state.results
+
+
+class TestRunStages:
+    def test_two_stages_start_from_previous_best(self) -> None:
+        project = make_project(start=25.0)
+        project.execute(
+            set_optimizers(
+                (
+                    LmfitOptimizer("nelder", max_evaluations=10),
+                    LmfitOptimizer("least_squares"),
+                )
+            )
+        )
+        result = run_fit(project.state)
+        assert result.method == "nelder + least_squares"
+        assert result.parameters["t"].value == pytest.approx(30.0, abs=1e-3)
+        assert result.evaluations > 10
+        assert result.statistics is not None
+
+
 class TestRunFit:
     def test_fits_thickness(self) -> None:
         project = make_project(start=34.0)
@@ -451,7 +585,7 @@ class TestFiles:
         curve = MeasuredCurve("energy", [7000.0, 8000.0], [0.9, 0.8], angle=0.006, name="e")
         state = make_state().evolve(
             datasets=(Dataset.create("e", curve, offset=free(0.0, -5.0, 5.0)),),
-            optimizer=LmfitOptimizer("nelder", max_evaluations=10),
+            optimizers=(LmfitOptimizer("nelder", max_evaluations=10),),
             model=KinematicModel(),
             weighting="linear",
         )
@@ -470,3 +604,37 @@ class TestFiles:
         data["schema_version"] = SCHEMA_VERSION + 1
         with pytest.raises(ValueError, match="version"):
             FitProject.from_data(data)
+
+
+class TestRenameDataset:
+    def test_rename_updates_expressions(self) -> None:
+        state = make_state()
+        b = Dataset.create("b", make_curve())
+        b = b.with_parameters(b.parameters.replace("b.offset", expr="a.offset"))
+        project = FitProject(state.evolve(datasets=(*state.datasets, b)))
+        project.execute(rename_dataset("a", "cu"))
+        names = [d.name for d in project.state.datasets]
+        assert names == ["cu", "b"]
+        assert project.state.dataset("b").parameters["b.offset"].expr == "cu.offset"
+        assert "cu.scale" in project.state.problem().parameters
+
+    def test_rename_keeps_unrelated_names(self) -> None:
+        state = make_state()
+        b = Dataset.create("b", make_curve())
+        b = b.with_parameters(b.parameters.replace("b.offset", expr="aa.offset + a.offset"))
+        aa = Dataset.create("aa", make_curve())
+        project = FitProject(state.evolve(datasets=(*state.datasets, aa, b)))
+        project.execute(rename_dataset("a", "x"))
+        assert project.state.dataset("b").parameters["b.offset"].expr == "aa.offset + x.offset"
+
+    def test_rename_errors(self) -> None:
+        state = make_state()
+        project = FitProject(
+            state.evolve(datasets=(*state.datasets, Dataset.create("b", make_curve())))
+        )
+        with pytest.raises(ValueError, match="already exists"):
+            project.execute(rename_dataset("a", "b"))
+        with pytest.raises(KeyError):
+            project.execute(rename_dataset("zz", "c"))
+        with pytest.raises(ValueError):
+            project.execute(rename_dataset("a", "1x"))

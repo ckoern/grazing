@@ -20,6 +20,7 @@ xstack = "xstack.__main__:main"
 
 [project.gui-scripts]
 xstack-design = "xstack.gui.design.app:main"
+xstack-fit = "xstack.gui.fit.app:main"
 
 [project.entry-points."xstack.plugins"]
 design = "xstack.design.plugin"

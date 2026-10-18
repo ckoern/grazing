@@ -17,7 +17,8 @@ Examples:
     ('t', 'scan.scale')
 """
 
-from collections.abc import Iterable
+import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -30,7 +31,7 @@ from xstack.core.optim.optimizers import LmfitOptimizer, Optimizer
 from xstack.core.parameters import ParameterSet
 from xstack.core.physics.models import ParrattModel, ReflectivityModel
 from xstack.core.serialization import register_serializable
-from xstack.core.structure.coating import Mirror
+from xstack.core.structure.coating import Coating, Mirror
 from xstack.fit.dataset import Dataset, Interval
 from xstack.fit.problem import FitProblem, Weighting
 from xstack.fit.results import FitResult
@@ -41,16 +42,23 @@ __all__ = [
     "Command",
     "FitProject",
     "FitState",
+    "StoredFit",
     "add_dataset",
+    "apply_fit",
     "import_model",
     "remove_dataset",
+    "remove_fit",
+    "rename_dataset",
+    "rename_fit",
     "rename_project",
     "replace_dataset",
     "run_fit",
+    "set_coating",
     "set_mirror",
     "set_model",
     "set_notes",
     "set_optimizer",
+    "set_optimizers",
     "set_parameter",
     "set_parameters",
     "set_ranges",
@@ -66,6 +74,28 @@ FILE_SUFFIX = ".xfit"
 
 
 @dataclass(frozen=True)
+class StoredFit:
+    """A saved fit: its result together with the structure it was obtained with.
+
+    Attributes:
+        name: Unique name within the project, e.g. ``"fit 3"``.
+        result: The fit result (all fit parameters with best values, statistics).
+        mirror: The structure with the best-fit values.
+        model: The reflectivity model of the fit.
+        notes: Free-form notes.
+    """
+
+    name: str
+    result: FitResult
+    mirror: Mirror
+    model: ReflectivityModel = field(default_factory=ParrattModel)
+    notes: str = ""
+
+
+register_serializable("StoredFit", StoredFit)
+
+
+@dataclass(frozen=True)
 class FitState:
     """Complete, immutable description of a fit project.
 
@@ -75,8 +105,9 @@ class FitState:
         model: Reflectivity model.
         datasets: The measured curves with instruments and point selections.
         weighting: Residual weighting, see `xstack.fit.problem`.
-        optimizer: Optimizer used by `run_fit`.
-        result: The last fit result, or ``None``.
+        optimizers: Stages of `run_fit`, run in order; each starts from the best values of the
+            previous one (e.g. a global search followed by a least-squares refinement).
+        results: Saved fits, oldest first.
         model_source: Where the structure model comes from, e.g. ``"mirror.xstack: input
             design"``.
         notes: Free-form notes.
@@ -87,8 +118,8 @@ class FitState:
     model: ReflectivityModel = field(default_factory=ParrattModel)
     datasets: tuple[Dataset, ...] = ()
     weighting: Weighting = "log"
-    optimizer: Optimizer = field(default_factory=lambda: LmfitOptimizer("least_squares"))
-    result: FitResult | None = None
+    optimizers: tuple[Optimizer, ...] = (LmfitOptimizer("least_squares"),)
+    results: tuple[StoredFit, ...] = ()
     model_source: str = ""
     notes: str = ""
 
@@ -102,6 +133,28 @@ class FitState:
             The modified state.
         """
         return replace(self, **changes)
+
+    @property
+    def result(self) -> FitResult | None:
+        """The result of the most recently saved fit, or ``None``."""
+        return self.results[-1].result if self.results else None
+
+    def stored(self, name: str) -> StoredFit:
+        """Return a saved fit by name.
+
+        Args:
+            name: Name of the saved fit.
+
+        Returns:
+            The saved fit.
+
+        Raises:
+            KeyError: If there is no saved fit with this name.
+        """
+        for fit in self.results:
+            if fit.name == name:
+                return fit
+        raise KeyError(f"unknown saved fit {name!r}")
 
     def problem(self) -> FitProblem:
         """Return the fit problem described by this state.
@@ -197,13 +250,15 @@ def set_notes(notes: str) -> Command:
     return Command("Edit notes", lambda s: s.evolve(notes=notes), merge_key="notes")
 
 
-def set_mirror(mirror: Mirror, model: ReflectivityModel | None = None, source: str = "") -> Command:
-    """Replace the structure model.
+def set_mirror(
+    mirror: Mirror, model: ReflectivityModel | None = None, source: str | None = None
+) -> Command:
+    """Replace the structure model (coating, substrate, substrate roughness).
 
     Args:
         mirror: The new mirror.
         model: Reflectivity model to use with it, or ``None`` to keep the current one.
-        source: Where the mirror comes from.
+        source: Where the mirror comes from, or ``None`` to keep the current description.
 
     Returns:
         The command.
@@ -211,10 +266,28 @@ def set_mirror(mirror: Mirror, model: ReflectivityModel | None = None, source: s
 
     def transform(state: FitState) -> FitState:
         return state.evolve(
-            mirror=mirror, model=model or state.model, model_source=source, result=None
+            mirror=mirror,
+            model=model or state.model,
+            model_source=state.model_source if source is None else source,
         )
 
     return Command(f"Set structure model{f' from {source}' if source else ''}", transform)
+
+
+def set_coating(coating: Coating) -> Command:
+    """Replace the coating of the structure model.
+
+    Args:
+        coating: The new coating.
+
+    Returns:
+        The command.
+    """
+
+    def transform(state: FitState) -> FitState:
+        return state.evolve(mirror=_require_mirror(state).with_coating(coating))
+
+    return Command(f"Set coating {coating.name!r}", transform)
 
 
 def import_model(path: Path | str, name: str | None = None) -> Command:
@@ -272,15 +345,34 @@ def set_weighting(weighting: Weighting) -> Command:
 
 
 def set_optimizer(optimizer: Optimizer) -> Command:
-    """Replace the optimizer.
+    """Use a single optimizer for fits.
 
     Args:
-        optimizer: The new optimizer.
+        optimizer: The optimizer.
 
     Returns:
         The command.
     """
-    return Command("Set optimizer", lambda s: s.evolve(optimizer=optimizer))
+    return set_optimizers((optimizer,))
+
+
+def set_optimizers(optimizers: Sequence[Optimizer]) -> Command:
+    """Replace the stages of fits.
+
+    Args:
+        optimizers: The optimizers, run in order; at least one.
+
+    Returns:
+        The command.
+    """
+    stages = tuple(optimizers)
+
+    def transform(state: FitState) -> FitState:
+        if not stages:
+            raise ValueError("a fit needs at least one optimizer")
+        return state.evolve(optimizers=stages)
+
+    return Command("Set optimizer", transform)
 
 
 def add_dataset(dataset: Dataset) -> Command:
@@ -318,6 +410,44 @@ def remove_dataset(name: str) -> Command:
         return state.evolve(datasets=tuple(d for d in state.datasets if d.name != name))
 
     return Command(f"Remove dataset {name!r}", transform)
+
+
+def _rename_in_expressions(parameters: ParameterSet, old: str, new: str) -> ParameterSet:
+    pattern = re.compile(rf"(?<![\w.]){re.escape(old)}\.")
+    return ParameterSet(
+        p.evolve(expr=pattern.sub(f"{new}.", p.expr)) if p.expr is not None else p
+        for p in parameters.values()
+    )
+
+
+def rename_dataset(name: str, new_name: str) -> Command:
+    """Rename a dataset and its instrument parameters.
+
+    Parameter expressions of all datasets that refer to the renamed parameters are updated.
+
+    Args:
+        name: Current dataset name.
+        new_name: New name, a Python identifier not used by another dataset.
+
+    Returns:
+        The command.
+    """
+
+    def transform(state: FitState) -> FitState:
+        state.dataset(name)
+        if new_name != name and any(d.name == new_name for d in state.datasets):
+            raise ValueError(f"a dataset named {new_name!r} already exists")
+        datasets = []
+        for dataset in state.datasets:
+            instrument = dataset.instrument
+            parameters = _rename_in_expressions(instrument.parameters, name, new_name)
+            dataset = replace(dataset, instrument=instrument.with_parameters(parameters))
+            if dataset.name == name:
+                dataset = replace(dataset, name=new_name)
+            datasets.append(dataset)
+        return state.evolve(datasets=tuple(datasets))
+
+    return Command(f"Rename dataset {name!r} to {new_name!r}", transform)
 
 
 def replace_dataset(dataset: Dataset, description: str = "") -> Command:
@@ -411,24 +541,104 @@ def set_parameters(parameters: ParameterSet, description: str = "Set parameters"
     return Command(description, transform)
 
 
-def store_result(result: FitResult, apply: bool = True) -> Command:
-    """Store a fit result.
+def _unique_fit_name(state: FitState) -> str:
+    used = {fit.name for fit in state.results}
+    n = len(state.results) + 1
+    while f"fit {n}" in used:
+        n += 1
+    return f"fit {n}"
+
+
+def store_result(result: FitResult, apply: bool = True, name: str | None = None) -> Command:
+    """Save a fit result in the project.
 
     Args:
         result: The result.
         apply: Also set the parameter values to the best fit.
+        name: Name of the saved fit, or ``None`` for ``"fit N"``.
 
     Returns:
         The command.
     """
 
     def transform(state: FitState) -> FitState:
+        if name is not None and any(fit.name == name for fit in state.results):
+            raise ValueError(f"a saved fit named {name!r} already exists")
+        fitted = state.problem().with_parameters(result.parameters)
+        stored = StoredFit(name or _unique_fit_name(state), result, fitted.mirror, state.model)
         if apply:
-            problem = state.problem().with_parameters(result.parameters)
-            state = state.evolve(mirror=problem.mirror, datasets=problem.datasets)
-        return state.evolve(result=result)
+            state = state.evolve(mirror=fitted.mirror, datasets=fitted.datasets)
+        return state.evolve(results=(*state.results, stored))
 
-    return Command(f"Store fit result ({result.method})", transform)
+    return Command(f"Save fit result ({result.method})", transform)
+
+
+def apply_fit(name: str) -> Command:
+    """Restore the structure, model and parameters of a saved fit.
+
+    Instrument parameters are restored for the datasets that still exist.
+
+    Args:
+        name: Name of the saved fit.
+
+    Returns:
+        The command.
+    """
+
+    def transform(state: FitState) -> FitState:
+        fit = state.stored(name)
+        saved = fit.result.parameters
+        datasets = []
+        for dataset in state.datasets:
+            names = [n for n in dataset.parameters if n in saved]
+            if names:
+                current = dataset.parameters
+                parameters = ParameterSet(saved[n] if n in saved else current[n] for n in current)
+                dataset = dataset.with_parameters(parameters)
+            datasets.append(dataset)
+        return state.evolve(mirror=fit.mirror, model=fit.model, datasets=tuple(datasets))
+
+    return Command(f"Apply saved fit {name!r}", transform)
+
+
+def rename_fit(name: str, new_name: str) -> Command:
+    """Rename a saved fit.
+
+    Args:
+        name: Current name.
+        new_name: New, unique, non-empty name.
+
+    Returns:
+        The command.
+    """
+
+    def transform(state: FitState) -> FitState:
+        fit = state.stored(name)
+        if not new_name.strip():
+            raise ValueError("the name must not be empty")
+        if new_name != name and any(f.name == new_name for f in state.results):
+            raise ValueError(f"a saved fit named {new_name!r} already exists")
+        renamed = replace(fit, name=new_name)
+        return state.evolve(results=tuple(renamed if f is fit else f for f in state.results))
+
+    return Command(f"Rename saved fit {name!r} to {new_name!r}", transform)
+
+
+def remove_fit(name: str) -> Command:
+    """Delete a saved fit.
+
+    Args:
+        name: Name of the saved fit.
+
+    Returns:
+        The command.
+    """
+
+    def transform(state: FitState) -> FitState:
+        state.stored(name)
+        return state.evolve(results=tuple(f for f in state.results if f.name != name))
+
+    return Command(f"Delete saved fit {name!r}", transform)
 
 
 def run_fit(
@@ -436,9 +646,12 @@ def run_fit(
     events: EventSink | None = None,
     cancel: CancellationToken | None = None,
 ) -> FitResult:
-    """Run the optimizer of a state and analyze the result.
+    """Run the optimizers of a state in order and analyze the result.
 
-    The state is not changed; pass the result to `store_result`.
+    Each stage starts from the best values of the previous one. The result's evaluations and
+    time are summed over the stages, its method lists the stages, and its message is the last
+    stage's. A cancelled stage ends the fit. The state is not changed; pass the result to
+    `store_result`.
 
     Args:
         state: The fit state.
@@ -452,4 +665,15 @@ def run_fit(
         ValueError: If the state does not describe a fit, or nothing is free.
     """
     problem = state.problem()
-    return FitResult.from_optimization(problem, state.optimizer.run(problem, None, events, cancel))
+    parameters = problem.parameters
+    evaluations, elapsed, methods = 0, 0.0, []
+    for optimizer in state.optimizers:
+        stage = optimizer.run(problem, parameters, events, cancel)
+        parameters = stage.parameters
+        evaluations += stage.evaluations
+        elapsed += stage.elapsed
+        methods.append(stage.method)
+        if stage.cancelled:
+            break
+    result = FitResult.from_optimization(problem, stage)
+    return replace(result, method=" + ".join(methods), evaluations=evaluations, elapsed=elapsed)

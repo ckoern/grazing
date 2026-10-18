@@ -28,6 +28,8 @@ FORBIDDEN = {
     "design": ("xstack.fit", "xstack.gui", "PySide6", "pyqtgraph"),
     "fit": ("xstack.design", "xstack.gui", "PySide6", "pyqtgraph"),
     "gui/common": ("xstack.design", "xstack.fit", "xstack.gui.design", "xstack.gui.fit"),
+    "gui/fit": ("xstack.design", "xstack.gui.design"),
+    "gui/design": ("xstack.fit", "xstack.gui.fit"),
 }
 """Imports that a subpackage must not use: core ← design, core ← fit, both ← gui; the shared
 GUI components don't depend on an application."""

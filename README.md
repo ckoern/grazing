@@ -53,6 +53,9 @@ or `python -m xstack.gui.design`. Start the fit GUI:
 xstack-fit [project.xfit]
 ```
 
+In both applications, *File > New…* opens a wizard for the project name, location and starting
+structure (coating type, materials, top layer, substrate).
+
 or `python -m xstack.gui.fit`. To try it, import the synthetic measurements in `examples/data/`
 (a W/Si multilayer measured at Cu Kα and Mo Kα; true parameters in the file headers) with
 *Add data…*.

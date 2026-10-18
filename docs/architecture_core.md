@@ -86,6 +86,8 @@ src/xstack/
         periodic.py         # Periodic: N × (H, L [, interlayers])
         graded.py           # DepthGraded, grading laws (PowerLaw, LinearLaw), grading_laws registry
         composite.py        # Composite: ordered blocks with name prefixes
+      presets.py            # StructureChoice, build_mirror: starting structures by kind and materials,
+                            #   COATING_KINDS, MATERIAL_PAIRS
     io/
       __init__.py           # exports readers, parsers and reflectivity export
       files.py              # FileHandler protocol, handler_for(registry, path): choice by suffix

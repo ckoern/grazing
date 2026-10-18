@@ -243,8 +243,8 @@ class KinematicModel:
 
     The reflection amplitude is the sum of the reflection amplitudes of all interfaces,
     each with the phase accumulated on the way down and up again; multiple reflections are
-    neglected. The intensity is computed as tanh²(|r|), which equals |r|² for weak reflection
-    and reproduces the peak reflectivity of a non-absorbing periodic multilayer.
+    neglected. The intensity is computed as ``tanh²(|r|)``, which equals ``|r|²`` for weak
+    reflection and reproduces the peak reflectivity of a non-absorbing periodic multilayer.
 
     Attributes:
         refraction: Include refraction. If False, waves propagate with the vacuum wavevector

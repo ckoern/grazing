@@ -14,11 +14,12 @@ mirrors (`xstack-design`) and fitting measured reflectivity (`xstack-fit`).
 
 ## Environment
 - Use the conda environment `xstack` (Python 3.12): `conda run -n xstack <cmd>` or `conda activate xstack`.
-- Install the package in editable mode: `pip install -e ".[dev,gui]"`. Install additional packages with pip.
+- Install the package in editable mode: `pip install -e ".[dev,gui,docs]"`. Install additional packages with pip.
 - Run checks before committing:
   - `pytest`
   - `ruff check src tests` and `ruff format --check src tests`
   - `mypy`
+  - `sphinx-build -W --keep-going -b html docs docs/_build/html` when docs or docstrings change
 
 ## Code style
 - Target Python 3.12. Use type hints everywhere. Everything except `xstack.gui` passes `mypy --strict`.

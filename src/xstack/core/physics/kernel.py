@@ -44,7 +44,7 @@ class KernelResult:
         r: Complex reflection amplitude, shape (P,).
         t: Complex transmission amplitude into the substrate, referenced to the top of the
             substrate, shape (P,). For p polarization it refers to the magnetic field.
-        reflectance: Reflected intensity fraction |r|², shape (P,).
+        reflectance: Reflected intensity fraction ``|r|²``, shape (P,).
         transmittance: Fraction of the incident energy flux transmitted into the substrate,
             shape (P,).
     """

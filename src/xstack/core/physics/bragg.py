@@ -149,7 +149,7 @@ def extinction_bilayers(
 
     Each interface reflects with amplitude ≈ Δn / (2·sin²θ), with the index contrast
     Δn = (δ_H − δ_L) − i(β_H − β_L). The two interfaces of one period add up at the m-th
-    Bragg condition to |r_1| ≈ |Δn|·|sin(πmΓ)| / sin²θ. Its inverse estimates the number of
+    Bragg condition to ``|r_1| ≈ |Δn|·|sin(πmΓ)| / sin²θ``. Its inverse estimates the number of
     periods that interact with the beam.
 
     Args:

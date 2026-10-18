@@ -31,6 +31,12 @@ gui = [
     "pyqtgraph>=0.13",
     "matplotlib>=3.8",
 ]
+docs = [
+    "sphinx>=7.3",
+    "myst-parser>=3",
+    "furo>=2024.5",
+    "sphinx-copybutton>=0.5",
+]
 dev = [
     "pytest>=8",
     "pytest-benchmark>=5",

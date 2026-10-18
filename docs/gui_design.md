@@ -53,9 +53,21 @@ The window opens on the Coating step.
 
 The toolbar holds New, Open, Save, Undo, Redo, Run pipeline and Stop. Undo and Redo are icon-only
 buttons; Run pipeline is the highlighted primary action. The toolbar icons are line icons drawn from SVG.
-The menus are File (New project from templates, Open, Open recent, Save, Save as, Rename project…, Quit), Edit (Undo,
+The menus are File (New…, New from template, Open, Open recent, Save, Save as, Rename project…, Quit), Edit (Undo,
 Redo), Run (Run pipeline, Stop) and View (Theme: Light, Dark, System; toggles for the Candidates,
 Journal and History docks).
+
+**New project wizard** (*File > New…*, toolbar *New*; shared by both applications,
+`gui.common.wizard.ProjectWizard`): page *Project* asks for the name and the save location (*Save
+the project now*; without a location the project stays unsaved); page *Coating* for the coating type
+(single layer, individual layers, periodic multilayer, depth-graded multilayer with linear or
+power-law grading), the materials (one material; the layers from the top; or absorber and spacer
+with a *Material combination* such as W/Si, Pt/C, Ir/B4C, Ir/C), the top layer of the bilayers and
+the substrate; page *Summary* lists the choices. *Create* builds the structure with
+`xstack.core.structure.presets.build_mirror`. The design application takes targets, figure of merit
+and constraints from the matching template (single layer and individual layers: single-layer
+template; periodic; depth-graded); everything stays editable. *New from template* creates a project
+from a template directly.
 
 ### 2.1 Left dock: Candidates
 
@@ -246,6 +258,7 @@ src/xstack/gui/
     materials.py         # MaterialsPage, MaterialDialog
     parameter_table.py   # ParameterTableModel, ParameterTable (optional display units)
     profile.py           # LayerProfilePlot, bilayer_profile
+    wizard.py            # ProjectWizard, ProjectSetup: the new-project wizard
     journal_view.py      # JournalView
     forms.py             # DataclassForm: editor generated from dataclass fields
     files.py             # ask_save_path, with_suffix: save dialogs that append the file extension
@@ -338,6 +351,8 @@ journal, background jobs and file handling are the same as in the design applica
  Status bar:  χ²_red · fitted of total points · free parameters · ⚠ problems      [progress]
 ```
 
+- **New project**: the project wizard (section 2) creates a fit project with the chosen structure
+  and no data; *File > New from template* uses the fit templates.
 - **Datasets dock**: one entry per dataset with its plot color, photon energy (or angle) and fitted
   points. The check box includes the dataset in the fit; the selected dataset is edited on the Data page
   and its ranges are shaded in the plot. *Remove* deletes the dataset. *Add data…* (also in the File

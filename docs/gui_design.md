@@ -53,7 +53,7 @@ The window opens on the Coating step.
 
 The toolbar holds New, Open, Save, Undo, Redo, Run pipeline and Stop. Undo and Redo are icon-only
 buttons; Run pipeline is the highlighted primary action. The toolbar icons are line icons drawn from SVG.
-The menus are File (New project from templates, Open, Open recent, Save, Save as, Quit), Edit (Undo,
+The menus are File (New project from templates, Open, Open recent, Save, Save as, Rename project…, Quit), Edit (Undo,
 Redo), Run (Run pipeline, Stop) and View (Theme: Light, Dark, System; toggles for the Candidates,
 Journal and History docks).
 
@@ -276,7 +276,9 @@ src/xstack/gui/
       analyze.py           # AnalyzePage: error model, tolerance analysis, recipe export
     widgets/
       __init__.py
+      candidate_dialog.py  # CandidateDialog: parameters of one stored candidate
       design_comparison.py # DesignComparisonView: Parameters tab (selected candidate vs input design)
+      journal_view.py      # re-exports gui.common.journal_view.JournalView
       parameter_table.py   # ParameterTable with design commands
       tolerance_view.py    # ToleranceView: Tolerance tab (histogram and sample reflectivity)
   fit/                   # the fit application (section 5)
@@ -322,7 +324,7 @@ importing a design from `xstack-design` is an optional shortcut. The window fram
 journal, background jobs and file handling are the same as in the design application.
 
 ```
- Menu      File  Edit  Fit  View
+ Menu      File  Edit  Fit  View   (Fit: Run fit, Run local refinement, Stop)
  Toolbar   [New] [Open] [Save] | (undo) (redo) | [Run fit] [Stop]
  +-------------+-------------------------------------+-------------------------------------+
  | Datasets    | project name                        | [Reflectivity][Correlations]        |
@@ -338,12 +340,14 @@ journal, background jobs and file handling are the same as in the design applica
 
 - **Datasets dock**: one entry per dataset with its plot color, photon energy (or angle) and fitted
   points. The check box includes the dataset in the fit; the selected dataset is edited on the Data page
-  and its ranges are shaded in the plot. *Add data…* opens the import dialog (file, columns, quantity
+  and its ranges are shaded in the plot. *Remove* deletes the dataset. *Add data…* (also in the File
+  menu) opens the import dialog (file, columns, quantity
   and unit of x, photon energy with presets, polarization, percent, preview of the values read; a
   photon energy or wavelength stated in the file's comment lines is taken over);
   xstack reflectivity exports are read without settings, one dataset per target.
 - **Data**: settings of the selected dataset (name, included, energy or angle, polarization, weight) and
-  its fit ranges and excluded ranges, with the number of points in each. In the reflectivity plot,
+  its fit ranges and excluded ranges, with the number of points in each (*Add fit range*, *Add excluded
+  range*, *Remove*, *Fit all points*) and the buttons *Add data…* and *Remove dataset*. In the reflectivity plot,
   Shift-drag adds a fit range, Ctrl-drag an excluded range, also on top of existing ranges;
   a drag without modifier moves a shaded range or its edges.
 - **Structure**: the shared coating page (coating type, options, layers, substrate roughness), a start
@@ -355,7 +359,8 @@ journal, background jobs and file handling are the same as in the design applica
   instrument parameter of all datasets to one dataset with expressions.
 - **Fit**: residual weighting (χ², logarithmic, linear) and the optimizer stages (local refinement,
   global search then refinement, or custom stages). *Run fit* runs in the background with a live preview
-  and convergence plot; *Stop* keeps the best values so far.
+  and convergence plot; *Run local refinement only* refines from the current values; *Stop* keeps the
+  best values so far.
 - **Results**: the saved fits. Every fit is saved as “fit N” in the project and its values are applied.
   Saved fits can be renamed, deleted and applied again (restoring structure, model and parameters). The
   page shows χ²_red (or objective per degree of freedom), values with uncertainties, notes (*at bound*,

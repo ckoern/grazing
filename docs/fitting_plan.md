@@ -3,6 +3,8 @@
 Goal: a second application, `xstack-fit`, that fits measured reflectivity curves with the
 existing physics, structure and parameter machinery. The current GUI becomes `xstack-design`.
 
+Status: phases 1–4 are done (version 0.2.0). Phase 5 is open.
+
 ## Decisions
 - **Branching:** all work happens on `feature/fitting`. Every phase is a PR into that branch.
   When all phases are done, `feature/fitting` is merged into `main` together with the version
@@ -23,6 +25,7 @@ existing physics, structure and parameter machinery. The current GUI becomes `xs
   in the first version.
 
 ## Phases
+Phases 1–4 are implemented.
 1. **Package restructure (no behavior change).** Move modules into `core`, `design` and
    `gui.{common,design}`, update imports, docs and tests. Entry points `xstack-design` and
    `xstack-fit`; CLI subcommands grouped under `xstack design …` and `xstack fit …`.

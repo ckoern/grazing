@@ -26,7 +26,8 @@ mirrors (`xstack-design`) and fitting measured reflectivity (`xstack-fit`).
 - Package layers: `xstack.core` (shared physics, structure, parameters, serialization) ←
   `xstack.design` and `xstack.fit` ← `xstack.gui` (`gui.common`, `gui.design`, `gui.fit`). Lower
   layers never import higher ones, and design and fit never import each other, so that each can be
-  installed without the other. They cooperate through registries filled from entry points (e.g.
+  installed without the other; `gui.common` imports neither application and `gui.design` and
+  `gui.fit` don't import each other. They cooperate through registries filled from entry points (e.g.
   design provides the reader of `.xstack` files as a model source for fit).
   `tests/test_package.py` checks the layering. Only `xstack.gui` imports Qt.
 - Use numpy for numerics and lmfit for optimization.

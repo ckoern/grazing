@@ -2,6 +2,8 @@
 
 xstack shall be a software and library that can be used to design x-ray multi-layer mirrors, both with fixed d-spacing and depth graded designs
 
+xstack consists of a shared core library and two applications: a design tool (`xstack-design`) and a fitting tool (`xstack-fit`) that fits measured reflectivity curves with the same physics and structure models.
+
 Every feature shall be accessible both as a library and in the GUI.
 
 The goal is to step-by-step optimize the design of a multi-layer, taking manufacturability into account.
@@ -27,3 +29,5 @@ The GUI shall be written in PySide6. Calculations shall be done using numpy. lmf
 On top of this, it shall also be possible to perform a coupled optimization of several coatings. For this, instead of defining one main goal, several inputs are given. E.g. fixed target energy range but 5 different fixed angles. Each angle input is given a relative weight. The overall reflectivity is then the weighted average of each of the fixed angles. This should also work for a fixed energy and several angle ranges.
 
 The GUI shall support saving and loading a project and keep a journal of actions and a history to support undo and redo.
+
+The fitting tool shall fit a model of the coating (the same coatings, materials and parameters as in the design) to measured reflectivity curves, including instrument parameters such as intensity scale, background, angle offset and resolution. Several datasets (e.g. different energies) shall be fitted simultaneously with shared parameters. The result shall contain parameter uncertainties and correlations. The design tool and the fitting tool shall be installable independently of each other, and they shall be usable from the command line as well as from their GUIs.

@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from xstack.core.parameters import Parameter
 from xstack.fit.project import FitState, StoredFit, apply_fit, remove_fit, rename_fit
 from xstack.fit.report import display_value, format_result
+from xstack.fit.results import STRONG_CORRELATION
 from xstack.gui.common.files import ask_save_path
 from xstack.gui.fit.preview import FitPreview
 from xstack.gui.fit.steps.base import StepPage
@@ -138,7 +139,7 @@ class ResultsPage(StepPage):
         self.table.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(self.table, 1)
 
-        self.correlation_group = QGroupBox("Strong correlations (|r| ≥ 0.8)")
+        self.correlation_group = QGroupBox(f"Strong correlations (|r| ≥ {STRONG_CORRELATION:g})")
         corr_box = QVBoxLayout(self.correlation_group)
         self.correlation_list = QListWidget()
         self.correlation_list.setObjectName("correlations")
@@ -372,7 +373,7 @@ class ResultsPage(StepPage):
         if stats is not None:
             for name, value, error in zip(stats.names, stats.values, stats.errors, strict=True):
                 self._add_row(fit, name, value, error, current.get(name))
-            pairs = stats.strong_correlations(0.8)
+            pairs = stats.strong_correlations()
             for a, b, c in pairs:
                 self.correlation_list.addItem(f"{a}  ↔  {b}:   r = {c:+.3f}")
             if not pairs:

@@ -13,3 +13,5 @@ dist/
 .vscode/
 .idea/
 *.xstack.autosave
+docs/_build/
+docs/api/generated/

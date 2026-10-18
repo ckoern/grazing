@@ -1,7 +1,7 @@
 """Editable table of parameters whose edits are emitted as commands."""
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, Qt, Signal
@@ -56,19 +56,26 @@ class ParameterTableModel(QAbstractTableModel):
     ) -> None:
         super().__init__(parent)
         self._params = ParameterSet()
+        self._evaluated: dict[str, float] = {}
         self._set_parameter = set_parameter
         self._display = display or (lambda p: (1.0, p.unit))
 
-    def set_parameters(self, params: ParameterSet) -> None:
+    def set_parameters(
+        self, params: ParameterSet, evaluated: Mapping[str, float] | None = None
+    ) -> None:
         """Show a parameter set.
 
         Args:
             params: The parameters.
+            evaluated: Values of the parameters with expressions evaluated, shown for parameters
+                that follow an expression; ``None`` shows their stored values.
         """
-        if params == self._params:
+        evaluated = dict(evaluated or {})
+        if params == self._params and evaluated == self._evaluated:
             return
         same_names = list(params) == list(self._params)
         self._params = params
+        self._evaluated = evaluated
         if same_names and len(params):
             self.dataChanged.emit(self.index(0, 0), self.index(len(params) - 1, len(_COLUMNS) - 1))
         else:
@@ -124,7 +131,8 @@ class ParameterTableModel(QAbstractTableModel):
             return p.name
         factor, unit = self._display(p)
         if column == _VALUE:
-            return _format(p.value * factor, p.integer)
+            value = self._evaluated.get(p.name, p.value) if p.expr is not None else p.value
+            return _format(value * factor, p.integer)
         if column == _UNIT:
             return unit
         if column == _MIN:
@@ -214,10 +222,13 @@ class ParameterTable(QTableView):
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.verticalHeader().setDefaultSectionSize(28)
 
-    def set_parameters(self, params: ParameterSet) -> None:
+    def set_parameters(
+        self, params: ParameterSet, evaluated: Mapping[str, float] | None = None
+    ) -> None:
         """Show a parameter set.
 
         Args:
             params: The parameters.
+            evaluated: Values with expressions evaluated, see `ParameterTableModel`.
         """
-        self.table_model.set_parameters(params)
+        self.table_model.set_parameters(params, evaluated)

@@ -424,7 +424,7 @@ class MainWindow(QMainWindow):
         c.journalChanged.connect(self._on_journal_changed)
         c.fileChanged.connect(self._on_file_changed)
         c.errorOccurred.connect(self._show_error)
-        c.undo_stack.cleanChanged.connect(self._on_file_changed)
+        c.undo_stack.cleanChanged.connect(self._on_clean_changed)
         for page in self.pages.values():
             page.commandRequested.connect(c.execute)
             page.errorOccurred.connect(self._show_error)
@@ -675,7 +675,11 @@ class MainWindow(QMainWindow):
             f"{event.best_objective:.5g}"
         )
 
-    def _on_file_changed(self, _value: object) -> None:
+    def _on_file_changed(self, _path: object) -> None:
+        self.name_edit.setText(self.controller.state.name)
+        self._update_title()
+
+    def _on_clean_changed(self, _clean: bool) -> None:
         self._update_title()
 
     def _job_finished(self, name: str) -> None:

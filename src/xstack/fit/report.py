@@ -8,7 +8,7 @@ import math
 
 from xstack.core.parameters import Parameter, ParameterSet
 from xstack.core.units import to_deg
-from xstack.fit.results import FitResult
+from xstack.fit.results import STRONG_CORRELATION, FitResult
 
 __all__ = ["display_value", "format_parameters", "format_result"]
 
@@ -47,13 +47,18 @@ def format_parameters(parameters: ParameterSet, result: FitResult | None = None)
         result: Fit result providing uncertainties of free parameters, or ``None``.
 
     Returns:
-        One line per parameter: name, value ± uncertainty, unit and state.
+        One line per parameter: name, value ± uncertainty, unit and state. Parameters with an
+        expression show the evaluated value.
     """
     stats = result.statistics if result is not None else None
     width = max((len(n) for n in parameters), default=0)
+    try:
+        evaluated = parameters.evaluate()
+    except ValueError:
+        evaluated = parameters.value_dict()
     lines = []
     for name, p in parameters.items():
-        value, unit = display_value(p)
+        value, unit = display_value(p, evaluated[name])
         text = f"{value:.6g}"
         if stats is not None and name in stats.names:
             error = stats.error(name)
@@ -65,7 +70,7 @@ def format_parameters(parameters: ParameterSet, result: FitResult | None = None)
     return "\n".join(lines)
 
 
-def format_result(result: FitResult, correlation_threshold: float = 0.8) -> str:
+def format_result(result: FitResult, correlation_threshold: float = STRONG_CORRELATION) -> str:
     """Format the summary of a fit result.
 
     Args:

@@ -371,7 +371,11 @@ class CoatingPage(StepPage):
             self.layers_box.setVisible(isinstance(coating, NLayer))
             if isinstance(coating, NLayer):
                 self._show_layers(coating)
-            self.parameter_table.set_parameters(coating.parameters)
+            try:
+                evaluated = coating.parameters.evaluate()
+            except ValueError:
+                evaluated = {}
+            self.parameter_table.set_parameters(coating.parameters, evaluated)
         self._loading = False
 
     def _show_layers(self, coating: NLayer) -> None:

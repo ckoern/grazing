@@ -154,7 +154,7 @@ class ParametersPage(StepPage):
             parameters = state.problem().parameters
         except ValueError:
             parameters = state.mirror.parameters if state.mirror is not None else ParameterSet()
-        self.parameter_table.set_parameters(parameters)
+        self.parameter_table.set_parameters(parameters, _evaluated(parameters))
         self.free_label.setText(f"{len(parameters.free_names())} free parameters")
         names = [d.name for d in state.datasets]
         if names != [self.reference_combo.itemText(i) for i in range(self.reference_combo.count())]:
@@ -201,3 +201,11 @@ class ParametersPage(StepPage):
         }
         if values:
             self.commandRequested.emit(unshare_command(parameter, values))
+
+
+def _evaluated(parameters: ParameterSet) -> dict[str, float]:
+    """Return all values with expressions evaluated, or an empty mapping if that fails."""
+    try:
+        return parameters.evaluate()
+    except ValueError:
+        return {}

@@ -192,3 +192,15 @@ class TestFormatResult:
         lines = format_result(make_result()).splitlines()
         assert lines[2] == ""
         assert lines[3].startswith("t")
+
+
+def test_expression_parameters_show_evaluated_value() -> None:
+    params = ParameterSet(
+        [
+            Parameter("a.offset", 0.001, vary=True, min=-1.0, max=1.0, unit="rad"),
+            Parameter("b.offset", 0.0, min=-1.0, max=1.0, expr="a.offset", unit="rad"),
+        ]
+    )
+    lines = lines_by_name(format_parameters(params))
+    assert lines["b.offset"].split()[1] == lines["a.offset"].split()[1]
+    assert "= a.offset" in lines["b.offset"]

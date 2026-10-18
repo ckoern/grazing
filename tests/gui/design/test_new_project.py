@@ -100,3 +100,13 @@ def test_design_targets_come_from_matching_template(
     targets = window.controller.state.targets
     assert targets is not None
     assert targets.targets[0].axis == scan
+
+
+def test_name_field_shows_new_project_name_while_focused(qtbot: QtBot, settings: QSettings) -> None:
+    setup = ProjectSetup("Fresh name", None, StructureChoice("single_layer", ("Pt",)))
+    window = make(qtbot, settings, setup)
+    window.show()
+    window.name_edit.setFocus()
+    qtbot.waitUntil(window.name_edit.hasFocus, timeout=2000)
+    window.new_project_wizard()
+    assert window.name_edit.text() == "Fresh name"

@@ -135,3 +135,14 @@ def test_table_edit_emits_command(page: ParametersPage) -> None:
     assert model.setData(index, Qt.CheckState.Unchecked.value, Qt.ItemDataRole.CheckStateRole)
     assert len(commands) == 1
     assert isinstance(page.parameter_table.table_model.parameters(), ParameterSet)
+
+
+def test_expression_rows_show_evaluated_value(page: ParametersPage) -> None:
+    state = make_state(("a", "b"))
+    state = _with(state, "a.offset", value=0.001)
+    state = _with(state, "b.offset", expr="a.offset", vary=False)
+    page.set_state(state)
+    model = page.parameter_table.table_model
+    shown = {n: model.data(model.index(column(page, n), 1)) for n in ("a.offset", "b.offset")}
+    assert shown["b.offset"] == shown["a.offset"]
+    assert float(shown["a.offset"]) == pytest.approx(math.degrees(0.001), rel=1e-4)

@@ -102,13 +102,16 @@ with the explanation of the step, the page in a scroll area, and **← Back** an
 buttons (the first step has no Back, the last has no Next). The primary action of each step is the
 primary button variant.
 
-- **Goal**: table of targets with the columns Name, Scan, Fixed, From, To, Points, Weight,
-  Polarization, Reflections. Name is optional; unnamed targets are labeled “target 1”, “target 2”, …
-  in plots and exported files. Scan is either *Fixed angle (energy range)* or *Fixed energy (angle range)*. Energies are
-  in keV and angles in degrees. Polarization is unpolarized, s, or p. Reflections is n in Rⁿ. Buttons:
-  *Add fixed-angle target*, *Add fixed-energy target*, *Remove*. **Combine targets** selects
+- **Goal**: one editor block (`TargetEditor`) per target, separated by lines, in three rows. Row 1: Name
+  (optional; unnamed targets are labeled “target 1”, “target 2”, … in plots and exported files), the scan
+  selector and *Remove*. Row 2: the fixed value and the scanned range. Row 3: Points, Weight,
+  Polarization and Reflections. Scan is either *Fixed angle* (energy range; Angle in deg, Energy from–to
+  in keV) or *Fixed energy* (angle range; Energy in keV, Angle from–to in deg). Polarization is
+  unpolarized, s, or p. Reflections is n in Rⁿ (1 to 4). Edits apply when a field is finished or a
+  selection changes; settings without a field (profile, spectrum, resolution) are kept. Buttons below
+  the blocks: *Add fixed-angle target*, *Add fixed-energy target*. **Combine targets** selects
   *Average reflectivity* (curves averaged, one figure of merit) or *Average figure of merit* (one figure
-  of merit per target, averaged); the page explains the choice.
+  of merit per target, averaged); a text below it explains the selected mode.
 - **Materials**: table of the material of each coating role and of the substrate, with density (editable),
   a dialog to create a material (name, chemical formula, density), and a plot of δ (solid) and β (dashed)
   for the materials in use.
@@ -259,6 +262,7 @@ src/xstack/gui/
     parameter_table.py   # ParameterTableModel, ParameterTable (optional display units)
     profile.py           # LayerProfilePlot, bilayer_profile
     wizard.py            # ProjectWizard, ProjectSetup: the new-project wizard
+    garbage.py           # GarbageCollector: Python garbage collection in the GUI thread only
     journal_view.py      # JournalView
     forms.py             # DataclassForm: editor generated from dataclass fields
     files.py             # ask_save_path, with_suffix: save dialogs that append the file extension
@@ -314,6 +318,10 @@ src/xstack/gui/
   candidate list, the plots, and the title.
 - Each page is a `StepPage` with the signals `commandRequested` (connected to `controller.execute`),
   `jobRequested` (connected to `MainWindow.start_job`), and `errorOccurred`.
+- **Garbage collection**: both applications install `GarbageCollector`, which disables Python's
+  automatic cyclic garbage collection and collects from a timer in the GUI thread. Otherwise the
+  collector could run in a worker thread and destroy Qt objects there, which crashes the
+  application.
 - **Workers**: `Job(name, function, on_finished)` runs in `JobRunner` on a `QThreadPool`. Core
   `ProgressEvent`s are forwarded as Qt signals, and the cancel action sets the core `CancellationToken`.
   `LatestRunner` runs the preview and live curve calculations and drops superseded requests.

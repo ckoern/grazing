@@ -6,7 +6,7 @@ evaluation points (energy/angle pairs) along the first axis.
 
 For s polarization the coefficients refer to the electric field, for p polarization to the
 magnetic field. In both cases the field component used is continuous across a sharp interface,
-so that t = 1 + r. The reflectance |r|² is the same in either convention.
+so that t = 1 + r. The reflectance ``|r|²`` is the same in either convention.
 """
 
 from dataclasses import dataclass

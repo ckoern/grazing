@@ -18,6 +18,7 @@ SUBPACKAGES = [
     "design.manufacturing",
     "design.optim",
     "design.project",
+    "fit",
 ]
 
 SRC = Path(xstack.__file__).parent

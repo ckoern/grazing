@@ -91,15 +91,37 @@ class ReflectivityModel(Protocol):
         """
         ...
 
-
-class _PointModel(Protocol):
-    def _reflectance(
+    def reflectance(
         self,
         stack: Stack,
         energy: NDArray[np.float64],
         theta: NDArray[np.float64],
-        polarization: Polarization | Literal["unpolarized"],
-        library: MaterialLibrary | None,
+        polarization: Polarization | Literal["unpolarized"] = "unpolarized",
+        library: MaterialLibrary | None = None,
+    ) -> NDArray[np.float64]:
+        """Compute the reflectivity of a stack at individual points, without resolution.
+
+        Args:
+            stack: The stack.
+            energy: Photon energies in eV.
+            theta: Grazing angles in rad, same shape as `energy`.
+            polarization: ``"s"``, ``"p"`` or ``"unpolarized"``.
+            library: Material library for optical constants.
+
+        Returns:
+            Reflectivity of a single reflection, same shape as `energy`.
+        """
+        ...
+
+
+class _PointModel(Protocol):
+    def reflectance(
+        self,
+        stack: Stack,
+        energy: NDArray[np.float64],
+        theta: NDArray[np.float64],
+        polarization: Polarization | Literal["unpolarized"] = "unpolarized",
+        library: MaterialLibrary | None = None,
     ) -> NDArray[np.float64]: ...
 
 
@@ -115,7 +137,7 @@ def evaluate_on_target(
     The result includes the target's number of reflections (Rⁿ) and its resolution.
 
     Args:
-        model: Object providing ``_reflectance(stack, energy, theta, polarization, library)``.
+        model: Object providing ``reflectance(stack, energy, theta, polarization, library)``.
         stack: The stack.
         target: The target.
         points: Number of grid points, or ``None`` for the target default.
@@ -134,13 +156,13 @@ def evaluate_on_target(
         if target.axis == "angle":
             keep = th_fine <= np.pi / 2
             fine, e_fine, th_fine = fine[keep], e_fine[keep], th_fine[keep]
-        r_fine = model._reflectance(stack, e_fine, th_fine, target.polarization, library)
+        r_fine = model.reflectance(stack, e_fine, th_fine, target.polarization, library)
         r_fine = r_fine**target.reflections
         smeared = gaussian_smear(r_fine, float(fine[1] - fine[0]), target.resolution)
         r = np.interp(x, fine, smeared)
     else:
         energy, theta = target.grid_at(x)
-        r = model._reflectance(stack, energy, theta, target.polarization, library)
+        r = model.reflectance(stack, energy, theta, target.polarization, library)
         r = r**target.reflections
     energy, theta = target.grid_at(x)
     return ReflectivityResult(target, x, energy, theta, np.asarray(r, dtype=np.float64))
@@ -182,14 +204,26 @@ class ParrattModel:
         """
         return evaluate_on_target(self, stack, target, points, library)
 
-    def _reflectance(
+    def reflectance(
         self,
         stack: Stack,
         energy: NDArray[np.float64],
         theta: NDArray[np.float64],
-        polarization: Polarization | Literal["unpolarized"],
-        library: MaterialLibrary | None,
+        polarization: Polarization | Literal["unpolarized"] = "unpolarized",
+        library: MaterialLibrary | None = None,
     ) -> NDArray[np.float64]:
+        """Compute the reflectivity of a stack at individual points, without resolution.
+
+        Args:
+            stack: The stack.
+            energy: Photon energies in eV.
+            theta: Grazing angles in rad, same shape as `energy`.
+            polarization: ``"s"``, ``"p"`` or ``"unpolarized"``.
+            library: Material library for optical constants.
+
+        Returns:
+            Reflectivity of a single reflection, same shape as `energy`.
+        """
         n, media = stack.distinct_refractive_indices(energy, library)
         return reflectance(
             n,
@@ -249,17 +283,29 @@ class KinematicModel:
         """
         return evaluate_on_target(self, stack, target, points, library)
 
-    def _reflectance(
+    def reflectance(
         self,
         stack: Stack,
         energy: NDArray[np.float64],
         theta: NDArray[np.float64],
-        polarization: Polarization | Literal["unpolarized"],
-        library: MaterialLibrary | None,
+        polarization: Polarization | Literal["unpolarized"] = "unpolarized",
+        library: MaterialLibrary | None = None,
     ) -> NDArray[np.float64]:
+        """Compute the reflectivity of a stack at individual points, without resolution.
+
+        Args:
+            stack: The stack.
+            energy: Photon energies in eV.
+            theta: Grazing angles in rad, same shape as `energy`.
+            polarization: ``"s"``, ``"p"`` or ``"unpolarized"``.
+            library: Material library for optical constants.
+
+        Returns:
+            Reflectivity of a single reflection, same shape as `energy`.
+        """
         if polarization == "unpolarized":
-            r_s = self._reflectance(stack, energy, theta, "s", library)
-            r_p = self._reflectance(stack, energy, theta, "p", library)
+            r_s = self.reflectance(stack, energy, theta, "s", library)
+            r_p = self.reflectance(stack, energy, theta, "p", library)
             return 0.5 * (r_s + r_p)
         n = stack.refractive_indices(energy, library)
         wavelength = energy_to_wavelength(energy)

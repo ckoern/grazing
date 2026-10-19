@@ -117,8 +117,15 @@ def bilayer_layers(
         Two to four layers.
 
     Raises:
-        CoatingBuildError: If the thicknesses would be negative.
+        CoatingBuildError: If the thicknesses would be negative, or an interlayer has a positive
+            thickness but no material.
     """
+    for role in INTERLAYER_ROLES:
+        if values[f"t_{role}"] > 0.0 and role not in materials:
+            raise CoatingBuildError(
+                f"{tag}: t_{role} is {values[f't_{role}']:g} nm, but the interlayer has no "
+                "material; choose one or set the thickness to 0"
+            )
     t_honl = values["t_interlayer_H_on_L"] if "interlayer_H_on_L" in materials else 0.0
     t_lonh = values["t_interlayer_L_on_H"] if "interlayer_L_on_H" in materials else 0.0
     t_h = gamma * period

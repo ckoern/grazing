@@ -84,6 +84,13 @@ reflectivity each interface contributes, and β (the absorption) limits how many
 W/B4C has high contrast and still low absorption for Cu Kα, hence its use. See
 [optical constants](../physics_background.md) for the background.
 
+The rows *interlayer_H_on_L* and *interlayer_L_on_H* describe layers that form at the interfaces
+during deposition, for example a WSi₂ or W–C mixture. *(none)* means no interlayer. Choosing a material
+adds an interlayer of that material between every pair of layers on that side; its thickness is the
+parameter `t_interlayer_H_on_L` or `t_interlayer_L_on_H` on the **Coating** step (it starts at 0.5 nm)
+and counts towards the period. Interlayers are part of the stack: they appear in the layer profile and
+change the reflectivity. Keep them at *(none)* for this quick start.
+
 ## 4. Coating: the parameters
 
 ![Coating step](images/design_coating.png)

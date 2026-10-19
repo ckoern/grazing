@@ -217,12 +217,27 @@ class TestPeriodicBasics:
         c = Periodic.create(W, SI, N=free(10, 5, 20), d=free(4.0, 3.0, 5.0))
         assert c.parameters.free_names() == ("N", "d")
 
-    def test_interlayer_thickness_ignored_without_material(self) -> None:
-        c = Periodic.create(
-            W, SI, N=2, d=5.0, gamma=0.4, t_interlayer_H_on_L=1.0, t_interlayer_L_on_H=1.0
-        )
+    def test_interlayer_thickness_without_material_is_an_error(self) -> None:
+        c = Periodic.create(W, SI, N=2, d=5.0, gamma=0.4, t_interlayer_H_on_L=1.0)
+        with pytest.raises(CoatingBuildError, match=r"t_interlayer_H_on_L is 1 nm.*no material"):
+            c.layers()
+
+    def test_zero_interlayer_thickness_without_material(self) -> None:
+        c = Periodic.create(W, SI, N=2, d=5.0, gamma=0.4)
         assert len(c.layers()) == 4
-        assert thicknesses(c.layers()[:2]) == pytest.approx([2.0, 3.0])
+
+    def test_graded_interlayer_thickness_without_material_is_an_error(self) -> None:
+        c = DepthGraded.create(W, SI, N=5, d_min=3.0, d_max=6.0, c=0.25, t_interlayer_L_on_H=0.4)
+        with pytest.raises(CoatingBuildError, match="t_interlayer_L_on_H"):
+            c.layers()
+
+    def test_without_material_removes_optional_role(self) -> None:
+        c = Periodic.create(W, SI, N=2, d=5.0, gamma=0.4, interlayers={"interlayer_H_on_L": WSI2})
+        removed = c.without_material("interlayer_H_on_L")
+        assert "interlayer_H_on_L" not in removed.materials
+        assert removed.without_material("interlayer_H_on_L") == removed
+        with pytest.raises(ValueError, match="requires a material"):
+            c.without_material("H")
 
 
 class TestPeriodicInterlayers:

@@ -27,12 +27,17 @@ from PySide6.QtWidgets import (
 from xstack.core.materials import Material, MaterialLibrary, default_library
 from xstack.core.parameters import Parameter
 from xstack.core.structure.coating import SUBSTRATE, Mirror, density_parameter_name
+from xstack.core.structure.coatings.bilayer import INTERLAYER_ROLES
 from xstack.gui.common.pages import StepPage, StructureCommands
 from xstack.gui.common.style import PLOT_PALETTE as PALETTE
 
 __all__ = ["MaterialDialog", "MaterialsPage"]
 
 _SUBSTRATE = SUBSTRATE
+_NONE = "(none)"
+
+INTERLAYER_START = 0.5
+"""Thickness in nm given to an interlayer that gets a material while its thickness is 0."""
 
 
 class MaterialDialog(QDialog):
@@ -145,10 +150,18 @@ class MaterialsPage(StepPage):
         self._mirror = state.mirror
         self._load()
 
-    def _roles(self) -> list[tuple[str, Material]]:
+    def _roles(self) -> list[tuple[str, Material | None]]:
+        """Roles with their materials; interlayers of bilayer coatings also without material."""
         if self._mirror is None:
             return []
-        return [*self._mirror.coating.materials.items(), (_SUBSTRATE, self._mirror.substrate)]
+        coating = self._mirror.coating
+        roles: list[tuple[str, Material | None]] = list(coating.materials.items())
+        roles += [
+            (role, None)
+            for role in INTERLAYER_ROLES
+            if role in coating.optional_roles and role not in coating.materials
+        ]
+        return [*roles, (_SUBSTRATE, self._mirror.substrate)]
 
     def _load(self) -> None:
         self._loading = True
@@ -162,13 +175,27 @@ class MaterialsPage(StepPage):
             role_item.setFlags(role_item.flags() & ~role_item.flags().ItemIsEditable)
             self.table.setItem(row, 0, role_item)
             combo = QComboBox()
-            combo.addItems(names if material.name in names else [material.name, *names])
-            combo.setCurrentText(material.name)
+            if role in INTERLAYER_ROLES:
+                combo.addItem(_NONE)
+            if material is not None and material.name not in names:
+                combo.addItem(material.name)
+            combo.addItems(names)
+            combo.setCurrentText(_NONE if material is None else material.name)
             combo.activated.connect(
                 lambda _=0, r=role, c=combo: self._material_chosen(r, c.currentText())
             )
-            combo.setToolTip(f"Material of the role '{role}'.")
+            combo.setToolTip(
+                f"Material of the role '{role}'."
+                if role not in INTERLAYER_ROLES
+                else f"Material of the {role.replace('_', ' ')}, or {_NONE} for no interlayer. "
+                f"Its thickness is the parameter t_{role}."
+            )
             self.table.setCellWidget(row, 1, combo)
+            if material is None:
+                empty = QTableWidgetItem("")
+                empty.setFlags(Qt.ItemFlag.NoItemFlags)
+                self.table.setItem(row, 2, empty)
+                continue
             parameter = self._density_parameter(role)
             density = material.density if parameter is None else parameter.value
             density_item = QTableWidgetItem(f"{density:g}")
@@ -204,12 +231,12 @@ class MaterialsPage(StepPage):
         )
         self.table.setFixedHeight(height + 4)
 
-    def _plot_constants(self, roles: list[tuple[str, Material]]) -> None:
+    def _plot_constants(self, roles: list[tuple[str, Material | None]]) -> None:
         self.plot.clear()
         energy = np.logspace(np.log10(100.0), np.log10(1e5), 300)
         shown: set[Material] = set()
         for i, (_, material) in enumerate(roles):
-            if material in shown or material.is_vacuum:
+            if material is None or material in shown or material.is_vacuum:
                 continue
             shown.add(material)
             try:
@@ -236,13 +263,39 @@ class MaterialsPage(StepPage):
             self.commandRequested.emit(self.commands.set_coating(coating))
 
     def _material_chosen(self, role: str, name: str) -> None:
-        if name in self.library:
+        if self._mirror is None:
+            return
+        if role in INTERLAYER_ROLES:
+            self._choose_interlayer(role, None if name == _NONE else self.library.get(name))
+        elif name in self.library:
             self._replace_material(role, self.library.get(name))
+
+    def _choose_interlayer(self, role: str, material: Material | None) -> None:
+        """Set or remove an interlayer material, keeping its thickness consistent.
+
+        Without a material the thickness is set to 0; a new material with zero thickness starts
+        at `INTERLAYER_START` nm, so that the interlayer appears in the stack.
+        """
+        assert self._mirror is not None
+        coating = self._mirror.coating
+        thickness = f"t_{role}"
+        if material is None:
+            coating = coating.without_material(role).with_parameter(thickness, value=0.0)
+        else:
+            coating = coating.with_material(role, material)
+            if (
+                coating.parameters[thickness].value == 0.0
+                and not coating.parameters[thickness].expr
+            ):
+                coating = coating.with_parameter(thickness, value=INTERLAYER_START)
+        self.commandRequested.emit(self.commands.set_coating(coating))
 
     def _density_edited(self, item: QTableWidgetItem) -> None:
         if self._loading or item.column() != 2:
             return
         role, material = self._roles()[item.row()]
+        if material is None:
+            return
         parameter = self._density_parameter(role)
         try:
             value = float(item.text())

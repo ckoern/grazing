@@ -189,6 +189,24 @@ class Coating(ABC):
         roles[role] = material
         return replace(self, material_roles=tuple(roles.items()))
 
+    def without_material(self, role: str) -> Self:
+        """Return a copy without the material of an optional role (e.g. an interlayer).
+
+        Args:
+            role: Optional role name.
+
+        Returns:
+            The modified coating; unchanged if the role has no material.
+
+        Raises:
+            ValueError: If the role is required.
+        """
+        if role in self.roles:
+            raise ValueError(f"{type(self).__name__} requires a material for role {role!r}")
+        return replace(
+            self, material_roles=tuple((r, m) for r, m in self.material_roles if r != role)
+        )
+
     def renamed(self, name: str) -> Self:
         """Return a copy with a different name.
 

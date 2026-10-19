@@ -46,6 +46,7 @@ from xstack.fit.templates import TEMPLATES
 from xstack.gui.common.files import ask_save_path
 from xstack.gui.common.journal_view import JournalView
 from xstack.gui.common.pages import StepPage
+from xstack.gui.common.plot_tabs import PlotTabs
 from xstack.gui.common.profile import LayerProfilePlot
 from xstack.gui.common.style import (
     PLOT_PALETTE,
@@ -142,13 +143,20 @@ class MainWindow(QMainWindow):
         self.correlation_plot = CorrelationPlot()
         self.layer_plot = LayerProfilePlot()
         self.convergence_plot = ConvergencePlot()
-        self.plot_tabs = QTabWidget()
-        self.plot_tabs.setObjectName("plot_tabs")
-        self.plot_tabs.setDocumentMode(True)
-        self.plot_tabs.addTab(self._reflectivity_tab(), "Reflectivity")
+        self.plot_tabs = PlotTabs("xstack-fit")
+        self.reflectivity_view = self._reflectivity_tab()
+        self.plot_tabs.addTab(self.reflectivity_view, "Reflectivity")
         self.plot_tabs.addTab(self.correlation_plot, "Correlations")
         self.plot_tabs.addTab(self.layer_plot, "Layer profile")
         self.plot_tabs.addTab(self.convergence_plot, "Convergence")
+        self.step_views: dict[str, QWidget] = {
+            "Data": self.reflectivity_view,
+            "Structure": self.layer_plot,
+            "Materials": self.layer_plot,
+            "Parameters": self.reflectivity_view,
+            "Fit": self.reflectivity_view,
+            "Results": self.correlation_plot,
+        }
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(self._step_panel())
@@ -223,6 +231,7 @@ class MainWindow(QMainWindow):
                 self._step_container(index, self.pages[step]), f"{index + 1} {step}"
             )
             self.step_tabs.setTabToolTip(index, f"Step {index + 1}: {step}")
+        self.step_tabs.currentChanged.connect(lambda _: self.show_step_view())
         layout.addWidget(self.step_tabs, 1)
         return panel
 
@@ -341,6 +350,17 @@ class MainWindow(QMainWindow):
         self.local_action = QAction("Run &local refinement", self)
         self.local_action.setShortcut(QKeySequence("Ctrl+Shift+R"))
         self.local_action.triggered.connect(lambda: self.fit_page.run_local())
+        self.auto_views_action = QAction("Switch plots &automatically", self, checkable=True)
+        self.auto_views_action.setToolTip(
+            "Show the plot that belongs to the current step, and the convergence during fits"
+        )
+        self.auto_views_action.setChecked(
+            str(self.settings.value("plots/auto_switch", "true")).lower() == "true"
+        )
+        self.auto_views_action.toggled.connect(self._auto_views_toggled)
+        self.detach_action = QAction("&Detach current plot", self)
+        self.detach_action.setShortcut(QKeySequence("Ctrl+Shift+D"))
+        self.detach_action.triggered.connect(self.plot_tabs.detach_current)
         self.stop_action = QAction("&Stop", self)
         self.stop_action.setShortcut(QKeySequence("Ctrl+."))
         self.stop_action.setEnabled(False)
@@ -393,6 +413,9 @@ class MainWindow(QMainWindow):
             self.theme_group.addAction(action)
             theme_menu.addAction(action)
             self.theme_actions[theme] = action
+        view_menu.addSeparator()
+        view_menu.addAction(self.auto_views_action)
+        view_menu.addAction(self.detach_action)
         view_menu.addSeparator()
         for dock in (self.datasets_dock, self.journal_dock, self.history_dock):
             view_menu.addAction(dock.toggleViewAction())
@@ -647,7 +670,22 @@ class MainWindow(QMainWindow):
             return False
         return True
 
+    def show_step_view(self) -> None:
+        """Show the plot of the current workflow step, if plots switch automatically."""
+        if not self.auto_views_action.isChecked():
+            return
+        view = self.step_views.get(WORKFLOW_STEPS[self.step_tabs.currentIndex()])
+        if view is not None:
+            self.plot_tabs.show_view(view)
+
+    def _auto_views_toggled(self, checked: bool) -> None:
+        self.settings.setValue("plots/auto_switch", checked)
+        if checked:
+            self.show_step_view()
+
     def _job_started(self, name: str) -> None:
+        if self.auto_views_action.isChecked():
+            self.plot_tabs.show_view(self.convergence_plot)
         self.convergence_plot.clear()
         self._job_state = self.controller.state
         self._live_values = None
@@ -692,6 +730,8 @@ class MainWindow(QMainWindow):
         self.run_action.setEnabled(True)
         self.local_action.setEnabled(True)
         self.statusBar().showMessage(message, 8000)
+        if self.plot_tabs.currentWidget() is self.convergence_plot:
+            self.show_step_view()
         self._request_preview()
 
     # ------------------------------------------------------------------ misc
@@ -865,6 +905,7 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         self.job_runner.cancel()
+        self.plot_tabs.attach_all()
         self.settings.setValue("main_window/geometry", self.saveGeometry())
         self.settings.setValue("main_window/state", self.saveState())
         event.accept()

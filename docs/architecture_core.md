@@ -146,7 +146,8 @@ src/xstack/
     __init__.py
     common/                 # components shared by both applications
       style.py, forms.py, files.py, workers.py, controller.py, pages.py, coating.py,
-      materials.py, parameter_table.py, journal_view.py, profile.py, wizard.py, garbage.py
+      materials.py, parameter_table.py, journal_view.py, profile.py, wizard.py, garbage.py,
+      plot_tabs.py
     design/                 # the design application (`xstack-design`)
       __main__.py, app.py, main_window.py, controller.py, plots.py, preview.py
       steps/                # one page per workflow step (goal, estimate, materials, coating,

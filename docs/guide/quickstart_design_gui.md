@@ -12,6 +12,10 @@ three areas:
 - the **workflow panel** in the middle has one tab per step, `1 Goal` to `10 Analyze`; you can work
   through them in order with the **Next** buttons or jump between them,
 - the **plot tabs** on the right show the reflectivity, layers and results of the current step.
+  They switch to the plot that belongs to a step when you change steps, and to *Convergence* while an
+  optimization runs (*View > Switch plots automatically* turns this off). *Detach* next to the tabs
+  shows a plot in its own window, for example to keep the reflectivity in view on a second screen;
+  closing that window puts the tab back.
 
 Every edit is an undoable step (**Edit > Undo**), and the *Journal* and *History* docks at the bottom
 record what you did. Optimization results never overwrite your input design: they are stored as

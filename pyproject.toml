@@ -95,5 +95,5 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [[tool.mypy.overrides]]
-module = ["lmfit.*", "xraylib.*", "pyqtgraph.*", "mpmath.*", "scipy.*", "PySide6.*"]
+module = ["lmfit.*", "xraylib.*", "pyqtgraph.*", "mpmath.*", "scipy.*", "PySide6.*", "refnx.*"]
 ignore_missing_imports = true

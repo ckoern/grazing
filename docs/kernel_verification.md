@@ -71,6 +71,12 @@ The coatings are tested in `tests/core/structure/test_coatings.py`: `Periodic`, 
   Bragg energies and is low outside it.
 - **Analytic estimates** (`bragg.py`): Bragg law round trips, optimal Γ equation, extinction and
   absorption bilayer counts, relative bandwidth.
+- **Interface roughness** (`test_roughness_profile.py`): the Névot–Croce factor reproduces the
+  reflectivity of an explicitly sliced error-function profile (sharp slices of 0.005 nm, converged to
+  ~1e-4) within 1e-3 for Si with σ = 0.5 nm, 6e-3 for σ = 1 nm and 3e-2 for the high-contrast Pt surface;
+  it is closer to the profile than the Debye–Waller factor, which ignores refraction at the interface.
+  For one interface the two factors differ exactly by exp(−4σ²·Re(k_z0² − k_z0·k_z1)) (checked to 1e-10),
+  and both reduce to the sharp interface for σ → 0.
 - **Resolution** (`test_resolution.py`, `test_models.py`): Gaussian smearing preserves constants and
   peak area, broadens with the expected variance, and a model result with resolution stays close to the
   unsmeared one away from features.
@@ -105,7 +111,16 @@ whose "interdiffusion" convention differs from Névot–Croce). The comparison u
 the densities of the reference run, so remaining differences come from the optical constants as processed by CXRO and
 from the roughness convention. The kernel itself is verified to machine precision by tiers 1–3.
 
-Not covered: comparisons with IMD, GenX, xrt or refnx, and with published literature curves.
+**refnx** (`tests/core/physics/test_refnx_reference.py`, data in `tests/data/refnx/`): refnx's
+Abelès implementation with Névot–Croce roughness, an independent code, computed the s-polarized
+reflectivity of a rough Si substrate, a Pt film, W/Si and Pt/C multilayers with large roughness, a
+power-law depth-graded W/B₄C stack (120 layers) at Mo Kα, and Mo/Si at 92 eV near normal incidence. The
+files store the refractive indices, thicknesses and roughnesses used (converted exactly to refnx
+scattering length densities), so the comparison checks the reflectivity calculation independently of the
+optical constants. Agreement is about 1e-10 relative; the test uses rtol 1e-8. `generate.py` and
+`PROVENANCE.md` in the data directory regenerate and document the curves.
+
+Not covered: comparisons with IMD, GenX or xrt, and with published literature curves.
 
 ## Tier 7: performance regression
 
@@ -113,6 +128,12 @@ Not covered: comparisons with IMD, GenX, xrt or refnx, and with published litera
 2000 points × 1500 bilayers (3000 layers) with pytest-benchmark. The benchmarks are skipped by default
 (`--benchmark-skip` in the pytest options). Run them with
 `pytest tests/core/physics/test_benchmark.py -o addopts=""`.
+
+`tests/design/optim/test_benchmark.py` benchmarks the global (differential-evolution) stage of the
+default design pipeline on the W/B₄C Cu Kα monochromator of the user guide (seed 0, 20 generations,
+population factor 10, from a poor start): it records the runtime (about 1 s), the evaluations and the figure
+of merit, and checks that the design is feasible, has a figure of merit below 0.15 and is not improved
+by a local refinement from it. Run it with `pytest tests/design/optim/test_benchmark.py -o addopts=""`.
 
 ## Process
 

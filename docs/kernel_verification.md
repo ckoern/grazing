@@ -120,7 +120,18 @@ scattering length densities), so the comparison checks the reflectivity calculat
 optical constants. Agreement is about 1e-10 relative; the test uses rtol 1e-8. `generate.py` and
 `PROVENANCE.md` in the data directory regenerate and document the curves.
 
-Not covered: comparisons with IMD, GenX or xrt, and with published literature curves.
+**GenX** (`tests/core/physics/test_genx_reference.py`, data in `tests/data/genx/`): GenX's Parratt
+recursion with Névot–Croce roughness (`genx.models.lib.paratt`), a further independent code that takes
+the refractive indices directly, without a conversion to scattering length densities. It covers the
+stacks of the refnx set and two energy scans with refractive indices per energy: W/Si across the W L
+edges and the depth-graded W/B₄C stack from 8 to 30 keV. Agreement is better than 3e-10 relative; the
+test uses rtol 1e-8, while a thickness change of 0.1 % changes R by at least 2e-2 relative. GenX's
+footprint factor of a Gaussian beam (`GaussIntensity`) agrees with `xstack.fit.instrument.footprint_factor`
+to 1e-12 (`tests/fit/test_genx_footprint.py`). The stacks of both sets are defined in
+`tests/data/reference_cases.py`.
+
+Not covered: comparison with IMD (not available in the development environment; reference curves for
+the cases in `tests/data/reference_cases.py` would need an IMD installation) and with xrt.
 
 ## Tier 7: performance regression
 

@@ -4,7 +4,7 @@ Source: refnx 0.1.67, `refnx.reflect.abeles` (Abelès characteristic matrices wi
 Névot–Croce interface roughness), https://refnx.readthedocs.io. Generated 2026-10-18 with
 `python tests/data/refnx/generate.py`, which documents the conversion.
 
-Each JSON file stores the complex refractive index n of every medium (ambient first, substrate last;
+The stacks are defined in `tests/data/reference_cases.py`, shared with the GenX set. Each JSON file stores the complex refractive index n of every medium (ambient first, substrate last;
 from xstack's default material library at the given energy), the layer thicknesses and interface
 roughnesses in nm, the grazing angles in degrees and the s-polarized reflectivity computed by refnx.
 The refractive indices are converted exactly to refnx scattering length densities,

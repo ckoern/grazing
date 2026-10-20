@@ -53,7 +53,7 @@ packages = ["src/xstack"]
 [tool.pytest.ini_options]
 testpaths = ["tests", "src/xstack"]
 pythonpath = ["."]
-addopts = ["-ra", "--strict-markers", "--benchmark-skip", "--doctest-modules"]
+addopts = ["-ra", "--strict-markers", "--benchmark-skip", "--doctest-modules", "--ignore=tests/data"]
 markers = [
     "slow: long-running tests",
     "gui: tests that need a Qt application",
@@ -95,5 +95,5 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [[tool.mypy.overrides]]
-module = ["lmfit.*", "xraylib.*", "pyqtgraph.*", "mpmath.*", "scipy.*", "PySide6.*", "refnx.*"]
+module = ["lmfit.*", "xraylib.*", "pyqtgraph.*", "mpmath.*", "scipy.*", "PySide6.*", "refnx.*", "genx.*", "reference_cases"]
 ignore_missing_imports = true

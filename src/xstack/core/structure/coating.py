@@ -67,6 +67,17 @@ class Coating(ABC):
         """Materials by role."""
         return dict(self.material_roles)
 
+    def inactive_parameters(self) -> frozenset[str]:
+        """Return the parameters that have no effect with the current options.
+
+        Applications hide them; e.g. the interlayer thicknesses of a bilayer coating without
+        interlayers.
+
+        Returns:
+            Parameter names.
+        """
+        return frozenset()
+
     def material_map(self) -> dict[str, Material]:
         """Return the materials of all roles, including those of nested coatings.
 

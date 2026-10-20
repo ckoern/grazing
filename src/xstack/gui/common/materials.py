@@ -151,16 +151,17 @@ class MaterialsPage(StepPage):
         self._load()
 
     def _roles(self) -> list[tuple[str, Material | None]]:
-        """Roles with their materials; interlayers of bilayer coatings also without material."""
+        """Roles with their materials; enabled interlayers also without material."""
         if self._mirror is None:
             return []
         coating = self._mirror.coating
         roles: list[tuple[str, Material | None]] = list(coating.materials.items())
-        roles += [
-            (role, None)
-            for role in INTERLAYER_ROLES
-            if role in coating.optional_roles and role not in coating.materials
-        ]
+        if getattr(coating, "use_interlayers", False):
+            roles += [
+                (role, None)
+                for role in INTERLAYER_ROLES
+                if role in coating.optional_roles and role not in coating.materials
+            ]
         return [*roles, (_SUBSTRATE, self._mirror.substrate)]
 
     def _load(self) -> None:

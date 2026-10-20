@@ -2,7 +2,7 @@
 
 import dataclasses
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from typing import Any, ClassVar
 
 from PySide6.QtWidgets import (
@@ -132,7 +132,23 @@ def convert_coating(old: Coating, type_name: str, **options: object) -> Coating:
         new = _to_n_layer(old, options.get("materials"))  # type: ignore[arg-type]
     else:
         raise ValueError(f"coating type {type_name!r} cannot be created here")
-    return _carry_over(new, old)
+    new = _carry_over(new, old)
+    if isinstance(new, Periodic | DepthGraded) and isinstance(old, Periodic | DepthGraded):
+        new = new.with_interlayers(old.use_interlayers)
+    return new
+
+
+def visible_parameters(parameters: ParameterSet, inactive: Collection[str]) -> ParameterSet:
+    """Return the parameters that an application shows: all but the inactive ones.
+
+    Args:
+        parameters: The parameters.
+        inactive: Names of parameters without effect, e.g. from `Coating.inactive_parameters`.
+
+    Returns:
+        The parameters without the inactive ones.
+    """
+    return ParameterSet(p for name, p in parameters.items() if name not in inactive)
 
 
 def has_constant_gamma(coating: DepthGraded) -> bool:
@@ -281,6 +297,14 @@ class CoatingPage(StepPage):
         )
         self.constant_gamma_check.toggled.connect(self._change_constant_gamma)
         form.addRow("", self.constant_gamma_check)
+        self.interlayer_check = QCheckBox("Interlayers at the interfaces")
+        self.interlayer_check.setToolTip(
+            "Model interlayers that form where one material is deposited on the other (e.g. a "
+            "silicide). Their materials are chosen on the Materials page and their thicknesses "
+            "are the parameters t_interlayer_H_on_L and t_interlayer_L_on_H."
+        )
+        self.interlayer_check.toggled.connect(self._change_interlayers)
+        form.addRow("", self.interlayer_check)
         self.roughness_spin = QDoubleSpinBox()
         self.roughness_spin.setRange(0.0, 100.0)
         self.roughness_spin.setDecimals(3)
@@ -360,6 +384,10 @@ class CoatingPage(StepPage):
             self.top_combo.setEnabled(bilayer)
             if isinstance(coating, Periodic | DepthGraded):
                 self.top_combo.setCurrentIndex(self.top_combo.findData(coating.top))
+            self.interlayer_check.setEnabled(bilayer)
+            self.interlayer_check.setChecked(
+                isinstance(coating, Periodic | DepthGraded) and coating.use_interlayers
+            )
             graded = isinstance(coating, DepthGraded)
             self.law_combo.setEnabled(graded)
             self.cap_check.setEnabled(graded)
@@ -376,7 +404,9 @@ class CoatingPage(StepPage):
                 evaluated = parameters.evaluate()
             except ValueError:
                 evaluated = {}
-            self.parameter_table.set_parameters(parameters, evaluated)
+            self.parameter_table.set_parameters(
+                visible_parameters(parameters, coating.inactive_parameters()), evaluated
+            )
         self._loading = False
 
     def _show_layers(self, coating: NLayer) -> None:
@@ -469,6 +499,13 @@ class CoatingPage(StepPage):
             self.commandRequested.emit(
                 self.commands.set_mirror(dataclasses.replace(mirror, substrate_roughness=value))
             )
+
+    def _change_interlayers(self, checked: bool) -> None:
+        coating = self._coating
+        if self._loading or not isinstance(coating, Periodic | DepthGraded):
+            return
+        if checked != coating.use_interlayers:
+            self.commandRequested.emit(self.commands.set_coating(coating.with_interlayers(checked)))
 
     def _change_constant_gamma(self, checked: bool) -> None:
         coating = self._coating

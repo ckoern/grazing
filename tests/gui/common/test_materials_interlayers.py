@@ -4,6 +4,7 @@ import pytest
 from PySide6.QtWidgets import QComboBox
 from pytestqt.qtbot import QtBot
 
+from xstack.core.structure import Periodic
 from xstack.design.project import Project, ProjectState
 from xstack.design.project.templates import new_state
 from xstack.gui.common.materials import INTERLAYER_START
@@ -39,8 +40,20 @@ def apply(state: ProjectState, command: object) -> ProjectState:
     return project.state
 
 
-def test_interlayer_roles_listed_without_material(qtbot: QtBot) -> None:
+def with_interlayers(state: ProjectState) -> ProjectState:
+    assert state.mirror is not None
+    coating = state.mirror.coating
+    assert isinstance(coating, Periodic)
+    return state.evolve(mirror=state.mirror.with_coating(coating.with_interlayers(True)))
+
+
+def test_interlayer_rows_hidden_by_default(qtbot: QtBot) -> None:
     page, _ = page_with(qtbot, new_state("periodic"))
+    assert list(rows(page)) == ["H", "L", "substrate"]
+
+
+def test_interlayer_roles_listed_without_material(qtbot: QtBot) -> None:
+    page, _ = page_with(qtbot, with_interlayers(new_state("periodic")))
     assert list(rows(page)) == ["H", "L", "interlayer_H_on_L", "interlayer_L_on_H", "substrate"]
     combo = page.table.cellWidget(rows(page)["interlayer_H_on_L"], 1)
     assert isinstance(combo, QComboBox)
@@ -53,7 +66,7 @@ def test_single_layer_has_no_interlayer_rows(qtbot: QtBot) -> None:
 
 
 def test_choosing_an_interlayer_adds_it_to_the_stack(qtbot: QtBot) -> None:
-    state = new_state("periodic")
+    state = with_interlayers(new_state("periodic"))
     page, commands = page_with(qtbot, state)
     choose(page, "interlayer_H_on_L", "WSi2")
     state = apply(state, commands[-1])
@@ -66,7 +79,7 @@ def test_choosing_an_interlayer_adds_it_to_the_stack(qtbot: QtBot) -> None:
 
 
 def test_choosing_none_removes_interlayer_and_thickness(qtbot: QtBot) -> None:
-    state = new_state("periodic")
+    state = with_interlayers(new_state("periodic"))
     page, commands = page_with(qtbot, state)
     choose(page, "interlayer_L_on_H", "WSi2")
     state = apply(state, commands[-1])
@@ -80,7 +93,7 @@ def test_choosing_none_removes_interlayer_and_thickness(qtbot: QtBot) -> None:
 
 
 def test_layer_profile_shows_interlayers(qtbot: QtBot) -> None:
-    state = new_state("periodic")
+    state = with_interlayers(new_state("periodic"))
     page, commands = page_with(qtbot, state)
     choose(page, "interlayer_H_on_L", "WSi2")
     state = apply(state, commands[-1])

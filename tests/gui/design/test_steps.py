@@ -76,12 +76,11 @@ def choose(combo: QComboBox, text: str) -> None:
 
 def test_materials_rows(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot, MaterialsPage, new_state("periodic"))
-    assert page.table.rowCount() == 5
-    roles = [page.table.item(r, 0).text() for r in range(5)]
-    assert roles == ["H", "L", "interlayer_H_on_L", "interlayer_L_on_H", "substrate"]
+    assert page.table.rowCount() == 3
+    roles = [page.table.item(r, 0).text() for r in range(3)]
+    assert roles == ["H", "L", "substrate"]
     assert combo_at(page, 0, 1).currentText() == "W"
-    assert combo_at(page, 2, 1).currentText() == "(none)"
-    assert combo_at(page, 4, 1).currentText() == "Si"
+    assert combo_at(page, 2, 1).currentText() == "Si"
 
 
 def test_materials_choose_coating_material(qtbot: QtBot) -> None:
@@ -97,7 +96,7 @@ def test_materials_choose_coating_material(qtbot: QtBot) -> None:
 def test_materials_choose_substrate(qtbot: QtBot) -> None:
     state = new_state("periodic")
     page, rec = make_page(qtbot, MaterialsPage, state)
-    choose(combo_at(page, 4, 1), "SiO2")
+    choose(combo_at(page, 2, 1), "SiO2")
     new = rec.applied(state)
     assert new.mirror is not None
     assert new.mirror.substrate.name == "SiO2"
@@ -172,7 +171,9 @@ def test_coating_page_shows_parameters(qtbot: QtBot) -> None:
     state = new_state("periodic")
     page, _ = make_page(qtbot, CoatingPage, state)
     assert state.mirror is not None
-    assert page.parameter_table.table_model.rowCount() == len(state.mirror.coating.parameters)
+    coating = state.mirror.coating
+    shown = len(coating.parameters) - len(coating.inactive_parameters())
+    assert page.parameter_table.table_model.rowCount() == shown
     assert page.type_combo.currentData() == "periodic"
     assert not page.law_combo.isEnabled()
     assert page.top_combo.isEnabled()

@@ -1,19 +1,23 @@
 """Periodic multilayer coating."""
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import ClassVar, Self
 
 from xstack.core.materials import Material
 from xstack.core.parameters import Parameter, ParameterSet, ParameterValue, resolve
 from xstack.core.structure.coating import Coating, CoatingBuildError, register_coating
 from xstack.core.structure.coatings.bilayer import (
     BILAYER_ROLES,
+    INTERLAYER_PARAMETERS,
     INTERLAYER_ROLES,
     MAX_BILAYERS,
     MAX_THICKNESS,
     TopMaterial,
+    active_interlayers,
     bilayer_layers,
     bilayer_parameters,
+    check_interlayer_specs,
+    set_interlayers,
 )
 from xstack.core.structure.stack import Layer
 
@@ -42,6 +46,34 @@ class Periodic(Coating):
     optional_roles: ClassVar[tuple[str, ...]] = INTERLAYER_ROLES
 
     top: TopMaterial = "H"
+    use_interlayers: bool = False
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if any(role in self.materials for role in INTERLAYER_ROLES):
+            object.__setattr__(self, "use_interlayers", True)
+
+    def inactive_parameters(self) -> frozenset[str]:
+        """Return the interlayer thicknesses if the coating has no interlayers.
+
+        Returns:
+            Parameter names.
+        """
+        return frozenset() if self.use_interlayers else frozenset(INTERLAYER_PARAMETERS)
+
+    def with_interlayers(self, enabled: bool) -> Self:
+        """Return a copy with interlayers switched on or off.
+
+        Switching them off removes the interlayer materials and fixes the interlayer
+        thicknesses at zero.
+
+        Args:
+            enabled: Whether the coating has interlayers.
+
+        Returns:
+            The modified coating.
+        """
+        return set_interlayers(self, enabled)
 
     @classmethod
     def create(
@@ -97,6 +129,7 @@ class Periodic(Coating):
             *bilayer_parameters(),
         ]
         params = ParameterSet(resolve(t, specs[t.name]) for t in templates)
+        check_interlayer_specs(params, interlayers)
         roles = (("H", H), ("L", L), *(interlayers or {}).items())
         return cls(name, roles, params, top=top)
 
@@ -104,7 +137,7 @@ class Periodic(Coating):
         n = int(values["N"])
         if n < 1:
             raise CoatingBuildError(f"{self.name}: N must be at least 1")
-        materials = self.materials
+        materials, values = active_interlayers(self.use_interlayers, self.materials, values)
         layers: list[Layer] = []
         for i in range(1, n + 1):
             layers += bilayer_layers(

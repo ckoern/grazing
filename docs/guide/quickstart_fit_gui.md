@@ -141,8 +141,7 @@ instrument parameters (the last rows of the table):
 | `cu_ka.beam_width` | 0.05 mm | no | | FWHM of the beam, known from the setup. |
 | `cu_ka.sample_length` | 20 mm | no | | Length of the sample along the beam. |
 
-The interlayer thicknesses `t_interlayer_H_on_L` and `t_interlayer_L_on_H` stay fixed at zero. The
-status bar shows the number of free parameters, here seven.
+The status bar shows the number of free parameters, here seven.
 
 The choice of what to vary is the most important decision of a fit. Vary what is unknown and what
 the data can determine, and fix what you know. Every free parameter that the data do not

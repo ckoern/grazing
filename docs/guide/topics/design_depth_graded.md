@@ -231,7 +231,7 @@ in the Goal step (*Fixed angle*, 0.2°, 15 to 70 keV).
 
 The Coating step offers the *Grading law* (`power_law` or `linear`), *Cap bilayer with independent period and Γ*, and *Same Γ for all
 graded bilayers*, which ties `gamma_bottom` to `gamma_top`. Unchecked, Γ changes linearly with depth,
-as in the library example. In the parameter table, free `N`, `d_min`, `d_max`, `gamma_top` and
+as in the library example. Leave *Interlayers at the interfaces* off. In the parameter table, free `N`, `d_min`, `d_max`, `gamma_top` and
 `gamma_bottom` fix `c` and the roughness `sigma_H` and `sigma_L` at 0.35 nm, and set the *Substrate roughness* to 0.3 nm as in the library example.
 
 Enable the deposition process (Process step) with the same rates and overheads, and add the three

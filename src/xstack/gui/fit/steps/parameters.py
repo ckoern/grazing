@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from xstack.core.parameters import ParameterSet
 from xstack.fit.instrument import INSTRUMENT_PARAMETERS
 from xstack.fit.project import Command, FitState, set_parameter
+from xstack.gui.common.coating import visible_parameters
 from xstack.gui.common.parameter_table import ParameterTable
 from xstack.gui.fit.steps.base import FIT_COMMANDS, StepPage, display_unit
 
@@ -154,7 +155,10 @@ class ParametersPage(StepPage):
             parameters = state.problem().parameters
         except ValueError:
             parameters = state.mirror.parameters if state.mirror is not None else ParameterSet()
-        self.parameter_table.set_parameters(parameters, _evaluated(parameters))
+        inactive = state.mirror.coating.inactive_parameters() if state.mirror is not None else ()
+        self.parameter_table.set_parameters(
+            visible_parameters(parameters, inactive), _evaluated(parameters)
+        )
         self.free_label.setText(f"{len(parameters.free_names())} free parameters")
         names = [d.name for d in state.datasets]
         if names != [self.reference_combo.itemText(i) for i in range(self.reference_combo.count())]:

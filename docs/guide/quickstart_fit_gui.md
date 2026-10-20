@@ -17,6 +17,9 @@ You will
 6. read the results and save the project.
 
 Start the application with `xstack-fit` (see [Installation](installation.md)).
+The plot tabs on the right follow the workflow step (the reflectivity while you select data and
+parameters, the layer profile for the structure, the correlations for the results, the convergence
+during a fit). *Detach* next to the tabs shows a plot in its own window; closing it puts the tab back.
 
 ## 1. Create the project
 

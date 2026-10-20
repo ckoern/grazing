@@ -58,6 +58,7 @@ from xstack.design.project.commands import (
 )
 from xstack.design.project.templates import TEMPLATES
 from xstack.gui.common.files import ask_save_path
+from xstack.gui.common.plot_tabs import PlotTabs
 from xstack.gui.common.style import (
     COLORS,
     Theme,
@@ -210,14 +211,14 @@ class MainWindow(QMainWindow):
             self.restoreState(state)
 
     def _build_central(self) -> None:
-        self.plot_tabs = QTabWidget()
-        self.plot_tabs.setObjectName("plot_tabs")
-        self.plot_tabs.setDocumentMode(True)
+        self.plot_tabs = PlotTabs("xstack-design")
         self.reflectivity_plot = ReflectivityPlot()
         self.layer_plot = LayerProfilePlot()
         self.comparison_view = DesignComparisonView()
-        self.plot_tabs.addTab(self._reflectivity_tab(), "Reflectivity")
-        self.plot_tabs.addTab(self._layer_tab(), "Layer profile")
+        self.reflectivity_view = self._reflectivity_tab()
+        self.layer_view = self._layer_tab()
+        self.plot_tabs.addTab(self.reflectivity_view, "Reflectivity")
+        self.plot_tabs.addTab(self.layer_view, "Layer profile")
         self.plot_tabs.addTab(self.comparison_view, "Parameters")
         self.design_map = DesignMapPlot()
         self.convergence_plot = ConvergencePlot()
@@ -230,6 +231,18 @@ class MainWindow(QMainWindow):
         self.plot_tabs.setTabToolTip(
             2, "Coating parameters of the selected candidate compared with the input design"
         )
+        self.step_views: dict[str, QWidget] = {
+            "Goal": self.reflectivity_view,
+            "Materials": self.reflectivity_view,
+            "Coating": self.layer_view,
+            "Estimate": self.reflectivity_view,
+            "Constraints": self.layer_view,
+            "Process": self.layer_view,
+            "Scan": self.design_map,
+            "Optimize": self.reflectivity_view,
+            "Trade-off": self.tradeoff_plot,
+            "Analyze": self.tolerance_view,
+        }
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(self._step_panel())
@@ -312,6 +325,7 @@ class MainWindow(QMainWindow):
             self.step_tabs.addTab(container, f"{index + 1} {step}")
             self.step_tabs.setTabToolTip(index, f"Step {index + 1}: {step}")
         self.step_tabs.setCurrentIndex(WORKFLOW_STEPS.index("Coating"))
+        self.step_tabs.currentChanged.connect(lambda _: self.show_step_view())
         layout.addWidget(self.step_tabs, 1)
         self._step_panel_widget = panel
         self.parameter_table = self.coating_page.parameter_table
@@ -604,6 +618,17 @@ class MainWindow(QMainWindow):
         self.run_action = QAction("&Run pipeline", self)
         self.run_action.setShortcut(QKeySequence("Ctrl+R"))
         self.run_action.triggered.connect(lambda: self.optimize_page.run())
+        self.auto_views_action = QAction("Switch plots &automatically", self, checkable=True)
+        self.auto_views_action.setToolTip(
+            "Show the plot that belongs to the current step, and the convergence during runs"
+        )
+        self.auto_views_action.setChecked(
+            str(self.settings.value("plots/auto_switch", "true")).lower() == "true"
+        )
+        self.auto_views_action.toggled.connect(self._auto_views_toggled)
+        self.detach_action = QAction("&Detach current plot", self)
+        self.detach_action.setShortcut(QKeySequence("Ctrl+Shift+D"))
+        self.detach_action.triggered.connect(self.plot_tabs.detach_current)
         self.stop_action = QAction("&Stop", self)
         self.stop_action.setShortcut(QKeySequence("Ctrl+."))
         self.stop_action.setEnabled(False)
@@ -641,6 +666,9 @@ class MainWindow(QMainWindow):
             self.theme_group.addAction(action)
             theme_menu.addAction(action)
             self.theme_actions[theme] = action
+        view_menu.addSeparator()
+        view_menu.addAction(self.auto_views_action)
+        view_menu.addAction(self.detach_action)
         view_menu.addSeparator()
         for dock in (
             self.candidates_dock,
@@ -866,7 +894,23 @@ class MainWindow(QMainWindow):
             return False
         return True
 
+    def show_step_view(self) -> None:
+        """Show the plot of the current workflow step, if plots switch automatically."""
+        if not self.auto_views_action.isChecked():
+            return
+        step = WORKFLOW_STEPS[self.step_tabs.currentIndex()]
+        view = self.step_views.get(step)
+        if view is not None:
+            self.plot_tabs.show_view(view)
+
+    def _auto_views_toggled(self, checked: bool) -> None:
+        self.settings.setValue("plots/auto_switch", checked)
+        if checked:
+            self.show_step_view()
+
     def _job_started(self, name: str) -> None:
+        if self.auto_views_action.isChecked():
+            self.plot_tabs.show_view(self.convergence_plot)
         self.convergence_plot.clear()
         self._job_state = self.controller.state
         self._live_values = None
@@ -932,12 +976,14 @@ class MainWindow(QMainWindow):
         self.stop_action.setEnabled(False)
         self.run_action.setEnabled(True)
         self.statusBar().showMessage(message, 8000)
+        if self.plot_tabs.currentWidget() is self.convergence_plot:
+            self.show_step_view()
 
     def _show_scan(self, result: ScanResult) -> None:
         self.design_map.set_scan(
             result.names, result.axes, result.merit, result.feasible, "Figure of merit"
         )
-        self.plot_tabs.setCurrentWidget(self.design_map)
+        self.plot_tabs.show_view(self.design_map)
 
     def _request_tolerance_curves(self) -> None:
         if self.tolerance_result is None:
@@ -978,7 +1024,7 @@ class MainWindow(QMainWindow):
         else:
             self.tolerance_view.set_result(result)
             self._request_tolerance_curves()
-        self.plot_tabs.setCurrentWidget(self.tolerance_view)
+        self.plot_tabs.show_view(self.tolerance_view)
 
     def _update_tradeoff_plot(self) -> None:
         """Draw the stored trade-off with the input design and the candidates for reference."""
@@ -1043,7 +1089,7 @@ class MainWindow(QMainWindow):
             )
 
     def _show_tradeoff(self, _result: object) -> None:
-        self.plot_tabs.setCurrentWidget(self.tradeoff_plot)
+        self.plot_tabs.show_view(self.tradeoff_plot)
 
     def _apply_pipeline_result(
         self,
@@ -1392,6 +1438,7 @@ class MainWindow(QMainWindow):
         if not self._maybe_save():
             event.ignore()
             return
+        self.plot_tabs.attach_all()
         self.settings.setValue("main_window/geometry", self.saveGeometry())
         self.settings.setValue("main_window/state", self.saveState())
         event.accept()

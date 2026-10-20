@@ -54,7 +54,8 @@ The window opens on the Coating step.
 The toolbar holds New, Open, Save, Undo, Redo, Run pipeline and Stop. Undo and Redo are icon-only
 buttons; Run pipeline is the highlighted primary action. The toolbar icons are line icons drawn from SVG.
 The menus are File (New…, New from template, Open, Open recent, Save, Save as, Rename project…, Quit), Edit (Undo,
-Redo), Run (Run pipeline, Stop) and View (Theme: Light, Dark, System; toggles for the Candidates,
+Redo), Run (Run pipeline, Stop) and View (Theme: Light, Dark, System; *Switch plots automatically*;
+*Detach current plot* (Ctrl+Shift+D); toggles for the Candidates,
 Journal and History docks).
 
 **New project wizard** (*File > New…*, toolbar *New*; shared by both applications,
@@ -203,6 +204,18 @@ primary button variant.
 
 ### 2.3 Plot tabs
 
+**Detaching.** Every plot tab can be shown in its own window: *Detach* next to the tabs, *Detach “…”*
+in the context menu of a tab, or *View > Detach current plot*. The plot keeps updating there; closing
+its window puts the tab back at its position. Detached windows are re-attached when the main window
+closes. The plot-range fields stay above the tabs and also apply to a detached reflectivity plot.
+
+**Automatic views.** With *View > Switch plots automatically* (on by default, saved in the settings),
+changing the workflow step shows the plot that belongs to it: Reflectivity for Goal, Materials,
+Estimate and Optimize; Layer profile for Coating, Constraints and Process; Design map for Scan;
+Trade-off for Trade-off; Tolerance for Analyze. While a background job runs, the Convergence tab is
+shown; when it ends, the step's plot is shown again unless the job showed its own result (e.g. the
+design map of a scan). A plot that is detached is not switched; its window stays in front.
+
 | Tab | Content |
 |---|---|
 | Reflectivity | Reflectivity R(E) or R(θ) of the input design, one panel per scan axis, with the Rⁿ exponent in the axis label for n > 1. Target scan ranges are shaded. Every curve has its own color from the categorical palette in order. Checked and selected candidates are dashed. During a run, the best design so far is drawn live. *Plot range* fields (energy in keV, angle in deg; empty = target range) and a *log scale* switch. The figure of merit always uses the target range. |
@@ -269,6 +282,7 @@ src/xstack/gui/
     profile.py           # LayerProfilePlot, bilayer_profile
     wizard.py            # ProjectWizard, ProjectSetup: the new-project wizard
     garbage.py           # GarbageCollector: Python garbage collection in the GUI thread only
+    plot_tabs.py         # PlotTabs: plot tabs that detach into windows; show_view
     journal_view.py      # JournalView
     forms.py             # DataclassForm: editor generated from dataclass fields
     files.py             # ask_save_path, with_suffix: save dialogs that append the file extension
@@ -395,5 +409,8 @@ journal, background jobs and file handling are the same as in the design applica
   page shows χ²_red (or objective per degree of freedom), values with uncertainties, notes (*at bound*,
   *undetermined*) and strong correlations, and exports the report (text) and the curves (CSV). The
   Correlations tab shows the correlation matrix of the selected fit.
+- **Plots**: as in the design application (§2.3), plot tabs can be detached and switch with the step:
+  Reflectivity for Data, Parameters and Fit; Layer profile for Structure and Materials; Correlations
+  for Results; Convergence while a fit runs.
 - **Files**: `.xfit` projects (`xstack.fit.project.FitProject`) with measured data, structure, settings,
   saved fits and the journal.

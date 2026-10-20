@@ -1,7 +1,7 @@
 """Depth-graded multilayer coating and grading laws."""
 
 from dataclasses import dataclass
-from typing import ClassVar, Protocol
+from typing import ClassVar, Protocol, Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -12,12 +12,16 @@ from xstack.core.plugins import Registry
 from xstack.core.structure.coating import Coating, CoatingBuildError, register_coating
 from xstack.core.structure.coatings.bilayer import (
     BILAYER_ROLES,
+    INTERLAYER_PARAMETERS,
     INTERLAYER_ROLES,
     MAX_BILAYERS,
     MAX_THICKNESS,
     TopMaterial,
+    active_interlayers,
     bilayer_layers,
     bilayer_parameters,
+    check_interlayer_specs,
+    set_interlayers,
 )
 from xstack.core.structure.stack import Layer
 
@@ -203,6 +207,34 @@ class DepthGraded(Coating):
     law: str = "power_law"
     cap: bool = False
     top: TopMaterial = "H"
+    use_interlayers: bool = False
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if any(role in self.materials for role in INTERLAYER_ROLES):
+            object.__setattr__(self, "use_interlayers", True)
+
+    def inactive_parameters(self) -> frozenset[str]:
+        """Return the interlayer thicknesses if the coating has no interlayers.
+
+        Returns:
+            Parameter names.
+        """
+        return frozenset() if self.use_interlayers else frozenset(INTERLAYER_PARAMETERS)
+
+    def with_interlayers(self, enabled: bool) -> Self:
+        """Return a copy with interlayers switched on or off.
+
+        Switching them off removes the interlayer materials and fixes the interlayer
+        thicknesses at zero.
+
+        Args:
+            enabled: Whether the coating has interlayers.
+
+        Returns:
+            The modified coating.
+        """
+        return set_interlayers(self, enabled)
 
     @classmethod
     def create(
@@ -301,6 +333,7 @@ class DepthGraded(Coating):
         params = ParameterSet(
             resolve(t, specs[t.name]) if t.name in specs else t for t in templates
         )
+        check_interlayer_specs(params, interlayers)
         roles = (("H", H), ("L", L), *(interlayers or {}).items())
         return cls(name, roles, params, law=law, cap=cap, top=top)
 
@@ -336,7 +369,7 @@ class DepthGraded(Coating):
         n = int(values["N"])
         if n < 1:
             raise CoatingBuildError(f"{self.name}: N must be at least 1")
-        materials = self.materials
+        materials, values = active_interlayers(self.use_interlayers, self.materials, values)
         periods = grading_laws.get(self.law).periods(n, values)
         gammas = np.linspace(values["gamma_top"], values["gamma_bottom"], n)
         layers: list[Layer] = []

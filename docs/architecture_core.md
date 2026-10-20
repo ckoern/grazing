@@ -300,7 +300,11 @@ is deposited on L; thickness `t_interlayer_H_on_L`) and `interlayer_L_on_H` (whe
 thickness `t_interlayer_L_on_H`). Interlayers count towards the period:
 d = t_H + t_L + t_interlayer_H_on_L + t_interlayer_L_on_H. Each interlayer replaces the roughness of the
 interface it sits in. The bilayer module enforces bounds: thickness and period ≤ 100 nm, roughness ≤ 5 nm,
-N ≤ 1000.
+N ≤ 1000. Interlayers are optional: the field `use_interlayers` (default `False`, set when an
+interlayer material is given) switches them on, and `with_interlayers(enabled)` switches them; off,
+the interlayer thicknesses act as zero and `Coating.inactive_parameters()` names them so that
+applications can hide them. With interlayers on, a thickness above 0 without a material for its
+role raises `CoatingBuildError`; `Coating.without_material(role)` removes an optional material.
 
 Grading laws (`grading_laws` registry: `power_law`, `linear`) define the period of each bilayer of a
 depth-graded coating. Γ is interpolated linearly from `gamma_top` to `gamma_bottom`.

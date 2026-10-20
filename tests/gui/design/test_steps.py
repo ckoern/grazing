@@ -171,7 +171,9 @@ def test_coating_page_shows_parameters(qtbot: QtBot) -> None:
     state = new_state("periodic")
     page, _ = make_page(qtbot, CoatingPage, state)
     assert state.mirror is not None
-    assert page.parameter_table.table_model.rowCount() == len(state.mirror.coating.parameters)
+    coating = state.mirror.coating
+    shown = len(coating.parameters) - len(coating.inactive_parameters())
+    assert page.parameter_table.table_model.rowCount() == shown
     assert page.type_combo.currentData() == "periodic"
     assert not page.law_combo.isEnabled()
     assert page.top_combo.isEnabled()

@@ -54,6 +54,14 @@ class Composite(Coating):
         """
         return cls(name, (), ParameterSet(), blocks=tuple(blocks))
 
+    def inactive_parameters(self) -> frozenset[str]:
+        """Return the inactive parameters of the blocks, prefixed with the block names.
+
+        Returns:
+            Parameter names.
+        """
+        return frozenset(f"{b.name}.{n}" for b in self.blocks for n in b.inactive_parameters())
+
     def material_map(self) -> dict[str, Material]:
         """Return the materials of the blocks' roles, prefixed with the block names.
 

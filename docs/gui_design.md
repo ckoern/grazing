@@ -112,14 +112,19 @@ primary button variant.
   the blocks: *Add fixed-angle target*, *Add fixed-energy target*. **Combine targets** selects
   *Average reflectivity* (curves averaged, one figure of merit) or *Average figure of merit* (one figure
   of merit per target, averaged); a text below it explains the selected mode.
-- **Materials**: table of the material of each coating role and of the substrate, with density (editable)
+- **Materials**: table of the material of each coating role and of the substrate (bilayer coatings
+  with *Interlayers at the interfaces* enabled also list both interlayer roles; *(none)* means no
+  interlayer, and choosing a material gives an interlayer of zero thickness a start thickness of
+  0.5 nm), with density (editable)
   and *Density parameter*, which makes the density a parameter (`rho_<role>`) that appears in the
   parameter table (the density cell then edits its value); a dialog to create a material (name, chemical
   formula, density), and a plot of δ (solid) and β (dashed) for the materials in use.
 - **Coating**: coating type (Periodic multilayer, Depth-graded multilayer, Single layer, Layer stack (N
   layers)); top layer of each bilayer (absorber H or spacer L); grading law for depth-graded coatings; a
   cap bilayer with its own period and Γ; *Same Γ for all graded bilayers* (ties `gamma_bottom` to
-  `gamma_top` by an expression; unchecked, Γ changes linearly with depth); substrate roughness. The N-layer stack has a layer table with
+  `gamma_top` by an expression; unchecked, Γ changes linearly with depth); *Interlayers at the
+  interfaces* (off by default; off, the interlayer thicknesses are zero and hidden in the parameter
+  tables of both applications, and the interlayer materials are removed); substrate roughness. The N-layer stack has a layer table with
   *Add layer* and *Remove layer*; its parameters are named after the layer materials (`t_Mo`, `sigma_Mo`; `t_Si_1`, `t_Si_2` if a material repeats), and changing a material renames them (expressions between layers follow). Below is the parameter table: columns Parameter, Value, Unit, Vary, Min,
   Max, Expression, Description. A parameter with *Vary* checked is explored between Min and Max; an
   expression computes it from other parameters.

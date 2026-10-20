@@ -67,6 +67,17 @@ class Coating(ABC):
         """Materials by role."""
         return dict(self.material_roles)
 
+    def inactive_parameters(self) -> frozenset[str]:
+        """Return the parameters that have no effect with the current options.
+
+        Applications hide them; e.g. the interlayer thicknesses of a bilayer coating without
+        interlayers.
+
+        Returns:
+            Parameter names.
+        """
+        return frozenset()
+
     def material_map(self) -> dict[str, Material]:
         """Return the materials of all roles, including those of nested coatings.
 
@@ -188,6 +199,24 @@ class Coating(ABC):
         roles = dict(self.material_roles)
         roles[role] = material
         return replace(self, material_roles=tuple(roles.items()))
+
+    def without_material(self, role: str) -> Self:
+        """Return a copy without the material of an optional role (e.g. an interlayer).
+
+        Args:
+            role: Optional role name.
+
+        Returns:
+            The modified coating; unchanged if the role has no material.
+
+        Raises:
+            ValueError: If the role is required.
+        """
+        if role in self.roles:
+            raise ValueError(f"{type(self).__name__} requires a material for role {role!r}")
+        return replace(
+            self, material_roles=tuple((r, m) for r, m in self.material_roles if r != role)
+        )
 
     def renamed(self, name: str) -> Self:
         """Return a copy with a different name.

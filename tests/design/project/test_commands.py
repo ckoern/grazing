@@ -66,6 +66,22 @@ class TestSimpleCommands:
         state = check_undoable(project, commands.rename_project("new"))
         assert state.name == "new"
 
+    def test_set_display_ranges_merges(self) -> None:
+        project = make_project()
+        project.execute(commands.set_display_ranges({"energy": (0.0, 1e3)}))
+        project.execute(commands.set_display_ranges({"energy": (0.0, 2e3), "angle": (0.0, 0.5)}))
+        assert project.state.display_ranges == {"energy": (0.0, 2e3), "angle": (0.0, 0.5)}
+        project.undo()
+        assert project.state.display_ranges == {}
+        assert not project.history.can_undo
+
+    def test_set_display_ranges_copies_input(self) -> None:
+        project = make_project()
+        ranges = {"energy": (1.0, 2.0)}
+        project.execute(commands.set_display_ranges(ranges))
+        ranges["energy"] = (5.0, 6.0)
+        assert project.state.display_ranges == {"energy": (1.0, 2.0)}
+
     def test_set_notes_merges(self) -> None:
         project = make_project()
         project.execute(commands.set_notes("a"))

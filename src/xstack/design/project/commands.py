@@ -48,6 +48,7 @@ __all__ = [
     "run_pipeline",
     "select_candidate",
     "set_coating",
+    "set_display_ranges",
     "set_merit",
     "set_mirror",
     "set_model",
@@ -79,6 +80,22 @@ def rename_project(name: str) -> Command:
         The command.
     """
     return Command(f"Rename project to {name!r}", lambda s: s.evolve(name=name))
+
+
+def set_display_ranges(ranges: dict[str, tuple[float, float]]) -> Command:
+    """Replace the plot ranges of the scan axes.
+
+    Args:
+        ranges: Plot range by scan axis, ``"energy"`` in eV and ``"angle"`` in rad, as
+            (min, max). Axes left out show the target range.
+
+    Returns:
+        The command.
+    """
+    copy = {axis: (float(lo), float(hi)) for axis, (lo, hi) in ranges.items()}
+    return Command(
+        "Set plot range", lambda s: s.evolve(display_ranges=dict(copy)), merge_key="display_ranges"
+    )
 
 
 def set_notes(notes: str) -> Command:

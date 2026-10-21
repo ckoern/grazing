@@ -93,6 +93,8 @@ class ProjectState:
             or ``None``.
         notes: Free-form notes.
         tradeoff: The last coating-time trade-off, or ``None``.
+        display_ranges: Plot range by scan axis (``"energy"`` in eV, ``"angle"`` in rad) as
+            (min, max). Axes without an entry show the target range.
     """
 
     name: str = "untitled"
@@ -107,6 +109,7 @@ class ProjectState:
     selected: str | None = None
     notes: str = ""
     tradeoff: TradeoffResult | None = None
+    display_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
 
     def evolve(self, **changes: Any) -> "ProjectState":
         """Return a copy with some fields changed.

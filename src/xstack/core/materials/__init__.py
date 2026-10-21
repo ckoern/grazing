@@ -8,10 +8,16 @@ Examples:
     True
 """
 
-from xstack.core.materials.library import PRESETS, MaterialLibrary, default_library
+from xstack.core.materials.library import (
+    PRESETS,
+    MaterialLibrary,
+    default_library,
+    provider_library,
+)
 from xstack.core.materials.material import VACUUM, Material
 from xstack.core.materials.providers import (
     DEFAULT_PROVIDER,
+    ChantlerProvider,
     CombinedProvider,
     HenkeProvider,
     OpticalConstantsProvider,
@@ -27,6 +33,7 @@ __all__ = [
     "DEFAULT_PROVIDER",
     "PRESETS",
     "VACUUM",
+    "ChantlerProvider",
     "CombinedProvider",
     "HenkeProvider",
     "Material",
@@ -38,6 +45,7 @@ __all__ = [
     "default_library",
     "delta_beta",
     "get",
+    "provider_library",
     "providers",
     "refractive_index",
 ]

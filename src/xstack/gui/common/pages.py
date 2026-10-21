@@ -24,11 +24,14 @@ class StructureCommands:
         set_coating: Command replacing the coating.
         set_parameter: Command changing fields of one coating parameter, called as
             ``set_parameter(name, **changes)``.
+        set_optical_constants: Command choosing the optical-constants provider of the project,
+            called with the provider name.
     """
 
     set_mirror: Callable[[Mirror], Any]
     set_coating: Callable[[Coating], Any]
     set_parameter: Callable[..., Any]
+    set_optical_constants: Callable[[str], Any]
 
 
 class StepPage(QWidget):

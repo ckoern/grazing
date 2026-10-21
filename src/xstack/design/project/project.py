@@ -6,6 +6,7 @@ from typing import Any
 
 from xstack.core import document
 from xstack.core.document import Document
+from xstack.core.materials import DEFAULT_PROVIDER, MaterialLibrary, provider_library
 from xstack.core.physics.models import ParrattModel, ReflectivityModel
 from xstack.core.serialization import register_serializable
 from xstack.core.structure.coating import Mirror
@@ -93,6 +94,8 @@ class ProjectState:
             or ``None``.
         notes: Free-form notes.
         tradeoff: The last coating-time trade-off, or ``None``.
+        optical_constants: Name of the optical-constants provider for all materials that don't
+            specify their own (see `xstack.core.materials.providers`).
     """
 
     name: str = "untitled"
@@ -107,6 +110,7 @@ class ProjectState:
     selected: str | None = None
     notes: str = ""
     tradeoff: TradeoffResult | None = None
+    optical_constants: str = DEFAULT_PROVIDER
 
     def evolve(self, **changes: Any) -> "ProjectState":
         """Return a copy with some fields changed.
@@ -132,7 +136,26 @@ class ProjectState:
         if mirror is None or targets is None or merit is None:
             missing = [n for n in ("mirror", "targets", "merit") if getattr(self, n) is None]
             raise ValueError(f"the project does not define {', '.join(missing)}")
-        return DesignProblem(mirror, targets, merit, self.constraints, self.process, self.model)
+        return DesignProblem(
+            mirror,
+            targets,
+            merit,
+            self.constraints,
+            self.process,
+            self.model,
+            library=self.library(),
+        )
+
+    def library(self) -> MaterialLibrary:
+        """Return the material library that computes the optical constants of this project.
+
+        Returns:
+            The shared library of the provider `optical_constants`.
+
+        Raises:
+            KeyError: If the provider is not registered.
+        """
+        return provider_library(self.optical_constants)
 
     def selected_candidate(self) -> Candidate | None:
         """Return the selected candidate, if any."""

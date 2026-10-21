@@ -165,7 +165,9 @@ def compute_preview(state: FitState, values: Mapping[str, float] | None = None) 
     if not state.datasets:
         return FitPreview((), stack, state.weighting, error="no measured data")
     try:
-        problem = FitProblem(state.mirror, state.datasets, state.model, state.weighting)
+        problem = FitProblem(
+            state.mirror, state.datasets, state.model, state.weighting, library=state.library()
+        )
         resolved = problem.resolve(values)
     except (ValueError, KeyError) as exc:
         return FitPreview(measured, stack, state.weighting, error=str(exc))

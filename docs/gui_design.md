@@ -113,13 +113,17 @@ primary button variant.
   the blocks: *Add fixed-angle target*, *Add fixed-energy target*. **Combine targets** selects
   *Average reflectivity* (curves averaged, one figure of merit) or *Average figure of merit* (one figure
   of merit per target, averaged); a text below it explains the selected mode.
-- **Materials**: table of the material of each coating role and of the substrate (bilayer coatings
+- **Materials**: *Optical constants* above the table selects the provider of δ and β for the whole
+  project (Henke up to 30 keV with xraylib above, the default; Henke; Chantler/NIST FFAST; xraylib; each
+  also as photoabsorption only), stored in the project file; then a table of the material of each
+  coating role and of the substrate (bilayer coatings
   with *Interlayers at the interfaces* enabled also list both interlayer roles; *(none)* means no
   interlayer, and choosing a material gives an interlayer of zero thickness a start thickness of
   0.5 nm), with density (editable)
   and *Density parameter*, which makes the density a parameter (`rho_<role>`) that appears in the
   parameter table (the density cell then edits its value); a dialog to create a material (name, chemical
-  formula, density), and a plot of δ (solid) and β (dashed) for the materials in use.
+  formula, density), and a plot of δ (solid) and β (dashed) for the materials in use, within the energy
+  range of the provider.
 - **Coating**: coating type (Periodic multilayer, Depth-graded multilayer, Single layer, Layer stack (N
   layers)); top layer of each bilayer (absorber H or spacer L); grading law for depth-graded coatings; a
   cap bilayer with its own period and Γ; *Same Γ for all graded bilayers* (ties `gamma_bottom` to

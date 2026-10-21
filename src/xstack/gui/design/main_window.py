@@ -1168,7 +1168,7 @@ class MainWindow(QMainWindow):
         except (CoatingBuildError, ValueError) as exc:
             self._show_error(f"Cannot export: {exc}")
             return False
-        floor = lowest_energy(frozenset(stack.media))
+        floor = lowest_energy(frozenset(stack.media), state.optical_constants)
         targets = display_targets(state.targets.targets, self.display_ranges, floor)
         if path is None:
             label = INPUT_DESIGN_LABEL if name is None else name
@@ -1179,7 +1179,7 @@ class MainWindow(QMainWindow):
                 return False
             path = chosen
         try:
-            write_reflectivity_csv(path, stack, targets, state.model)
+            write_reflectivity_csv(path, stack, targets, state.model, state.library())
         except (OSError, ValueError, KeyError) as exc:
             self._show_error(f"Cannot export: {exc}")
             return False

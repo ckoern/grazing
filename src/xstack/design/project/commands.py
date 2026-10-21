@@ -19,6 +19,7 @@ from dataclasses import replace
 from typing import Any
 
 from xstack.core.journal import Journal
+from xstack.core.materials import providers
 from xstack.core.optim.events import CancellationToken, EventSink
 from xstack.core.parameters import ParameterSet
 from xstack.core.physics.models import ReflectivityModel
@@ -52,6 +53,7 @@ __all__ = [
     "set_mirror",
     "set_model",
     "set_notes",
+    "set_optical_constants",
     "set_parameter",
     "set_parameters",
     "set_pipeline",
@@ -194,6 +196,24 @@ def set_process(process: DepositionProcess | None) -> Command:
     """
     text = "Remove deposition process" if process is None else "Set deposition process"
     return Command(text, lambda s: s.evolve(process=process))
+
+
+def set_optical_constants(provider: str) -> Command:
+    """Choose the optical-constants provider of the project.
+
+    Args:
+        provider: Name of a registered optical-constants provider.
+
+    Returns:
+        The command.
+
+    Raises:
+        KeyError: If the provider is not registered.
+    """
+    providers.get(provider)
+    return Command(
+        f"Set optical constants ({provider})", lambda s: s.evolve(optical_constants=provider)
+    )
 
 
 def set_model(model: ReflectivityModel) -> Command:

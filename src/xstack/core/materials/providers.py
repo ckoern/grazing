@@ -17,8 +17,9 @@ Available providers (names in `providers`):
 * ``"henke"``: CXRO/Henke tables, roughly 10 eV to 30 keV.
 * ``"xraylib"``: xraylib anomalous scattering factors, all energies.
 * ``"henke_xraylib"``: Henke up to 30 keV and xraylib above. This is `DEFAULT_PROVIDER`.
-* ``"henke_photo"``, ``"xraylib_photo"``, ``"henke_xraylib_photo"``: the same without the
-  Compton contribution (photoabsorption only).
+* ``"chantler"``: Chantler tables (NIST FFAST), 10 eV to 433 keV.
+* ``"henke_photo"``, ``"xraylib_photo"``, ``"henke_xraylib_photo"``, ``"chantler_photo"``: the
+  same without the Compton contribution (photoabsorption only).
 """
 
 from abc import ABC, abstractmethod
@@ -37,6 +38,7 @@ from xstack.core.units import AVOGADRO, CLASSICAL_ELECTRON_RADIUS, energy_to_wav
 
 __all__ = [
     "DEFAULT_PROVIDER",
+    "ChantlerProvider",
     "CombinedProvider",
     "HenkeProvider",
     "OpticalConstantsProvider",
@@ -55,6 +57,7 @@ DEFAULT_PROVIDER = "henke_xraylib"
 _MISSING_F1 = -9000.0
 _CM2_TO_NM2 = 1e14
 _COMPTON_MIN_KEV = 0.1
+_F2_FLOOR = 1e-30
 
 
 @runtime_checkable
@@ -213,20 +216,7 @@ class HenkeProvider(ScatteringFactorProvider):
         Raises:
             ValueError: If an energy is outside the tabulated range for this element.
         """
-        log_e, f1, log_f2 = self._table(atomic_number)
-        e_min, e_max = np.exp(log_e[0]), np.exp(log_e[-1])
-        energy = np.asarray(energy, dtype=np.float64)
-        # Small tolerance so that the table end points themselves are accepted.
-        if energy.size and (
-            energy.min() < e_min * (1 - 1e-12) or energy.max() > e_max * (1 + 1e-12)
-        ):
-            symbol = xraylib.AtomicNumberToSymbol(atomic_number)
-            raise ValueError(
-                f"Henke data for {symbol} cover {e_min:g}-{e_max:g} eV, "
-                f"requested {energy.min():g}-{energy.max():g} eV"
-            )
-        x = np.log(energy)
-        return np.interp(x, log_e, f1) + 1j * np.exp(np.interp(x, log_e, log_f2))
+        return _interpolate("Henke", atomic_number, self._table(atomic_number), energy)
 
     def _table(
         self, atomic_number: int
@@ -234,6 +224,27 @@ class HenkeProvider(ScatteringFactorProvider):
         if self._data_dir is None:
             return _bundled_henke_table(atomic_number)
         return _load_henke_table(self._data_dir / _henke_filename(atomic_number))
+
+
+type _Table = tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]
+
+
+def _interpolate(
+    source: str, atomic_number: int, table: _Table, energy: NDArray[np.float64]
+) -> NDArray[np.complex128]:
+    """Interpolate f1 linearly in log(E) and f2 linearly in log(E)–log(f2)."""
+    log_e, f1, log_f2 = table
+    e_min, e_max = np.exp(log_e[0]), np.exp(log_e[-1])
+    energy = np.asarray(energy, dtype=np.float64)
+    # Small tolerance so that the table end points themselves are accepted.
+    if energy.size and (energy.min() < e_min * (1 - 1e-12) or energy.max() > e_max * (1 + 1e-12)):
+        symbol = xraylib.AtomicNumberToSymbol(atomic_number)
+        raise ValueError(
+            f"{source} data for {symbol} cover {e_min:g}-{e_max:g} eV, "
+            f"requested {energy.min():g}-{energy.max():g} eV"
+        )
+    x = np.log(energy)
+    return np.interp(x, log_e, f1) + 1j * np.exp(np.interp(x, log_e, log_f2))
 
 
 def _henke_filename(atomic_number: int) -> str:
@@ -263,6 +274,58 @@ def _load_henke_table(
     f1 = np.bincount(inverse, weights=f1) / counts
     f2 = np.bincount(inverse, weights=f2) / counts
     return np.log(unique), f1, np.log(f2)
+
+
+class ChantlerProvider(ScatteringFactorProvider):
+    """Atomic scattering factors from the Chantler tables (NIST FFAST).
+
+    The tables cover Z = 1 to 92 from 10 eV to 433 keV. They are the tables of the NIST FFAST
+    database (C. T. Chantler, J. Phys. Chem. Ref. Data 24, 71 (1995) and 29, 597 (2000)) on the
+    energy grid distributed with xraydb. f1 is interpolated linearly in log(E), f2 linearly in
+    log(E)–log(f2).
+
+    Args:
+        include_compton: Add Compton scattering to f2.
+    """
+
+    @property
+    def name(self) -> str:
+        """Short name of the provider."""
+        return "chantler" if self._include_compton else "chantler_photo"
+
+    @property
+    def energy_range(self) -> tuple[float, float]:
+        """Nominal range of supported photon energies in eV (min, max)."""
+        return (10.0, 433000.0)
+
+    def scattering_factors(
+        self, atomic_number: int, energy: NDArray[np.float64]
+    ) -> NDArray[np.complex128]:
+        """Return the forward atomic scattering factor f1 + i·f2 of an element.
+
+        Args:
+            atomic_number: Atomic number Z of the element.
+            energy: Photon energies in eV, one-dimensional.
+
+        Returns:
+            Complex array f1 + i·f2 with the same shape as `energy`.
+
+        Raises:
+            ValueError: If the element or an energy is outside the tabulated range.
+        """
+        return _interpolate("Chantler", atomic_number, _chantler_table(atomic_number), energy)
+
+
+@cache
+def _chantler_table(atomic_number: int) -> _Table:
+    if not 1 <= atomic_number <= 92:
+        raise ValueError(f"Chantler data are available for Z = 1-92, not Z = {atomic_number}")
+    name = f"{xraylib.AtomicNumberToSymbol(atomic_number).lower()}.dat.gz"
+    resource = resources.files("xstack.core.materials").joinpath("data", "chantler", name)
+    with resources.as_file(resource) as path:
+        data = np.loadtxt(path, ndmin=2)
+    # H and He have f2 = 0 below their ionization energy; a tiny floor keeps log(f2) finite.
+    return np.log(data[:, 0]), data[:, 1], np.log(np.maximum(data[:, 2], _F2_FLOOR))
 
 
 class XraylibProvider(ScatteringFactorProvider):
@@ -490,8 +553,10 @@ providers: Registry[OpticalConstantsProvider] = Registry("optical constants prov
 for _suffix, _compton in (("", True), ("_photo", False)):
     _henke = HenkeProvider(include_compton=_compton)
     _xraylib = XraylibProvider(include_compton=_compton)
+    _chantler = ChantlerProvider(include_compton=_compton)
     providers.register(_henke.name, _henke)
     providers.register(_xraylib.name, _xraylib)
+    providers.register(_chantler.name, _chantler)
     providers.register(
         DEFAULT_PROVIDER + _suffix,
         CombinedProvider(_henke, _xraylib, 30000.0, DEFAULT_PROVIDER + _suffix),

@@ -65,10 +65,12 @@ src/xstack/
       __init__.py           # get(name) for preset materials
       material.py           # Material, VACUUM
       providers.py          # OpticalConstantsProvider protocol, ScatteringFactorProvider, HenkeProvider,
-                            #   XraylibProvider, CombinedProvider (switches providers at an energy),
+                            #   ChantlerProvider, XraylibProvider, CombinedProvider (switches
+                            #   providers at an energy),
                             #   TabulatedProvider, providers registry, delta_beta(), refractive_index()
-      library.py            # MaterialLibrary, default_library(), PRESETS
+      library.py            # MaterialLibrary, default_library(), provider_library(), PRESETS
       data/henke/           # bundled CXRO (Henke) tables
+      data/chantler/        # bundled Chantler (NIST FFAST) tables and their conversion script
     physics/
       kernel.py             # reflectance(): Parratt recursion on arrays
       fresnel.py            # InterfaceModel protocol; SharpInterface, NevotCroce, DebyeWaller
@@ -215,14 +217,17 @@ class OpticalConstantsProvider(Protocol):
 ```
 
 Implementations: `HenkeProvider` (bundled tables, per-element scattering factors),
-`XraylibProvider`, `TabulatedProvider` (δ and β of one material from a user table), and
+`ChantlerProvider` (bundled Chantler/NIST FFAST tables, 10 eV to 433 keV), `XraylibProvider`, `TabulatedProvider` (δ and β of one material from a user table), and
 `CombinedProvider`, which uses one provider below a switching energy and another one above.
 `ScatteringFactorProvider` is the base class for providers built on per-element scattering factors; they
 include Compton scattering in β unless the `*_photo` variant is chosen. The `providers` registry holds
-`henke`, `xraylib`, `henke_xraylib` (Henke up to 30 keV, xraylib above; the default) and their `_photo`
-variants. `MaterialLibrary` holds the presets and user materials and selects the provider per material
+`henke`, `xraylib`, `chantler`, `henke_xraylib` (Henke up to 30 keV, xraylib above; the default) and
+their `_photo` variants. `MaterialLibrary` holds the presets and user materials and selects the provider per material
 (`provider_for`); its `delta_beta` and `refractive_index` cache the results. `default_library()` returns
-the library used when none is given. `VACUUM` is the default ambient.
+the library used when none is given; `provider_library(name)` returns a shared library with another
+default provider. The design and fit project states have the field `optical_constants` (a provider
+name, default `henke_xraylib`); their `library()` is `provider_library(optical_constants)`, which their
+problems and previews use. `VACUUM` is the default ambient.
 
 ### 3.3 Stack: the physical description
 

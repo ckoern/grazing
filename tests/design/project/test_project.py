@@ -362,6 +362,18 @@ class TestPersistence:
         data = json.loads(path.read_text())
         assert data["format"] == "xstack-project"
 
+    def test_display_ranges_round_trip(self) -> None:
+        project = self.make_project()
+        ranges = {"energy": (0.0, 12e3), "angle": (0.01, 0.5)}
+        project.execute(Command("ranges", lambda s: s.evolve(display_ranges=ranges)))
+        loaded = Project.from_data(json.loads(json.dumps(project.to_data())))
+        assert loaded.state.display_ranges == ranges
+
+    def test_file_without_display_ranges_loads(self) -> None:
+        data = self.make_project().to_data()
+        del data["state"]["fields"]["display_ranges"]
+        assert Project.from_data(data).state.display_ranges == {}
+
     def test_wrong_format(self) -> None:
         data = self.make_project().to_data()
         data["format"] = "something-else"

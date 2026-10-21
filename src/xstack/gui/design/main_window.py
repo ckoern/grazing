@@ -54,6 +54,7 @@ from xstack.design.project.commands import (
     rename_candidate,
     rename_project,
     select_candidate,
+    set_display_ranges,
     store_pipeline_result,
 )
 from xstack.design.project.templates import TEMPLATES
@@ -437,11 +438,29 @@ class MainWindow(QMainWindow):
             elif previous is not None:
                 # An invalid entry keeps the last valid range of this axis.
                 ranges[axis] = previous
-        if ranges != self.display_ranges:
-            self.display_ranges = ranges
-            self.analyze_page.display_ranges = dict(ranges)
-            self._request_preview()
-            self._request_tolerance_curves()
+        if ranges != self.controller.state.display_ranges:
+            self.controller.execute(set_display_ranges(ranges))
+
+    def _sync_display_ranges(self, ranges: dict[str, tuple[float, float]]) -> bool:
+        """Show the plot ranges of the project state in the fields and the plots.
+
+        Args:
+            ranges: Plot range by scan axis in eV or rad.
+
+        Returns:
+            Whether the ranges differed from the displayed ones.
+        """
+        if ranges == self.display_ranges:
+            return False
+        self.display_ranges = dict(ranges)
+        self.analyze_page.display_ranges = dict(ranges)
+        for axis, (low, high) in self.range_edits.items():
+            scale = 1e3 if axis == "energy" else np.pi / 180.0
+            lo, hi = ranges.get(axis, (None, None))
+            low.setText("" if lo is None else f"{lo / scale:g}")
+            high.setText("" if hi is None else f"{hi / scale:g}")
+        self._request_tolerance_curves()
+        return True
 
     def _log_toggled(self, checked: bool) -> None:
         self.reflectivity_plot.log_scale = checked
@@ -758,6 +777,7 @@ class MainWindow(QMainWindow):
         self.candidate_details.setText(_candidate_details(state))
         self._show_layers()
         self._update_title()
+        self._sync_display_ranges(state.display_ranges)
         self._request_preview()
         self._update_tradeoff_plot()
 

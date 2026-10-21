@@ -32,11 +32,12 @@ elements above ~10 keV. The `*_photo` providers leave it out (photoabsorption on
 | Source | Range | Notes |
 |---|---|---|
 | Henke / CXRO (`*.nff`) | 10 eV – 30 keV | Standard for soft and tender X-rays. Freely available, so it is bundled. |
-| Chantler / NIST FFAST | 1 eV – 433 keV | Alternative for hard X-ray MLs. Not used by xstack. |
+| Chantler / NIST FFAST | 10.7 eV – 433 keV | Alternative for hard X-ray MLs (provider `chantler`). Calculated for isolated atoms, so less reliable than Henke near soft X-ray and EUV edges. Bundled. |
 | xraylib | broad | **Used by xstack for E > 30 keV** (required dependency) |
 | User-tabulated δ, β | any | For measured or ellipsometry data, or reactive or interdiffused compounds (`TabulatedProvider`) |
 
-- The default provider uses the Henke tables up to 30 keV and xraylib above.
+- The default provider uses the Henke tables up to 30 keV and xraylib above. A project can choose another provider
+  (Henke, Chantler, xraylib, each also without Compton scattering) for all materials that don't specify their own.
 - Between table points, f1 is interpolated linearly in ln E and f2 log-log. Absorption edges need dense sampling.
 - Cache per (material, energy grid). Optical constants depend only on E, not on θ.
 - Thin films are often less dense than bulk (e.g. sputtered B₄C, C). The density of a material is therefore set by

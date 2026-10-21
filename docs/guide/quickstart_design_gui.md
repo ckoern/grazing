@@ -88,6 +88,11 @@ reflectivity each interface contributes, and β (the absorption) limits how many
 W/B4C has high contrast and still low absorption for Cu Kα, hence its use. See
 [optical constants](../physics_background.md) for the background.
 
+*Optical constants* above the table chooses the tables δ and β are computed from, for all materials
+of the project. The default uses the Henke (CXRO) tables up to 30 keV and xraylib above. *Chantler
+(NIST FFAST)* is an alternative for hard X-rays up to 433 keV; for soft X-rays and the EUV, the Henke
+tables are the better choice. Keep the default for this quick start.
+
 Interlayers are layers that form at the interfaces during deposition, for example a WSi₂ or W–C
 mixture. They are off by default; the option *Interlayers at the interfaces* on the **Coating** step
 switches them on. The Materials step then shows the rows *interlayer_H_on_L* and

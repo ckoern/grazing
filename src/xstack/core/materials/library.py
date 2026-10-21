@@ -10,7 +10,7 @@ from numpy.typing import ArrayLike, NDArray
 from xstack.core.materials.material import VACUUM, Material
 from xstack.core.materials.providers import DEFAULT_PROVIDER, delta_beta, providers
 
-__all__ = ["PRESETS", "MaterialLibrary", "default_library"]
+__all__ = ["PRESETS", "MaterialLibrary", "default_library", "provider_library"]
 
 PRESETS: tuple[Material, ...] = (
     VACUUM,
@@ -244,6 +244,7 @@ class MaterialLibrary:
 
 
 _default: MaterialLibrary | None = None
+_by_provider: dict[str, MaterialLibrary] = {}
 
 
 def default_library() -> MaterialLibrary:
@@ -256,3 +257,31 @@ def default_library() -> MaterialLibrary:
     if _default is None:
         _default = MaterialLibrary()
     return _default
+
+
+def provider_library(provider: str) -> MaterialLibrary:
+    """Return a shared library that computes optical constants with a given provider.
+
+    Materials that specify their own provider keep it. Libraries are created once per provider,
+    so their caches of optical constants are shared by all callers.
+
+    Args:
+        provider: Name of a registered optical-constants provider.
+
+    Returns:
+        The default library if its default provider is `provider`, otherwise a library with
+        `PRESETS` and `provider` as default provider.
+
+    Raises:
+        KeyError: If the provider is not registered.
+
+    Examples:
+        >>> provider_library("chantler").default_provider
+        'chantler'
+    """
+    default = default_library()
+    if provider == default.default_provider:
+        return default
+    if provider not in _by_provider:
+        _by_provider[provider] = MaterialLibrary(default_provider=provider)
+    return _by_provider[provider]

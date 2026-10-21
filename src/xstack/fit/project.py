@@ -26,6 +26,7 @@ from typing import Any
 from xstack.core import document
 from xstack.core.document import Document
 from xstack.core.io.models import read_models
+from xstack.core.materials import DEFAULT_PROVIDER, MaterialLibrary, provider_library, providers
 from xstack.core.optim.events import CancellationToken, EventSink
 from xstack.core.optim.optimizers import LmfitOptimizer, Optimizer
 from xstack.core.parameters import ParameterSet
@@ -57,6 +58,7 @@ __all__ = [
     "set_mirror",
     "set_model",
     "set_notes",
+    "set_optical_constants",
     "set_optimizer",
     "set_optimizers",
     "set_parameter",
@@ -111,6 +113,8 @@ class FitState:
         model_source: Where the structure model comes from, e.g. ``"mirror.xstack: input
             design"``.
         notes: Free-form notes.
+        optical_constants: Name of the optical-constants provider for all materials that don't
+            specify their own (see `xstack.core.materials.providers`).
     """
 
     name: str = "untitled"
@@ -122,6 +126,7 @@ class FitState:
     results: tuple[StoredFit, ...] = ()
     model_source: str = ""
     notes: str = ""
+    optical_constants: str = DEFAULT_PROVIDER
 
     def evolve(self, **changes: Any) -> "FitState":
         """Return a copy with some fields changed.
@@ -169,7 +174,20 @@ class FitState:
             raise ValueError("the project has no structure model")
         if not self.datasets:
             raise ValueError("the project has no measured data")
-        return FitProblem(self.mirror, self.datasets, self.model, self.weighting)
+        return FitProblem(
+            self.mirror, self.datasets, self.model, self.weighting, library=self.library()
+        )
+
+    def library(self) -> MaterialLibrary:
+        """Return the material library that computes the optical constants of this project.
+
+        Returns:
+            The shared library of the provider `optical_constants`.
+
+        Raises:
+            KeyError: If the provider is not registered.
+        """
+        return provider_library(self.optical_constants)
 
     def dataset(self, name: str) -> Dataset:
         """Return a dataset by name.
@@ -318,6 +336,24 @@ def import_model(path: Path | str, name: str | None = None) -> Command:
             raise ValueError(f"no model {name!r} in {Path(path).name} (available: {available})")
         chosen = matches[0]
     return set_mirror(chosen.mirror, chosen.model, f"{Path(path).name}: {chosen.name}")
+
+
+def set_optical_constants(provider: str) -> Command:
+    """Choose the optical-constants provider of the project.
+
+    Args:
+        provider: Name of a registered optical-constants provider.
+
+    Returns:
+        The command.
+
+    Raises:
+        KeyError: If the provider is not registered.
+    """
+    providers.get(provider)
+    return Command(
+        f"Set optical constants ({provider})", lambda s: s.evolve(optical_constants=provider)
+    )
 
 
 def set_model(model: ReflectivityModel) -> Command:

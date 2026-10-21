@@ -6,8 +6,8 @@ from functools import cache
 
 import numpy as np
 
-from xstack.core.materials import Material, default_library
-from xstack.core.physics.models import ReflectivityModel, ReflectivityResult
+from xstack.core.materials import DEFAULT_PROVIDER, Material, provider_library
+from xstack.core.physics.models import ReflectivityResult
 from xstack.core.structure.coating import CoatingBuildError, Mirror
 from xstack.core.structure.stack import Stack
 from xstack.core.targets import AngleScan, EnergyScan, Target
@@ -59,19 +59,19 @@ class Preview:
 
 
 @cache
-def lowest_energy(materials: frozenset[Material]) -> float:
+def lowest_energy(materials: frozenset[Material], provider: str = DEFAULT_PROVIDER) -> float:
     """Return the lowest photon energy at which the optical constants of all materials exist.
 
-    The energy is found on a logarithmic grid from 1 eV to 100 keV (about 2 % spacing) using
-    the default material library.
+    The energy is found on a logarithmic grid from 1 eV to 100 keV (about 2 % spacing).
 
     Args:
         materials: The materials.
+        provider: Optical-constants provider of the materials without their own.
 
     Returns:
         The energy in eV; 0 if all materials are vacuum.
     """
-    library = default_library()
+    library = provider_library(provider)
     real = [m for m in materials if not m.is_vacuum]
     if not real:
         return 0.0
@@ -135,9 +135,16 @@ def display_targets(
 
 
 def _curves(
-    stack: Stack, targets: Sequence[Target], model: ReflectivityModel
+    stack: Stack, targets: Sequence[Target], state: ProjectState
 ) -> tuple[ReflectivityResult, ...]:
-    return tuple(model.evaluate(stack, t, min(t.points, _MAX_DISPLAY_POINTS)) for t in targets)
+    library = state.library()
+    return tuple(
+        state.model.evaluate(stack, t, min(t.points, _MAX_DISPLAY_POINTS), library) for t in targets
+    )
+
+
+def _floor(stacks: Sequence[Stack | None], state: ProjectState) -> float:
+    return lowest_energy(_stack_materials(stacks), state.optical_constants)
 
 
 def compute_curves(
@@ -163,8 +170,8 @@ def compute_curves(
         stack = mirror.stack(values)
     except (CoatingBuildError, ValueError, KeyError):
         return ()
-    floor = lowest_energy(_stack_materials([stack]))
-    return _curves(stack, display_targets(state.targets.targets, display, floor), state.model)
+    floor = _floor([stack], state)
+    return _curves(stack, display_targets(state.targets.targets, display, floor), state)
 
 
 def compute_preview(
@@ -192,18 +199,18 @@ def compute_preview(
             stacks.append(state.candidate(name).mirror.stack())
         except (KeyError, CoatingBuildError, ValueError):
             continue
-    floor = lowest_energy(_stack_materials(stacks)) if display else 0.0
+    floor = _floor(stacks, state) if display else 0.0
     shown = display_targets(state.targets.targets, display, floor)
     curves = preview.results
     if display and preview.stack is not None:
-        curves = _curves(preview.stack, shown, state.model)
+        curves = _curves(preview.stack, shown, state)
     computed = []
     for name in overlays:
         try:
             stack = state.candidate(name).mirror.stack()
         except (KeyError, CoatingBuildError, ValueError):
             continue
-        computed.append((name, _curves(stack, shown, state.model)))
+        computed.append((name, _curves(stack, shown, state)))
     return replace(preview, curves=curves, overlays=tuple(computed))
 
 
@@ -218,7 +225,10 @@ def _current(state: ProjectState) -> Preview:
         return Preview(state, stack)
     points = min(_MAX_POINTS, max(t.points for t in state.targets.targets))
     if state.merit is None:
-        results = tuple(state.model.evaluate(stack, t, points) for t in state.targets.targets)
+        library = state.library()
+        results = tuple(
+            state.model.evaluate(stack, t, points, library) for t in state.targets.targets
+        )
         return Preview(state, stack, results)
     problem = state.problem().evolve(points=points)
     evaluation = problem.evaluate()
@@ -262,12 +272,10 @@ def tolerance_curves(
             result.nominal.results, tuple(sample.results for sample in result.samples)
         )
     stacks = [result.nominal.stack, *(sample.stack for sample in result.samples)]
-    floor = lowest_energy(_stack_materials(stacks))
+    floor = _floor(stacks, state)
     shown = display_targets(state.targets.targets, display, floor)
-    nominal = _curves(result.nominal.stack, shown, state.model) if result.nominal.stack else ()
+    nominal = _curves(result.nominal.stack, shown, state) if result.nominal.stack else ()
     samples = tuple(
-        _curves(sample.stack, shown, state.model)
-        for sample in result.samples
-        if sample.stack is not None
+        _curves(sample.stack, shown, state) for sample in result.samples if sample.stack is not None
     )
     return ToleranceCurves(nominal, samples)

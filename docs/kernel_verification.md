@@ -88,6 +88,8 @@ The coatings are tested in `tests/core/structure/test_coatings.py`: `Periodic`, 
 - Provider switching at 30 keV (Henke → xraylib) is continuous (δ within 0.3 %, β within 5 %), and the
   combined provider uses the expected side of the switching energy.
 - `TabulatedProvider` reproduces its nodes and interpolates as documented.
+- `ChantlerProvider` (`test_chantler.py`) reproduces the converted table values, approaches Z at high
+  energy, and agrees with Henke at Cu and Mo Kα (δ within 1 %, β within 6 %) and with xraylib at 60 keV.
 
 ## Tier 6: reference software and literature benchmarks
 

@@ -24,20 +24,63 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from xstack.core.materials import Material, MaterialLibrary, default_library
+from xstack.core.materials import (
+    DEFAULT_PROVIDER,
+    Material,
+    MaterialLibrary,
+    TabulatedProvider,
+    default_library,
+    provider_library,
+    providers,
+)
 from xstack.core.parameters import Parameter
 from xstack.core.structure.coating import SUBSTRATE, Mirror, density_parameter_name
 from xstack.core.structure.coatings.bilayer import INTERLAYER_ROLES
 from xstack.gui.common.pages import StepPage, StructureCommands
 from xstack.gui.common.style import PLOT_PALETTE as PALETTE
 
-__all__ = ["MaterialDialog", "MaterialsPage"]
+__all__ = ["PROVIDER_LABELS", "MaterialDialog", "MaterialsPage", "provider_choices"]
 
 _SUBSTRATE = SUBSTRATE
 _NONE = "(none)"
 
 INTERLAYER_START = 0.5
 """Thickness in nm given to an interlayer that gets a material while its thickness is 0."""
+
+PROVIDER_LABELS = {
+    "henke_xraylib": "Henke (CXRO) up to 30 keV, xraylib above",
+    "henke": "Henke (CXRO), 10 eV to 30 keV",
+    "chantler": "Chantler (NIST FFAST), 10.7 eV to 433 keV",
+    "xraylib": "xraylib, 100 eV to 1 MeV",
+}
+"""Descriptions of the optical-constants providers offered for a project."""
+
+_PLOT_RANGE = (100.0, 1e5)
+
+
+def provider_choices() -> list[tuple[str, str]]:
+    """Return the optical-constants providers a project can use, with descriptions.
+
+    The providers of `PROVIDER_LABELS` come first, then their photoabsorption-only variants,
+    then other registered providers. Tables of single materials (`TabulatedProvider`) are
+    left out, since they don't apply to all materials.
+
+    Returns:
+        Pairs of provider name and description.
+    """
+    choices = [(name, label) for name, label in PROVIDER_LABELS.items() if name in providers]
+    choices += [
+        (f"{name}_photo", f"{label}, photoabsorption only")
+        for name, label in PROVIDER_LABELS.items()
+        if f"{name}_photo" in providers
+    ]
+    listed = {name for name, _ in choices}
+    choices += [
+        (name, name)
+        for name in providers.names()
+        if name not in listed and not isinstance(providers.get(name), TabulatedProvider)
+    ]
+    return choices
 
 
 class MaterialDialog(QDialog):
@@ -93,8 +136,10 @@ class MaterialsPage(StepPage):
         "delta and beta of these materials, evaluated at the energies of your goal, determine "
         "the reflectivity of every later step. Choose a material from the library or define "
         "your own from a chemical formula and density; the density may be edited if your "
-        "deposited film differs from the bulk value. The plot below shows the resulting "
-        "optical constants over a wide energy range."
+        "deposited film differs from the bulk value. <b>Optical constants</b> selects the "
+        "tables the optical constants of all materials are computed from, for the whole "
+        "project. The plot below shows the resulting optical constants over a wide energy "
+        "range."
     )
 
     def __init__(
@@ -107,8 +152,23 @@ class MaterialsPage(StepPage):
         self.commands = commands
         self.library = library or default_library()
         self._mirror: Mirror | None = None
+        self._provider = DEFAULT_PROVIDER
         self._loading = False
         layout = QVBoxLayout(self)
+        provider_row = QHBoxLayout()
+        provider_row.addWidget(QLabel("<b>Optical constants</b>"))
+        self.provider_combo = QComboBox()
+        for name, label in provider_choices():
+            self.provider_combo.addItem(label, name)
+        self.provider_combo.setToolTip(
+            "Tables of atomic scattering factors from which δ and β of all materials are "
+            "computed, for the whole project. Henke (CXRO) data are measured-based and the best "
+            "choice below about 1 keV; Chantler (NIST FFAST) and xraylib cover higher energies. "
+            "f2 includes Compton scattering unless the choice says photoabsorption only."
+        )
+        self.provider_combo.activated.connect(self._provider_chosen)
+        provider_row.addWidget(self.provider_combo, 1)
+        layout.addLayout(provider_row)
         layout.addWidget(QLabel("<b>Materials</b> of the coating roles and the substrate"))
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(
@@ -145,10 +205,25 @@ class MaterialsPage(StepPage):
         Args:
             state: A document state with a ``mirror`` attribute.
         """
-        if state.mirror == self._mirror:
+        provider = getattr(state, "optical_constants", DEFAULT_PROVIDER)
+        if state.mirror == self._mirror and provider == self._provider:
             return
         self._mirror = state.mirror
+        self._provider = provider
+        self._show_provider()
         self._load()
+
+    def _show_provider(self) -> None:
+        index = self.provider_combo.findData(self._provider)
+        if index < 0:
+            self.provider_combo.addItem(self._provider, self._provider)
+            index = self.provider_combo.count() - 1
+        self.provider_combo.setCurrentIndex(index)
+
+    def _provider_chosen(self, index: int) -> None:
+        name = self.provider_combo.itemData(index)
+        if name != self._provider:
+            self.commandRequested.emit(self.commands.set_optical_constants(name))
 
     def _roles(self) -> list[tuple[str, Material | None]]:
         """Roles with their materials; enabled interlayers also without material."""
@@ -234,14 +309,20 @@ class MaterialsPage(StepPage):
 
     def _plot_constants(self, roles: list[tuple[str, Material | None]]) -> None:
         self.plot.clear()
-        energy = np.logspace(np.log10(100.0), np.log10(1e5), 300)
+        try:
+            library = provider_library(self._provider)
+        except KeyError:
+            return
         shown: set[Material] = set()
         for i, (_, material) in enumerate(roles):
             if material is None or material in shown or material.is_vacuum:
                 continue
             shown.add(material)
             try:
-                db = self.library.delta_beta(material, energy)
+                low, high = providers.get(library.provider_for(material)).energy_range
+                low, high = max(low, _PLOT_RANGE[0]), min(high, _PLOT_RANGE[1])
+                energy = np.geomspace(low, high, 300)
+                db = library.delta_beta(material, energy)
             except (ValueError, KeyError):
                 continue
             color = PALETTE[i % len(PALETTE)]

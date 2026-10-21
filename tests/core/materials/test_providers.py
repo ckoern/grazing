@@ -109,7 +109,7 @@ def test_default_provider_is_combined_with_compton() -> None:
     assert providers.get("henke_xraylib").name == "henke_xraylib"
 
 
-@pytest.mark.parametrize("base", ["henke", "xraylib", "henke_xraylib"])
+@pytest.mark.parametrize("base", ["henke", "xraylib", "henke_xraylib", "chantler"])
 def test_compton_contribution(base: str) -> None:
     energy = np.array([500.0, 8000.0, 25000.0])
     with_compton = delta_beta(C, energy, provider=base)

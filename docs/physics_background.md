@@ -32,7 +32,7 @@ elements above ~10 keV. The `*_photo` providers leave it out (photoabsorption on
 | Source | Range | Notes |
 |---|---|---|
 | Henke / CXRO (`*.nff`) | 10 eV – 30 keV | Standard for soft and tender X-rays. Freely available, so it is bundled. |
-| Chantler / NIST FFAST | 10 eV – 433 keV (bundled range) | Alternative for hard X-ray MLs (provider `chantler`). Calculated for isolated atoms, so less reliable than Henke near soft X-ray and EUV edges. Bundled. |
+| Chantler / NIST FFAST | 10.7 eV – 433 keV | Alternative for hard X-ray MLs (provider `chantler`). Calculated for isolated atoms, so less reliable than Henke near soft X-ray and EUV edges. Bundled. |
 | xraylib | broad | **Used by xstack for E > 30 keV** (required dependency) |
 | User-tabulated δ, β | any | For measured or ellipsometry data, or reactive or interdiffused compounds (`TabulatedProvider`) |
 

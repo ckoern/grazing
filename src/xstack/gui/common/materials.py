@@ -50,7 +50,7 @@ INTERLAYER_START = 0.5
 PROVIDER_LABELS = {
     "henke_xraylib": "Henke (CXRO) up to 30 keV, xraylib above",
     "henke": "Henke (CXRO), 10 eV to 30 keV",
-    "chantler": "Chantler (NIST FFAST), 10 eV to 433 keV",
+    "chantler": "Chantler (NIST FFAST), 10.7 eV to 433 keV",
     "xraylib": "xraylib, 100 eV to 1 MeV",
 }
 """Descriptions of the optical-constants providers offered for a project."""

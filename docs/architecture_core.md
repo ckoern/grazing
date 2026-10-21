@@ -217,7 +217,7 @@ class OpticalConstantsProvider(Protocol):
 ```
 
 Implementations: `HenkeProvider` (bundled tables, per-element scattering factors),
-`ChantlerProvider` (bundled Chantler/NIST FFAST tables, 10 eV to 433 keV), `XraylibProvider`, `TabulatedProvider` (δ and β of one material from a user table), and
+`ChantlerProvider` (bundled Chantler/NIST FFAST tables, 10.7 eV to 433 keV), `XraylibProvider`, `TabulatedProvider` (δ and β of one material from a user table), and
 `CombinedProvider`, which uses one provider below a switching energy and another one above.
 `ScatteringFactorProvider` is the base class for providers built on per-element scattering factors; they
 include Compton scattering in β unless the `*_photo` variant is chosen. The `providers` registry holds

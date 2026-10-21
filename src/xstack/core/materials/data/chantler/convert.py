@@ -1,24 +1,21 @@
-"""Convert the Chantler (NIST FFAST) tables of xraydb into the files of this directory.
+"""Convert FFAST scattering-factor tables into the files of this directory.
 
-Run with the path of the ``xraydb.sqlite`` file distributed with xraydb::
+Run with the directory of the tables, one file ``<Element>.sf`` per element with the columns
+photon energy (keV), f1 and f2 (comment lines start with ``#``)::
 
-    python src/xstack/core/materials/data/chantler/convert.py path/to/xraydb.sqlite
+    python src/xstack/core/materials/data/chantler/convert.py path/to/sf
 
 For every element from H to U, it writes ``<element>.dat.gz`` with the columns photon energy (eV),
-f1 and f2, keeping the tabulated energies from 10 eV to 433 keV plus one point beyond each end.
-xraydb stores the anomalous part f1 − Z; the files contain f1. The gzip files carry no time stamp,
-so the conversion is reproducible.
+f1 and f2, keeping all tabulated energies. The gzip files carry no time stamp, so the conversion is
+reproducible.
 """
 
 import gzip
-import json
-import sqlite3
 import sys
+from itertools import pairwise
 from pathlib import Path
 
 HERE = Path(__file__).parent
-E_MIN = 10.0
-E_MAX = 433000.0
 SYMBOLS = [
     "H",
     "He",
@@ -115,40 +112,41 @@ SYMBOLS = [
 ]
 
 
-def table(database: sqlite3.Connection, symbol: str) -> list[tuple[float, float, float]]:
-    """Return the rows (energy in eV, f1, f2) of one element within the kept range.
+def table(path: Path) -> list[tuple[float, float, float]]:
+    """Return the rows (energy in eV, f1, f2) of one table file.
 
     Args:
-        database: Connection to ``xraydb.sqlite``.
-        symbol: Element symbol.
+        path: Table with the columns energy (keV), f1 and f2.
 
     Returns:
         The rows, ordered by energy.
+
+    Raises:
+        ValueError: If a row is malformed or the energies are not increasing.
     """
-    z = SYMBOLS.index(symbol) + 1
-    energy, f1, f2 = (
-        json.loads(column)
-        for column in database.execute(
-            "select energy, f1, f2 from Chantler where element = ?", (symbol,)
-        ).fetchone()
-    )
-    first = max(i for i, e in enumerate(energy) if e <= E_MIN)
-    last = min(i for i, e in enumerate(energy) if e >= E_MAX)
-    return [(energy[i], z + f1[i], f2[i]) for i in range(first, last + 1)]
+    rows = []
+    for line in path.read_text().splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        e_kev, f1, f2 = (float(v) for v in line.split())
+        rows.append((e_kev * 1e3, f1, f2))
+    if any(b[0] <= a[0] for a, b in pairwise(rows)):
+        raise ValueError(f"{path}: energies are not increasing")
+    return rows
 
 
 def main(argv: list[str]) -> int:
     """Write one file per element.
 
     Args:
-        argv: Command-line arguments: the path of ``xraydb.sqlite``.
+        argv: Command-line arguments: the directory of the table files.
 
     Returns:
         The exit status.
     """
-    database = sqlite3.connect(argv[0])
+    source = Path(argv[0])
     for symbol in SYMBOLS:
-        rows = table(database, symbol)
+        rows = table(source / f"{symbol}.sf")
         text = "# energy_eV f1 f2\n" + "".join(f"{e:.10g} {a:.10g} {b:.10g}\n" for e, a, b in rows)
         with (
             open(HERE / f"{symbol.lower()}.dat.gz", "wb") as raw,

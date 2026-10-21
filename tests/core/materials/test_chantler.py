@@ -12,17 +12,17 @@ B4C = Material("B4C", "B4C", 2.52)
 
 @pytest.mark.parametrize("z", range(1, 93))
 def test_all_elements_load(z: int) -> None:
-    f = ChantlerProvider().scattering_factors(z, np.array([10.0, 1000.0, 1e5, 433000.0]))
+    f = ChantlerProvider().scattering_factors(z, np.array([10.69, 1000.0, 1e5, 432945.0]))
     assert np.all(np.isfinite(f))
     assert np.all(f.imag >= 0)
     assert np.all(f.imag[1:] > 0)
 
 
 def test_reproduces_table_values() -> None:
-    """f1 = Z + f′ and f2 of the xraydb Chantler table at a tabulated energy."""
-    f = ChantlerProvider().scattering_factors(14, np.array([8063.4002]))
-    assert f.real[0] == pytest.approx(14.2462433, rel=1e-9)
-    assert f.imag[0] == pytest.approx(0.32864, rel=1e-9)
+    """FFAST f1 of Si at 7.902609 keV (14.2709) plus f_rel (3/5 CL) and f_NT (−0.01943), and f2."""
+    f = ChantlerProvider().scattering_factors(14, np.array([7902.609]))
+    assert f.real[0] == pytest.approx(14.2514716, rel=1e-9)
+    assert f.imag[0] == pytest.approx(0.34129, rel=1e-9)
 
 
 def test_high_energy_limit_of_f1() -> None:
@@ -31,7 +31,7 @@ def test_high_energy_limit_of_f1() -> None:
     assert f.real[0] == pytest.approx(14.0, abs=0.03)
 
 
-@pytest.mark.parametrize("energy", [9.0, 440000.0])
+@pytest.mark.parametrize("energy", [5.0, 440000.0])
 def test_out_of_range(energy: float) -> None:
     with pytest.raises(ValueError, match="Chantler data for W"):
         delta_beta(W, energy, provider="chantler")

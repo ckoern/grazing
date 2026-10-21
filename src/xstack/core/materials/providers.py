@@ -17,7 +17,7 @@ Available providers (names in `providers`):
 * ``"henke"``: CXRO/Henke tables, roughly 10 eV to 30 keV.
 * ``"xraylib"``: xraylib anomalous scattering factors, all energies.
 * ``"henke_xraylib"``: Henke up to 30 keV and xraylib above. This is `DEFAULT_PROVIDER`.
-* ``"chantler"``: Chantler tables (NIST FFAST), 10 eV to 433 keV.
+* ``"chantler"``: Chantler tables (NIST FFAST), 10.7 eV to 433 keV.
 * ``"henke_photo"``, ``"xraylib_photo"``, ``"henke_xraylib_photo"``, ``"chantler_photo"``: the
   same without the Compton contribution (photoabsorption only).
 """
@@ -279,10 +279,10 @@ def _load_henke_table(
 class ChantlerProvider(ScatteringFactorProvider):
     """Atomic scattering factors from the Chantler tables (NIST FFAST).
 
-    The tables cover Z = 1 to 92 from 10 eV to 433 keV. They are the tables of the NIST FFAST
-    database (C. T. Chantler, J. Phys. Chem. Ref. Data 24, 71 (1995) and 29, 597 (2000)) on the
-    energy grid distributed with xraydb. f1 is interpolated linearly in log(E), f2 linearly in
-    log(E)–log(f2).
+    The tables of the NIST FFAST database (C. T. Chantler, J. Phys. Chem. Ref. Data 24, 71 (1995)
+    and 29, 597 (2000)) cover Z = 1 to 92 from 10.7 eV (lower for some elements) to 433 keV. f1
+    includes the relativistic (3/5 CL) and nuclear Thomson corrections. f1 is interpolated
+    linearly in log(E), f2 linearly in log(E)–log(f2).
 
     Args:
         include_compton: Add Compton scattering to f2.
@@ -296,7 +296,7 @@ class ChantlerProvider(ScatteringFactorProvider):
     @property
     def energy_range(self) -> tuple[float, float]:
         """Nominal range of supported photon energies in eV (min, max)."""
-        return (10.0, 433000.0)
+        return (10.69, 432945.0)
 
     def scattering_factors(
         self, atomic_number: int, energy: NDArray[np.float64]

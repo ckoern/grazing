@@ -5,26 +5,24 @@ f1, f2 (electrons per atom), on the energy grid of the FFAST tables (from 10.69 
 some elements, to 432.945 keV). f2 contains photoabsorption only; xstack adds Compton scattering for
 the `chantler` provider.
 
-- Source: NIST X-Ray Form Factor, Attenuation and Scattering Tables (FFAST),
-  https://physics.nist.gov/PhysRefData/FFast/. The tables of each element, `gtype=4` (form factors,
-  attenuation and scattering cross sections).
-- References: C. T. Chantler, "Theoretical form factor, attenuation and scattering tabulation for
-  Z = 1–92 from E = 1–10 eV to E = 0.4–1.0 MeV", J. Phys. Chem. Ref. Data 24, 71–643 (1995), and
-  "Detailed tabulation of atomic form factors, photoelectric absorption and scattering cross
-  section, and mass attenuation coefficients in the vicinity of absorption edges in the soft X-ray
-  (Z = 30–36, Z = 60–89, E = 0.1 keV–10 keV), addressing convergence issues of earlier work",
-  J. Phys. Chem. Ref. Data 29, 597–1048 (2000).
-- f1 is the tabulated f1 plus the relativistic correction f_rel (3/5 CL estimate) and the nuclear
-  Thomson correction f_NT that FFAST states in the header of each element's table. f2 is the
-  tabulated f2.
-- Retrieved: 2026-10-21. The FFAST web service was not reachable then; the tables were taken from a
-  copy downloaded from FFAST on 2020-07-02 (files `nk_data/nist/sf/<Element>.sf` of
-  https://github.com/xastprl/DarpanX, commit 1e0925f), which hold the FFAST energy grid, f1 with
-  the corrections above, and f2. Their grid and f2 agree exactly with the tables currently
-  offered by FFAST for download.
-- Conversion: `python src/xstack/core/materials/data/chantler/convert.py <directory of the .sf
-  files>` converts keV to eV and keeps all values without rounding. The gzip files carry no time
-  stamp, so repeating the conversion gives identical files.
+- Data: NIST X-Ray Form Factor, Attenuation and Scattering Tables (FFAST),
+  https://physics.nist.gov/PhysRefData/FFast/. C. T. Chantler, J. Phys. Chem. Ref. Data 24, 71–643
+  (1995), and J. Phys. Chem. Ref. Data 29, 597–1048 (2000).
+- Energies, f1 and f2: `FFAST_data.sqlite`, https://physics.nist.gov/PhysRefData/FFast/FFAST_data.sqlite,
+  retrieved 2026-10-21 (SHA-256
+  `b3daf92362eb7465ce369615849340705fb0860cf76bf034c1a0c390fcee2957`). One table per element with the
+  energy in keV, f1 and f2.
+- Corrections: table `FFAST_EXTRA` of N. Ritchie, X-ray Properties Database in SQLite Format, version
+  1.0.0, NIST (2022), https://doi.org/10.18434/mds2-2819, file `atomic_database.db`, retrieved
+  2026-10-25 (SHA-256 `4a5268060987ce76117c30a5db3a9aaa7f9db8d4622b2d29e9eb61f0344e585d`). One row per
+  element in the order of Z with the relativistic correction estimates of the FFAST tables, `rc1` (H82)
+  and `rc2` (3/5 CL), and the nuclear Thomson correction `nt`.
+- f1 in the files is the FFAST f1 plus `rc2` + `nt`; f2 is the FFAST f2. The FFAST table of
+  `atomic_database.db` is not used: in 662 rows below 1 keV, its f1 lacks the minus sign of the FFAST
+  value.
+- Conversion: `python src/xstack/core/materials/data/chantler/convert.py FFAST_data.sqlite
+  atomic_database.db` converts keV to eV and keeps all values without rounding. The gzip files carry
+  no time stamp, so repeating the conversion gives identical files.
 
 The tables are calculated for isolated atoms. Near absorption edges in the soft X-ray and EUV range
 (below about 1 keV) they can differ strongly from the measured Henke/CXRO tables, which are the

@@ -1,15 +1,17 @@
 """Tests of the Trade-off workflow page, its plot and the integration in the main window."""
 
 import math
+from dataclasses import replace
 
 import pytest
+from PySide6.QtCore import QPointF, Qt
 from pytestqt.qtbot import QtBot
 
 from tests.gui.design.test_optimization_gui import small_state, wait_job
 from xstack.core.parameters import Parameter, ParameterSet
 from xstack.design.manufacturing.process import DepositionProcess
 from xstack.design.optim.tradeoff import TradeoffPoint, TradeoffResult
-from xstack.design.project.commands import set_mirror, set_process
+from xstack.design.project.commands import set_mirror, set_process, store_tradeoff
 from xstack.design.project.templates import new_state
 from xstack.gui.design.main_window import MainWindow
 from xstack.gui.design.plots import MERIT_QUANTITY, ReferenceDesign, TradeoffPlot
@@ -250,4 +252,115 @@ def test_automatic_range_includes_unconstrained_design(qtbot: QtBot, window: Mai
     assert result is not None
     assert [math.isinf(p.limit) for p in result.points] == [False, True]
     assert page.table.item(1, 0).text() == "no limit"
+    window.controller.undo_stack.setClean()
+
+
+def knee_result() -> TradeoffResult:
+    """A trade-off whose knee is not shared with a replaced point."""
+    return TradeoffResult(
+        (
+            point(1 * HOUR, 1.0, 0.6),
+            point(2 * HOUR, 2.0, 0.3),
+            point(4 * HOUR, 4.0, 0.25),
+            point(8 * HOUR, 8.0, 0.24),
+        )
+    )
+
+
+@pytest.fixture
+def shown_plot(qtbot: QtBot) -> TradeoffPlot:
+    plot = TradeoffPlot()
+    qtbot.addWidget(plot)
+    plot.resize(800, 600)
+    plot.show()
+    qtbot.waitExposed(plot)
+    return plot
+
+
+def click_at(qtbot: QtBot, plot: TradeoffPlot, x: float, y: float) -> list[object]:
+    """Click the plot at data coordinates; return the emitted `pointSelected` values."""
+    qtbot.wait(20)
+    scene_pos = plot.main_plot.vb.mapViewToScene(QPointF(x, y))
+    emitted: list[object] = []
+    plot.pointSelected.connect(emitted.append)
+    qtbot.mouseClick(  # type: ignore[no-untyped-call]
+        plot.graphics.viewport(),
+        Qt.MouseButton.LeftButton,
+        pos=plot.graphics.mapFromScene(scene_pos),
+    )
+    plot.pointSelected.disconnect(emitted.append)
+    return emitted
+
+
+def test_click_on_knee_selects_it(qtbot: QtBot, shown_plot: TradeoffPlot) -> None:
+    shown_plot.set_result(knee_result())
+    assert shown_plot.knee_xy == (2.0, 0.3)
+    assert click_at(qtbot, shown_plot, 2.0, 0.3) == [1]
+    assert shown_plot.selected == 1
+
+
+def test_click_on_point_shared_with_replaced_selects_shortest_limit(
+    qtbot: QtBot, shown_plot: TradeoffPlot
+) -> None:
+    """The knee of `sample_result` lies under the diamond of the point taken over from it."""
+    shown_plot.set_result(sample_result())
+    assert shown_plot.knee_xy == (2.0, 0.3)
+    assert click_at(qtbot, shown_plot, 2.0, 0.3) == [2]
+
+
+def test_click_passes_selection_mark_and_references(qtbot: QtBot, shown_plot: TradeoffPlot) -> None:
+    shown_plot.set_result(
+        knee_result(), MERIT_QUANTITY, [ReferenceDesign("input design", 4 * HOUR, 0.25)]
+    )
+    assert click_at(qtbot, shown_plot, 1.0, 0.6) == [0]
+    assert click_at(qtbot, shown_plot, 4.0, 0.25) == [2]
+    assert click_at(qtbot, shown_plot, 8.0, 0.24) == [3]
+
+
+def test_second_click_clears_selection(qtbot: QtBot, shown_plot: TradeoffPlot) -> None:
+    shown_plot.set_result(knee_result())
+    assert click_at(qtbot, shown_plot, 4.0, 0.25) == [2]
+    assert click_at(qtbot, shown_plot, 4.0, 0.25) == [None]
+    assert shown_plot.selected is None
+    assert click_at(qtbot, shown_plot, 4.0, 0.25) == [2]
+
+
+def test_page_clear_button(qtbot: QtBot) -> None:
+    page = TradeoffPage()
+    qtbot.addWidget(page)
+    page.set_state(new_state("periodic").evolve(process=PROCESS, tradeoff=sample_result()))
+    assert not page.clear_button.isEnabled()
+    emitted: list[object] = []
+    page.pointSelected.connect(emitted.append)
+    page.select_point(2)
+    assert page.clear_button.isEnabled()
+    page.clear_button.click()
+    assert emitted == [2, None]
+    assert page.selected_index() is None
+    assert not page.clear_button.isEnabled()
+    assert not page.store_button.isEnabled()
+
+
+def test_window_removes_overlay_when_selection_cleared(qtbot: QtBot, window: MainWindow) -> None:
+    make_window(window)
+    window.controller.execute(set_process(PROCESS))
+    mirror = window.controller.state.mirror
+    assert mirror is not None
+    result = TradeoffResult(
+        tuple(replace(p, parameters=mirror.parameters) for p in knee_result().points)
+    )
+    window.controller.execute(store_tradeoff(result))
+    page, plot = window.tradeoff_page, window.tradeoff_plot
+    page.select_point(1)
+    qtbot.waitUntil(lambda: bool(window.tradeoff_curves), timeout=10000)
+    page.clear_button.click()
+    assert window.tradeoff_point is None
+    assert window.tradeoff_curves == ()
+    assert plot.selected is None
+    page.select_point(2)
+    qtbot.waitUntil(lambda: bool(window.tradeoff_curves), timeout=10000)
+    plot._clicked(None, [type("P", (), {"data": lambda self: 2})()])
+    assert page.selected_index() is None
+    assert window.tradeoff_point is None
+    assert window.tradeoff_curves == ()
     window.controller.undo_stack.setClean()

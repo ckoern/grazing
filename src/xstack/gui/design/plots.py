@@ -444,6 +444,14 @@ class ReferenceDesign:
 type _Group = list[tuple[float, float, int]]
 
 
+class _Decoration(pg.ScatterPlotItem):
+    """Markers that only decorate other points; clicks pass through to the points below."""
+
+    def mouseClickEvent(self, ev: Any) -> None:
+        """Ignore the click, so that the scene offers it to the items below."""
+        ev.ignore()
+
+
 class TradeoffPlot(QWidget):
     """Quantity versus coating time of a trade-off, with the marginal gain below.
 
@@ -453,9 +461,14 @@ class TradeoffPlot(QWidget):
     as separate labelled markers. The lower panel shows the improvement of the figure of merit
     per additional hour between neighbouring feasible designs.
 
+    Clicking a marker selects its point; clicking the selected point again clears the selection.
+    The knee ring, the selection mark and the reference designs don't take clicks. A point taken
+    over from a shorter limit lies on the point it was taken from; a click there selects the
+    point of the shortest limit.
+
     Signals:
-        pointSelected(int): A marker was clicked; the index of the point in
-            `TradeoffResult.points`.
+        pointSelected(object): A marker was clicked; the index of the point in
+            `TradeoffResult.points`, or ``None`` if the click cleared the selection.
 
     Attributes:
         feasible_xy: Coating times in h and plotted values of the feasible points.
@@ -471,7 +484,7 @@ class TradeoffPlot(QWidget):
         parent: Parent widget.
     """
 
-    pointSelected = Signal(int)
+    pointSelected = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -494,6 +507,7 @@ class TradeoffPlot(QWidget):
         self._quantity = MERIT_QUANTITY
         self._items: list[tuple[pg.PlotItem, Any]] = []
         self._marker: tuple[pg.PlotItem, Any] | None = None
+        self._positions: dict[int, tuple[float, float]] = {}
         self.feasible_xy: tuple[list[float], list[float]] = ([], [])
         self.infeasible_xy: tuple[list[float], list[float]] = ([], [])
         self.replaced_xy: tuple[list[float], list[float]] = ([], [])
@@ -509,6 +523,7 @@ class TradeoffPlot(QWidget):
             plot.removeItem(item)
         self._items.clear()
         self._remove_marker()
+        self._positions = {}
         self.feasible_xy = ([], [])
         self.infeasible_xy = ([], [])
         self.replaced_xy = ([], [])
@@ -569,6 +584,7 @@ class TradeoffPlot(QWidget):
                 continue
             group = infeasible if not point.feasible else replaced if point.replaced else feasible
             group.append((x, y, index))
+            self._positions[index] = (x, y)
             if np.isinf(point.limit):
                 self._annotate("no limit", x, y, text, (1.0, 1.2))
         front = sorted([*feasible, *replaced])
@@ -598,7 +614,7 @@ class TradeoffPlot(QWidget):
             return
         x, y = knee.coating_time / 3600.0, quantity_value(knee, quantity)
         self.knee_xy = (x, y)
-        ring = pg.ScatterPlotItem(
+        ring = _Decoration(
             x=[x], y=[y], symbol="o", size=18, brush=None, pen=pg.mkPen(PALETTE[1], width=2)
         )
         self._add(self.main_plot, ring)
@@ -611,9 +627,7 @@ class TradeoffPlot(QWidget):
         if not shown:
             return
         muted = COLORS["text_muted"]
-        marker = pg.ScatterPlotItem(
-            x=xs, y=ys, symbol="t", size=10, pen=pg.mkPen(muted), brush=PALETTE[6]
-        )
+        marker = _Decoration(x=xs, y=ys, symbol="t", size=10, pen=pg.mkPen(muted), brush=PALETTE[6])
         self._add(self.main_plot, marker)
         for design, x, y in zip(shown, xs, ys, strict=True):
             self._annotate(design.label, x, y, muted, (0.0, -0.3))
@@ -653,14 +667,18 @@ class TradeoffPlot(QWidget):
         point = result.points[index]
         x, y = point.coating_time / 3600.0, quantity_value(point, self._quantity)
         if np.isfinite(x) and np.isfinite(y):
-            marker = pg.ScatterPlotItem(
+            marker = _Decoration(
                 x=[x], y=[y], symbol="s", size=17, brush=None, pen=pg.mkPen(COLORS["text"], width=2)
             )
             self.main_plot.addItem(marker)
             self._marker = (self.main_plot, marker)
 
     def _clicked(self, _item: Any, points: Sequence[Any]) -> None:
-        if points:
-            index = int(points[0].data())
-            self.select(index)
-            self.pointSelected.emit(index)
+        if not points:
+            return
+        clicked = int(points[0].data())
+        position = self._positions.get(clicked)
+        clicked = min(i for i, xy in self._positions.items() if xy == position)
+        index = None if clicked == self.selected else clicked
+        self.select(index)
+        self.pointSelected.emit(index)

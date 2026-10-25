@@ -681,10 +681,12 @@ class CoatingPage(StepPage):
         self.law_combo.setEnabled(graded)
         self.cap_check.setEnabled(graded)
         self.constant_gamma_check.setEnabled(graded)
+        self.cap_check.setChecked(isinstance(target, DepthGraded) and target.cap)
+        self.constant_gamma_check.setChecked(
+            isinstance(target, DepthGraded) and has_constant_gamma(target)
+        )
         if isinstance(target, DepthGraded):
             self.law_combo.setCurrentText(target.law)
-            self.cap_check.setChecked(target.cap)
-            self.constant_gamma_check.setChecked(has_constant_gamma(target))
         self.layers_box.setVisible(isinstance(target, NLayer))
         if isinstance(target, NLayer):
             self._show_layers(target)

@@ -116,7 +116,8 @@ primary button variant.
 - **Materials**: *Optical constants* above the table selects the provider of δ and β for the whole
   project (Henke up to 30 keV with xraylib above, the default; Henke; Chantler/NIST FFAST; xraylib; each
   also as photoabsorption only), stored in the project file; then a table of the material of each
-  coating role and of the substrate (bilayer coatings
+  coating role and of the substrate (for a combined coating, a bold heading row per block with the
+  block-prefixed roles below it, e.g. `wsi.H`; bilayer coatings
   with *Interlayers at the interfaces* enabled also list both interlayer roles; *(none)* means no
   interlayer, and choosing a material gives an interlayer of zero thickness a start thickness of
   0.5 nm), with density (editable)
@@ -125,7 +126,13 @@ primary button variant.
   formula, density), and a plot of δ (solid) and β (dashed) for the materials in use, within the energy
   range of the provider.
 - **Coating**: coating type (Periodic multilayer, Depth-graded multilayer, Single layer, Layer stack (N
-  layers)); top layer of each bilayer (absorber H or spacer L); grading law for depth-graded coatings; a
+  layers), Combined coating (blocks)). For a combined coating, *Blocks (from the top)* lists the blocks
+  (number, name, type, materials) with *Add block* (menu of the block types; inserted below the
+  selection), *Duplicate*, *Remove*, *▲ Up*, *▼ Down* and a sketch of the blocks (band height by
+  thickness, labels with layers and thickness; a click selects the block); *Block name* and *Block type*
+  and the options and layer table below belong to the selected block; *Show* (All blocks / Selected
+  block) filters the parameter table by the block prefix. Choosing a single type converts the selected
+  block. Options: top layer of each bilayer (absorber H or spacer L); grading law for depth-graded coatings; a
   cap bilayer with its own period and Γ; *Same Γ for all graded bilayers* (ties `gamma_bottom` to
   `gamma_top` by an expression; unchecked, Γ changes linearly with depth); *Interlayers at the
   interfaces* (off by default; off, the interlayer thicknesses are zero and hidden in the parameter

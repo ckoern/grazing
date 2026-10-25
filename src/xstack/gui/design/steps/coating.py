@@ -35,8 +35,10 @@ class CoatingPage(common.CoatingPage):
 
     help_text: ClassVar[str] = (
         "Choose the <b>coating type</b>: a periodic multilayer, a depth-graded multilayer "
-        "whose period changes with depth, a single layer, or a stack of N layers of different "
-        "materials. This page defines the <b>input (start) design</b>; results of the "
+        "whose period changes with depth, a single layer, a stack of N layers of different "
+        "materials, or a <b>combined coating</b> of several such blocks stacked from the top; "
+        "the parameters of a block carry its name as prefix (<tt>graded.d_min</tt>). This page "
+        "defines the <b>input (start) design</b>; results of the "
         "optimization are stored as candidates and never overwrite it. In the parameter table, "
         "a parameter with <b>Vary</b> checked is explored by the optimizer between its "
         "<b>Min</b> and <b>Max</b>; otherwise it stays fixed at its value. An "

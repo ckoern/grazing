@@ -400,3 +400,45 @@ def design_graded_tradeoff() -> None:
     _wait(window)
     save(window, "design_graded_tradeoff")
     save(window.tradeoff_plot, "design_graded_tradeoff_plot")
+
+
+def _combined() -> "MainWindow":
+    """Window with the combined coating of the guide topic."""
+    from xstack.core.materials import get
+    from xstack.core.structure import Composite, Mirror, Periodic
+    from xstack.core.structure.coatings import DepthGraded, NLayer
+    from xstack.design.project.commands import set_mirror
+
+    window = _window(_wizard("periodic", "W/Si", "Combined Pt/C and W/Si mirror"))
+    coating = Composite.create(
+        [
+            DepthGraded.create(get("Pt"), get("C"), N=10, d_min=3.0, d_max=6.0, name="ptc"),
+            NLayer.create(
+                [get(m) for m in ("B4C", "Mo", "Si", "Ru", "C")],
+                [2.0, 3.0, 4.0, 2.0, 3.0],
+                name="mid",
+            ),
+            Periodic.create(get("W"), get("Si"), N=20, d=4.0, name="wsi"),
+        ]
+    )
+    window.controller.execute(set_mirror(Mirror(coating, get("Si"), substrate_roughness=0.3)))
+    pump(0.8)
+    return window
+
+
+@screenshot
+def design_combined_coating() -> None:
+    """Coating step with a combined coating and the periodic block selected."""
+    window = _combined()
+    _step(window, "Coating")
+    window.coating_page.select_block("wsi")
+    pump(0.5)
+    save(window.step_tabs, "design_combined_coating")
+
+
+@screenshot
+def design_combined_materials() -> None:
+    """Materials step with the roles grouped by block."""
+    window = _combined()
+    _step(window, "Materials")
+    save(window.step_tabs, "design_combined_materials")

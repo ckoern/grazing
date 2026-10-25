@@ -269,3 +269,15 @@ def test_fit_application(qtbot: QtBot) -> None:
     assert mirror is not None
     assert isinstance(mirror.coating, Composite)
     assert mirror.coating.block("wsi").top == "L"  # type: ignore[attr-defined]
+
+
+def test_options_of_other_types_are_unchecked(qtbot: QtBot) -> None:
+    editor = Editor(qtbot, combined_state())
+    editor.page.select_block("ptc")
+    editor.page.constant_gamma_check.setChecked(True)
+    editor.page.select_block("wsi")
+    assert not editor.page.constant_gamma_check.isEnabled()
+    assert not editor.page.constant_gamma_check.isChecked()
+    assert not editor.page.cap_check.isChecked()
+    editor.page.select_block("ptc")
+    assert editor.page.constant_gamma_check.isChecked()

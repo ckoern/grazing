@@ -345,12 +345,32 @@ class Composite(Coating):
             updated.append(outer.evolve(name=local_name, expr=expr))
         return ParameterSet(updated)
 
-    def _build(self, values: dict[str, float]) -> tuple[Layer, ...]:
-        layers: list[Layer] = []
+    def layers_by_block(
+        self, values: Mapping[str, float] | None = None
+    ) -> dict[str, tuple[Layer, ...]]:
+        """Generate the layers of every block.
+
+        Args:
+            values: Parameter values that override the current ones, by prefixed name.
+
+        Returns:
+            The layers of each block from the top, by block name in the order of the blocks.
+
+        Raises:
+            CoatingBuildError: If the values do not describe a valid layer sequence.
+            KeyError: If `values` contains unknown names.
+        """
+        return self._build_blocks(self._resolved(values))
+
+    def _build_blocks(self, values: dict[str, float]) -> dict[str, tuple[Layer, ...]]:
+        result: dict[str, tuple[Layer, ...]] = {}
         for b in self.blocks:
             prefix = b.name + "."
             local = {
                 name[len(prefix) :]: v for name, v in values.items() if name.startswith(prefix)
             }
-            layers += b._build(local)
-        return tuple(layers)
+            result[b.name] = b._build(local)
+        return result
+
+    def _build(self, values: dict[str, float]) -> tuple[Layer, ...]:
+        return tuple(layer for own in self._build_blocks(values).values() for layer in own)

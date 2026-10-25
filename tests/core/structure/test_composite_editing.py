@@ -37,6 +37,15 @@ def test_stack_of_the_example() -> None:
     assert layers[-1].tag.startswith("wsi")
 
 
+def test_layers_by_block() -> None:
+    c = tuned()
+    by_block = c.layers_by_block()
+    assert list(by_block) == ["ptc", "mid", "wsi"]
+    assert [len(v) for v in by_block.values()] == [20, 5, 40]
+    assert tuple(layer for own in by_block.values() for layer in own) == c.layers()
+    assert len(c.layers_by_block({"wsi.N": 5})["wsi"]) == 10
+
+
 def test_materials_are_prefixed_roles() -> None:
     c = example()
     assert {r: m.name for r, m in c.materials.items()} == {

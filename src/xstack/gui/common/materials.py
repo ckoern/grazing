@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QBrush, QColor, QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -34,9 +35,12 @@ from xstack.core.materials import (
     providers,
 )
 from xstack.core.parameters import Parameter
-from xstack.core.structure.coating import SUBSTRATE, Mirror, density_parameter_name
+from xstack.core.structure.coating import SUBSTRATE, Coating, Mirror, density_parameter_name
 from xstack.core.structure.coatings.bilayer import INTERLAYER_ROLES
+from xstack.core.structure.coatings.composite import Composite
+from xstack.gui.common.coating import COATING_TYPES
 from xstack.gui.common.pages import StepPage, StructureCommands
+from xstack.gui.common.style import COLORS
 from xstack.gui.common.style import PLOT_PALETTE as PALETTE
 
 __all__ = ["PROVIDER_LABELS", "MaterialDialog", "MaterialsPage", "provider_choices"]
@@ -56,6 +60,12 @@ PROVIDER_LABELS = {
 """Descriptions of the optical-constants providers offered for a project."""
 
 _PLOT_RANGE = (100.0, 1e5)
+
+
+def _thickness_name(interlayer_role: str) -> str:
+    """Name of the thickness parameter of a (possibly block-prefixed) interlayer role."""
+    prefix, dot, local = interlayer_role.rpartition(".")
+    return f"{prefix}{dot}t_{local}"
 
 
 def provider_choices() -> list[tuple[str, str]]:
@@ -154,6 +164,7 @@ class MaterialsPage(StepPage):
         self._mirror: Mirror | None = None
         self._provider = DEFAULT_PROVIDER
         self._loading = False
+        self._rows: list[str | None] = []
         layout = QVBoxLayout(self)
         provider_row = QHBoxLayout()
         provider_row.addWidget(QLabel("<b>Optical constants</b>"))
@@ -225,11 +236,27 @@ class MaterialsPage(StepPage):
         if name != self._provider:
             self.commandRequested.emit(self.commands.set_optical_constants(name))
 
-    def _roles(self) -> list[tuple[str, Material | None]]:
-        """Roles with their materials; enabled interlayers also without material."""
+    def _entries(self) -> list[tuple[str | None, Material | None, str]]:
+        """Table rows as role, material and heading text; heading rows have no role."""
         if self._mirror is None:
             return []
         coating = self._mirror.coating
+        entries: list[tuple[str | None, Material | None, str]] = []
+        if isinstance(coating, Composite):
+            for i, name in enumerate(coating.block_names(), start=1):
+                block = coating.block(name)
+                label = COATING_TYPES.get(block.type_name, block.type_name)
+                entries.append((None, None, f"{i}  {name} \u2014 {label}"))
+                entries += [
+                    (f"{name}.{role}", material, "") for role, material in self._block_roles(block)
+                ]
+        else:
+            entries += [(role, material, "") for role, material in self._block_roles(coating)]
+        return [*entries, (_SUBSTRATE, self._mirror.substrate, "")]
+
+    @staticmethod
+    def _block_roles(coating: Coating) -> list[tuple[str, Material | None]]:
+        """Roles of a coating with their materials; enabled interlayers also without material."""
         roles: list[tuple[str, Material | None]] = list(coating.materials.items())
         if getattr(coating, "use_interlayers", False):
             roles += [
@@ -237,21 +264,37 @@ class MaterialsPage(StepPage):
                 for role in INTERLAYER_ROLES
                 if role in coating.optional_roles and role not in coating.materials
             ]
-        return [*roles, (_SUBSTRATE, self._mirror.substrate)]
+        return roles
+
+    def _heading_row(self, row: int, text: str) -> None:
+        item = QTableWidgetItem(text)
+        item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        font = QFont(item.font())
+        font.setBold(True)
+        item.setFont(font)
+        item.setBackground(QBrush(QColor(COLORS["accent_soft"])))
+        self.table.setItem(row, 0, item)
+        self.table.setSpan(row, 0, 1, self.table.columnCount())
 
     def _load(self) -> None:
         self._loading = True
-        roles = self._roles()
+        entries = self._entries()
+        self._rows = [role for role, _, _ in entries]
         self.table.clearContents()
+        self.table.clearSpans()
         self.table.setRowCount(0)
-        self.table.setRowCount(len(roles))
+        self.table.setRowCount(len(entries))
         names = list(self.library.names())
-        for row, (role, material) in enumerate(roles):
+        for row, (role, material, heading) in enumerate(entries):
+            if role is None:
+                self._heading_row(row, heading)
+                continue
+            local = role.rpartition(".")[2]
             role_item = QTableWidgetItem(role)
             role_item.setFlags(role_item.flags() & ~role_item.flags().ItemIsEditable)
             self.table.setItem(row, 0, role_item)
             combo = QComboBox()
-            if role in INTERLAYER_ROLES:
+            if local in INTERLAYER_ROLES:
                 combo.addItem(_NONE)
             if material is not None and material.name not in names:
                 combo.addItem(material.name)
@@ -262,9 +305,9 @@ class MaterialsPage(StepPage):
             )
             combo.setToolTip(
                 f"Material of the role '{role}'."
-                if role not in INTERLAYER_ROLES
-                else f"Material of the {role.replace('_', ' ')}, or {_NONE} for no interlayer. "
-                f"Its thickness is the parameter t_{role}."
+                if local not in INTERLAYER_ROLES
+                else f"Material of the {local.replace('_', ' ')}, or {_NONE} for no interlayer. "
+                f"Its thickness is the parameter {_thickness_name(role)}."
             )
             self.table.setCellWidget(row, 1, combo)
             if material is None:
@@ -297,7 +340,7 @@ class MaterialsPage(StepPage):
             self.table.setCellWidget(row, 3, holder)
         self._fit_table_height()
         self._loading = False
-        self._plot_constants(roles)
+        self._plot_constants([(r, m) for r, m, _ in entries if r is not None])
 
     def _fit_table_height(self) -> None:
         self.table.resizeRowsToContents()
@@ -347,7 +390,7 @@ class MaterialsPage(StepPage):
     def _material_chosen(self, role: str, name: str) -> None:
         if self._mirror is None:
             return
-        if role in INTERLAYER_ROLES:
+        if role.rpartition(".")[2] in INTERLAYER_ROLES:
             self._choose_interlayer(role, None if name == _NONE else self.library.get(name))
         elif name in self.library:
             self._replace_material(role, self.library.get(name))
@@ -360,7 +403,7 @@ class MaterialsPage(StepPage):
         """
         assert self._mirror is not None
         coating = self._mirror.coating
-        thickness = f"t_{role}"
+        thickness = _thickness_name(role)
         if material is None:
             coating = coating.without_material(role).with_parameter(thickness, value=0.0)
         else:
@@ -375,8 +418,11 @@ class MaterialsPage(StepPage):
     def _density_edited(self, item: QTableWidgetItem) -> None:
         if self._loading or item.column() != 2:
             return
-        role, material = self._roles()[item.row()]
-        if material is None:
+        if item.row() >= len(self._rows):
+            return
+        role = self._rows[item.row()]
+        material = self._entries()[item.row()][1]
+        if role is None or material is None:
             return
         parameter = self._density_parameter(role)
         try:

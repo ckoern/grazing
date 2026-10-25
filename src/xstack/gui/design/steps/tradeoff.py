@@ -122,8 +122,9 @@ class TradeoffPage(StepPage):
         "<li><b>Replaced</b> (diamond): the design of a shorter limit also satisfies this "
         "limit and is better than the one found for it, so it was taken over.</li></ul>"
         "<p>Select a table row or click a marker to see that design's reflectivity (dashed "
-        "curve in the Reflectivity tab) and to store it as a candidate. The result is saved "
-        "with the project.</p>"
+        "curve in the Reflectivity tab) and to store it as a candidate. <b>Clear selection</b> "
+        "or a second click on the selected marker removes the design from the plots. The "
+        "result is saved with the project.</p>"
     )
     quantityChanged = Signal()
     pointSelected = Signal(object)
@@ -256,7 +257,16 @@ class TradeoffPage(StepPage):
         )
         self.store_button.clicked.connect(lambda: self.store_selected())
         self.store_button.setEnabled(False)
-        layout.addWidget(self.store_button)
+        self.clear_button = QPushButton("Clear selection")
+        self.clear_button.setToolTip(
+            "Clear the selected row; its design is no longer shown in the plots."
+        )
+        self.clear_button.clicked.connect(lambda: self.select_point(None))
+        self.clear_button.setEnabled(False)
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.store_button)
+        buttons.addWidget(self.clear_button)
+        layout.addLayout(buttons)
         return box
 
     def _update_mode_widgets(self) -> None:
@@ -375,6 +385,7 @@ class TradeoffPage(StepPage):
             table.blockSignals(False)
             self.summary.setText("No trade-off yet.")
             self.store_button.setEnabled(False)
+            self.clear_button.setEnabled(False)
             return
         points = result.points
         feasible = result.feasible_points()
@@ -410,7 +421,9 @@ class TradeoffPage(StepPage):
         self.summary.setText(text)
         if selected is not None and selected < len(points):
             table.selectRow(selected)
-        self.store_button.setEnabled(self.selected_index() is not None)
+        has_selection = self.selected_index() is not None
+        self.store_button.setEnabled(has_selection)
+        self.clear_button.setEnabled(has_selection)
 
     @staticmethod
     def _parameter_text(point: TradeoffPoint) -> str:
@@ -440,6 +453,7 @@ class TradeoffPage(StepPage):
     def _selection_changed(self) -> None:
         index = self.selected_index()
         self.store_button.setEnabled(index is not None)
+        self.clear_button.setEnabled(index is not None)
         self.pointSelected.emit(index)
 
     def store_selected(self) -> bool:

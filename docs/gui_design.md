@@ -186,9 +186,11 @@ primary button variant.
   - The table has one row per point: limit (h, “no limit”), coating time (h), figure of merit, the plotted
     quantity (if not the figure of merit), gain per h compared with the previous feasible point, notes
     (*infeasible*, *replaced by shorter-limit design*, *knee*) and the values of the free parameters.
-  - Selecting a row (or clicking a marker in the plot) marks the point in the plot and draws the design's
-    reflectivity dashed in the Reflectivity tab. *Store as candidate* stores it as “trade-off <limit> h”
-    with source `tradeoff` and selects it.
+  - Selecting a row (or clicking a marker in the plot, including the knee) marks the point in the plot
+    and draws the design's reflectivity dashed in the Reflectivity tab. A click on a point taken over
+    from a shorter limit selects the point of that limit, since both are the same design. *Clear
+    selection*, or a second click on the selected marker, removes the design from the plots. *Store as
+    candidate* stores it as “trade-off <limit> h” with source `tradeoff` and selects it.
 - **Analyze**: Monte Carlo tolerance analysis and recipe export.
   - *Design to analyze*: input design or selected candidate.
   - *Error model* with presets (Thickness errors only, Roughness only, Interlayer mixing only, All

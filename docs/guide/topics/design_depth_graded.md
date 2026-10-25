@@ -261,7 +261,8 @@ uses the pipeline of the Optimize step.
   neighbouring points.
 - Click a row of the table or a marker to draw that design's reflectivity (dashed) in the Reflectivity
   tab, and **Store as candidate** to keep it (named “trade-off <limit> h”) for the further analysis
-  and the recipe export.
+  and the recipe export. **Clear selection**, or a second click on the selected marker, removes the
+  design from the plots again.
 
 The result is saved with the project. The figure above used the weight of 0.2, so the figure of merit
 of the plot includes the time term; set the weight to zero for a pure reflectivity front.

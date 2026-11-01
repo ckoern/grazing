@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from xstack.core.parameters import Parameter
 from xstack.core.structure.coating import Mirror
 from xstack.design.project.project import Candidate
+from xstack.gui.design.materials_summary import materials_text
 
 __all__ = ["CandidateParametersDialog"]
 
@@ -161,7 +162,7 @@ class CandidateParametersDialog(QDialog):
     def _header_text(candidate: Candidate) -> str:
         mirror = candidate.mirror
         created = candidate.created.replace("T", " ")[:19] if candidate.created else _DASH
-        materials = " · ".join(f"{role}: {m.name}" for role, m in mirror.coating.material_roles)
+        materials = materials_text(mirror.coating)
         substrate = f"{mirror.substrate.name} (roughness {mirror.substrate_roughness:.5g} nm)"
         return (
             f"Source: {candidate.source}, created: {created}\n"

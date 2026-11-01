@@ -315,7 +315,13 @@ role raises `CoatingBuildError`; `Coating.without_material(role)` removes an opt
 Grading laws (`grading_laws` registry: `power_law`, `linear`) define the period of each bilayer of a
 depth-graded coating. Γ is interpolated linearly from `gamma_top` to `gamma_bottom`.
 
-Composite coatings cover adhesion, barrier, and overcoat layers without a dedicated class.
+Composite coatings (*combined coatings* in the GUI) cover adhesion, barrier, and overcoat layers and
+sections of different types (e.g. a depth-graded section on a periodic one) without a dedicated
+class. Their material roles carry the block prefix as well (`cap.H`), and expressions may refer to
+other blocks. The parameters of the composite are authoritative; `block(name)` returns a block with
+them. `with_block`, `insert_block`, `remove_block`, `move_block` and `rename_block` edit the block list
+and keep the settings of all other parameters (rebuilding a composite keeps the settings of every
+parameter name that still exists); `layers_by_block` returns the layers per block.
 `DepthGraded` with `cap=True` adds a cap bilayer with its own period and Γ.
 
 ### 3.5 Targets

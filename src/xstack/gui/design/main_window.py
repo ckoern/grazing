@@ -71,6 +71,7 @@ from xstack.gui.common.style import (
 from xstack.gui.common.wizard import ProjectWizard
 from xstack.gui.common.workers import Job, JobRunner, LatestRunner
 from xstack.gui.design.controller import ProjectController
+from xstack.gui.design.materials_summary import coating_title, materials_text
 from xstack.gui.design.plots import (
     ConvergencePlot,
     Curve,
@@ -761,10 +762,10 @@ class MainWindow(QMainWindow):
             self.parameter_table.setEnabled(False)
         else:
             coating = state.mirror.coating
-            materials = " · ".join(f"{r}: {m.name}" for r, m in coating.materials.items())
+            materials = materials_text(coating)
             self.design_label.setText(
                 f"<span style='color:{COLORS['text_muted']}'>Input design: "
-                f"<b>{type(coating).__name__}</b> · {materials} · substrate "
+                f"<b>{coating_title(coating)}</b> · {materials} · substrate "
                 f"{state.mirror.substrate.name}</span>"
             )
             self.parameter_table.setEnabled(True)

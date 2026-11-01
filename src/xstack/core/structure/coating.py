@@ -131,6 +131,15 @@ class Coating(ABC):
                 parameter expressions that cannot be evaluated or leave their bounds.
             KeyError: If `values` contains unknown names.
         """
+        return self._build(self._resolved(values))
+
+    def _resolved(self, values: Mapping[str, float] | None) -> dict[str, float]:
+        """Return all parameter values with `values` applied and integers rounded.
+
+        Raises:
+            CoatingBuildError: If an expression cannot be evaluated or leaves its bounds.
+            KeyError: If `values` contains unknown names.
+        """
         params = self.parameters if values is None else self.parameters.with_values(values)
         try:
             resolved = params.evaluate()
@@ -139,7 +148,7 @@ class Coating(ABC):
         for name, p in params.items():
             if p.integer:
                 resolved[name] = float(round(resolved[name]))
-        return self._build(resolved)
+        return resolved
 
     @abstractmethod
     def _build(self, values: dict[str, float]) -> tuple[Layer, ...]:

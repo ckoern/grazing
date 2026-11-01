@@ -78,8 +78,8 @@ class EstimatePage(StepPage):
         layout.addWidget(QLabel("<b>Estimate</b> start values from the Bragg law"))
 
         self.unsupported_label = QLabel(
-            "Estimates are available for periodic and depth-graded multilayers. "
-            "The coating of the current design is of another type."
+            "The estimate needs a single periodic or depth-graded coating; it is not available "
+            "for combined coatings or other coating types."
         )
         self.unsupported_label.setWordWrap(True)
         self.unsupported_label.setVisible(False)

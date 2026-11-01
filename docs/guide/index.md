@@ -35,6 +35,7 @@ quickstart_fit_library
 
 topics/design_multiple_targets
 topics/design_depth_graded
+topics/combined_coatings
 topics/design_tolerances
 ```
 

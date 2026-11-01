@@ -58,6 +58,8 @@ src/xstack/
       optimizers.py         # Optimizer base class, LmfitOptimizer, OptimizationResult, Tracker,
                             #   prepare_parameters, optimizers registry, register_optimizer
       events.py             # ProgressEvent, CancellationToken, EventSink
+    calc.py                 # reflectivity_vs_angle, reflectivity_vs_energy: direct calculations
+                            #   for simple scripts
     targets.py              # Target, EnergyScan, AngleScan, Profile, TargetSet
     measurement.py          # MeasuredCurve: measured R(θ) at fixed energy or R(E) at fixed angle,
                             #   with optional uncertainties

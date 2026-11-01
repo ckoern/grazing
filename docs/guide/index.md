@@ -27,6 +27,7 @@ quickstart_design_gui
 quickstart_design_library
 quickstart_fit_gui
 quickstart_fit_library
+topics/quick_calculations
 ```
 
 ```{toctree}

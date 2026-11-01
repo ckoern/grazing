@@ -1,0 +1,139 @@
+"""Direct reflectivity calculations for simple scripts.
+
+The functions take a mirror and the scanned values and return the reflectivity, without models,
+targets or evaluation contexts to set up. They compute a single reflection at the given points,
+without instrument resolution. For these, and for figures of merit, use `xstack.core.targets`
+with a reflectivity model.
+
+Examples:
+    >>> import numpy as np
+    >>> from xstack.core.materials import get
+    >>> from xstack.core.structure import Mirror, Periodic
+    >>> from xstack.core.units import deg
+    >>> mirror = Mirror(Periodic.create(get("W"), get("Si"), N=30, d=4.0), get("Si"))
+    >>> angles = deg(np.linspace(0.2, 3.0, 100))
+    >>> reflectivity_vs_angle(mirror, angles, energy=8048.0).shape
+    (100,)
+"""
+
+from typing import Literal
+
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
+
+from xstack.core.materials import provider_library
+from xstack.core.physics.models import ParrattModel, ReflectivityModel, models
+from xstack.core.structure.coating import Mirror
+from xstack.core.structure.stack import Stack
+
+__all__ = ["reflectivity_vs_angle", "reflectivity_vs_energy"]
+
+type _Polarization = Literal["s", "p", "unpolarized"]
+
+
+def _calculate(
+    mirror: Mirror | Stack,
+    energy: ArrayLike,
+    angle: ArrayLike,
+    polarization: _Polarization,
+    model: ReflectivityModel | str | None,
+    provider: str | None,
+) -> NDArray[np.float64]:
+    if polarization not in ("s", "p", "unpolarized"):
+        raise ValueError(f"unknown polarization {polarization!r}")
+    e, theta = np.broadcast_arrays(
+        np.asarray(energy, dtype=np.float64), np.asarray(angle, dtype=np.float64)
+    )
+    if np.any(e <= 0.0):
+        raise ValueError("photon energies must be positive (in eV)")
+    if np.any(theta <= 0.0) or np.any(theta > np.pi / 2.0):
+        raise ValueError("grazing angles must be in (0, π/2] rad; convert degrees with units.deg")
+    if model is None:
+        chosen: ReflectivityModel = ParrattModel()
+    elif isinstance(model, str):
+        chosen = models.get(model)
+    else:
+        chosen = model
+    library = None if provider is None else provider_library(provider)
+    stack = mirror if isinstance(mirror, Stack) else mirror.stack()
+    result = chosen.reflectance(stack, e.flatten(), theta.flatten(), polarization, library)
+    return result.reshape(e.shape)
+
+
+def reflectivity_vs_angle(
+    mirror: Mirror | Stack,
+    angle: ArrayLike,
+    *,
+    energy: ArrayLike,
+    polarization: _Polarization = "unpolarized",
+    model: ReflectivityModel | str | None = None,
+    provider: str | None = None,
+) -> NDArray[np.float64]:
+    """Return the reflectivity of a mirror as a function of the grazing angle.
+
+    Args:
+        mirror: The mirror or an already built layer stack.
+        angle: Grazing angles in rad, in (0, π/2]. See `xstack.core.units.deg`.
+        energy: Photon energy in eV; broadcast against `angle`, so an array gives a map.
+        polarization: ``"s"``, ``"p"`` or ``"unpolarized"``.
+        model: A reflectivity model or the name of a registered one (``"parratt"``,
+            ``"kinematic"``, ``"kinematic_no_refraction"``). Defaults to `ParrattModel`.
+        provider: Name of the optical-constants provider for materials without their own.
+            Defaults to the default provider.
+
+    Returns:
+        Reflectivity of a single reflection, with the broadcast shape of `angle` and `energy`.
+
+    Raises:
+        CoatingBuildError: If the parameters of the mirror do not describe a valid stack.
+        KeyError: If the model or provider is not registered.
+        ValueError: If an energy or angle is out of range, or the polarization is unknown.
+
+    Examples:
+        >>> from xstack.core.materials import get
+        >>> from xstack.core.structure.stack import Stack
+        >>> r = reflectivity_vs_angle(Stack([], get("Si")), 1e-3, energy=8048.0)
+        >>> bool(r > 0.9)
+        True
+    """
+    return _calculate(mirror, energy, angle, polarization, model, provider)
+
+
+def reflectivity_vs_energy(
+    mirror: Mirror | Stack,
+    energy: ArrayLike,
+    *,
+    angle: ArrayLike,
+    polarization: _Polarization = "unpolarized",
+    model: ReflectivityModel | str | None = None,
+    provider: str | None = None,
+) -> NDArray[np.float64]:
+    """Return the reflectivity of a mirror as a function of the photon energy.
+
+    Args:
+        mirror: The mirror or an already built layer stack.
+        energy: Photon energies in eV. See `xstack.core.units.kev`.
+        angle: Grazing angle in rad, in (0, π/2]; broadcast against `energy`, so an array gives
+            a map.
+        polarization: ``"s"``, ``"p"`` or ``"unpolarized"``.
+        model: A reflectivity model or the name of a registered one (``"parratt"``,
+            ``"kinematic"``, ``"kinematic_no_refraction"``). Defaults to `ParrattModel`.
+        provider: Name of the optical-constants provider for materials without their own.
+            Defaults to the default provider.
+
+    Returns:
+        Reflectivity of a single reflection, with the broadcast shape of `energy` and `angle`.
+
+    Raises:
+        CoatingBuildError: If the parameters of the mirror do not describe a valid stack.
+        KeyError: If the model or provider is not registered.
+        ValueError: If an energy or angle is out of range, or the polarization is unknown.
+
+    Examples:
+        >>> from xstack.core.materials import get
+        >>> from xstack.core.structure.stack import Stack
+        >>> r = reflectivity_vs_energy(Stack([], get("Si")), 8048.0, angle=1e-3)
+        >>> bool(r > 0.9)
+        True
+    """
+    return _calculate(mirror, energy, angle, polarization, model, provider)

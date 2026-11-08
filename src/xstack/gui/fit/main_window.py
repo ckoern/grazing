@@ -3,24 +3,17 @@
 import functools
 from collections.abc import Callable
 from dataclasses import replace
-from pathlib import Path
 
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor, QKeySequence, QPixmap
+from PySide6.QtGui import QAction, QActionGroup, QColor, QKeySequence, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
-    QDockWidget,
-    QFileDialog,
     QFrame,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMainWindow,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -38,26 +31,21 @@ from xstack.fit.dataset import Dataset, Interval
 from xstack.fit.project import (
     FitState,
     remove_dataset,
-    rename_project,
     replace_dataset,
     set_ranges,
 )
 from xstack.fit.templates import TEMPLATES
-from xstack.gui.common.files import ask_save_path
+from xstack.gui.common.document_window import DocumentWindow
 from xstack.gui.common.journal_view import JournalView
 from xstack.gui.common.pages import StepPage
 from xstack.gui.common.plot_tabs import PlotTabs
 from xstack.gui.common.profile import LayerProfilePlot
 from xstack.gui.common.style import (
     PLOT_PALETTE,
-    Theme,
-    apply_style,
-    icon,
-    restyle_plots,
     set_variant,
 )
 from xstack.gui.common.wizard import ProjectWizard
-from xstack.gui.common.workers import Job, JobRunner, LatestRunner
+from xstack.gui.common.workers import JobRunner, LatestRunner
 from xstack.gui.fit.controller import FitController
 from xstack.gui.fit.plots import ConvergencePlot, CorrelationPlot, FitReflectivityPlot
 from xstack.gui.fit.preview import FitPreview, compute_preview
@@ -76,7 +64,6 @@ WORKFLOW_STEPS = ("Data", "Structure", "Materials", "Parameters", "Fit", "Result
 """Names of the workflow steps, in order."""
 
 PROJECT_FILTER = "xstack fit projects (*.xfit);;All files (*)"
-_MAX_RECENT = 8
 
 
 def _to_display(axis: str, bounds: Interval) -> tuple[float, float]:
@@ -90,7 +77,7 @@ def _to_internal(axis: str, bounds: tuple[float, float]) -> Interval:
     return float(convert(lo)), float(convert(hi))
 
 
-class MainWindow(QMainWindow):
+class MainWindow(DocumentWindow):
     """Main window of xstack-fit: datasets, workflow steps, plots, journal and history.
 
     Args:
@@ -99,6 +86,12 @@ class MainWindow(QMainWindow):
         confirm_close: Ask whether to save unsaved changes when closing or replacing the
             project.
     """
+
+    project_kind = "fit project"
+    file_filter = PROJECT_FILTER
+    controller: FitController
+    file_suffix = ".xfit"
+    app_name = "xstack-fit"
 
     def __init__(
         self,
@@ -270,13 +263,6 @@ class MainWindow(QMainWindow):
         layout.addLayout(navigation)
         return container
 
-    def _dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
-        dock = QDockWidget(title, self)
-        dock.setObjectName(f"dock_{title.lower().replace(' ', '_')}")
-        dock.setWidget(widget)
-        self.addDockWidget(area, dock)
-        return dock
-
     def _build_docks(self) -> None:
         self.dataset_list = QListWidget()
         self.dataset_list.setToolTip(
@@ -365,18 +351,6 @@ class MainWindow(QMainWindow):
         self.stop_action.setShortcut(QKeySequence("Ctrl+."))
         self.stop_action.setEnabled(False)
         self.stop_action.triggered.connect(self.job_runner.cancel)
-
-    def _apply_icons(self) -> None:
-        for action, name in (
-            (self.new_action, "new"),
-            (self.open_action, "open"),
-            (self.save_action, "save"),
-            (self.undo_action, "undo"),
-            (self.redo_action, "redo"),
-            (self.stop_action, "stop"),
-        ):
-            action.setIcon(icon(name))
-        self.run_action.setIcon(icon("run", "#ffffff"))
 
     def _build_menus(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
@@ -656,20 +630,6 @@ class MainWindow(QMainWindow):
         self.correlation_plot.set_statistics(None if result is None else result.statistics)
 
     # ------------------------------------------------------------------ jobs
-    def start_job(self, job: Job) -> bool:
-        """Run a long calculation in the background.
-
-        Args:
-            job: The job.
-
-        Returns:
-            Whether the job was started (only one job runs at a time).
-        """
-        if not self.job_runner.start(job):
-            self._show_error("Another calculation is running")
-            return False
-        return True
-
     def show_step_view(self) -> None:
         """Show the plot of the current workflow step, if plots switch automatically."""
         if not self.auto_views_action.isChecked():
@@ -678,23 +638,21 @@ class MainWindow(QMainWindow):
         if view is not None:
             self.plot_tabs.show_view(view)
 
+    def _theme_changed(self) -> None:
+        self._redraw()
+
+    def _job_state_changed(self, running: bool) -> None:
+        self.local_action.setEnabled(not running)
+        if not running:
+            self._request_preview()
+
+    def _before_close(self) -> None:
+        self.job_runner.cancel()
+
     def _auto_views_toggled(self, checked: bool) -> None:
         self.settings.setValue("plots/auto_switch", checked)
         if checked:
             self.show_step_view()
-
-    def _job_started(self, name: str) -> None:
-        if self.auto_views_action.isChecked():
-            self.plot_tabs.show_view(self.convergence_plot)
-        self.convergence_plot.clear()
-        self._job_state = self.controller.state
-        self._live_values = None
-        self.progress_bar.setRange(0, 0)
-        self.progress_bar.setVisible(True)
-        self.stop_action.setEnabled(True)
-        self.run_action.setEnabled(False)
-        self.local_action.setEnabled(False)
-        self.statusBar().showMessage(f"{name} running…")
 
     def _job_progress(self, event: object) -> None:
         if not isinstance(event, ProgressEvent):
@@ -713,202 +671,7 @@ class MainWindow(QMainWindow):
             f"{event.best_objective:.5g}"
         )
 
-    def _on_file_changed(self, _path: object) -> None:
-        self.name_edit.setText(self.controller.state.name)
-        self._update_title()
-
-    def _on_clean_changed(self, _clean: bool) -> None:
-        self._update_title()
-
-    def _job_finished(self, name: str) -> None:
-        self._job_done(f"{name} finished")
-
-    def _job_done(self, message: str) -> None:
-        self._job_state = None
-        self.progress_bar.setVisible(False)
-        self.stop_action.setEnabled(False)
-        self.run_action.setEnabled(True)
-        self.local_action.setEnabled(True)
-        self.statusBar().showMessage(message, 8000)
-        if self.plot_tabs.currentWidget() is self.convergence_plot:
-            self.show_step_view()
-        self._request_preview()
-
     # ------------------------------------------------------------------ misc
-    def set_theme(self, theme: Theme) -> None:
-        """Switch the color theme and remember it in the settings.
-
-        Args:
-            theme: ``"light"``, ``"dark"`` or ``"system"``.
-        """
-        app = QApplication.instance()
-        if isinstance(app, QApplication):
-            apply_style(app, theme)
-        self.settings.setValue("theme", theme)
-        self.theme_actions[theme].setChecked(True)
-        self._apply_icons()
-        restyle_plots(self)
-        self._redraw()
-
-    def _on_journal_changed(self) -> None:
-        self.journal_view.set_journal(self.controller.project.journal)
-
-    def _show_error(self, message: str) -> None:
-        self.statusBar().showMessage(message, 8000)
-
-    def _commit_project_name(self) -> None:
-        name = self.name_edit.text().strip()
-        current = self.controller.state.name
-        if not name:
-            self.name_edit.setText(current)
-            return
-        if name != current:
-            self.controller.execute(rename_project(name))
-        self.name_edit.setText(name)
-
-    def rename_project(self) -> None:
-        """Ask for a new project name and apply it."""
-        text, accepted = QInputDialog.getText(
-            self, "Rename project", "Project name:", text=self.controller.state.name
-        )
-        if accepted:
-            self.name_edit.setText(text)
-            self._commit_project_name()
-
-    def _update_title(self) -> None:
-        path = self.controller.path
-        location = path.name if path is not None else "unsaved"
-        self.setWindowTitle(f"{self.controller.state.name} ({location})[*] — xstack-fit")
-        self.setWindowModified(self.controller.is_dirty)
-
-    def _recent_files(self) -> list[str]:
-        value = self.settings.value("recent_files", [])
-        if isinstance(value, str):
-            return [value]
-        return [str(v) for v in value or []]
-
-    def _add_recent(self, path: Path) -> None:
-        files = [str(path)] + [f for f in self._recent_files() if f != str(path)]
-        self.settings.setValue("recent_files", files[:_MAX_RECENT])
-        self._update_recent_menu()
-
-    def _update_recent_menu(self) -> None:
-        self.recent_menu.clear()
-        files = self._recent_files()
-        for f in files:
-            action = self.recent_menu.addAction(f)
-            action.triggered.connect(lambda _=False, p=f: self.open_project(p))
-        self.recent_menu.setEnabled(bool(files))
-
-    def _maybe_save(self) -> bool:
-        if not self.confirm_close or not self.controller.is_dirty:
-            return True
-        answer = QMessageBox.question(
-            self,
-            "Unsaved changes",
-            "Save changes to the current fit project?",
-            QMessageBox.StandardButton.Save
-            | QMessageBox.StandardButton.Discard
-            | QMessageBox.StandardButton.Cancel,
-        )
-        if answer == QMessageBox.StandardButton.Save:
-            return self.save_project()
-        return answer == QMessageBox.StandardButton.Discard
-
-    def new_project_wizard(self) -> bool:
-        """Create a new project with the project wizard and save it if a location was chosen.
-
-        Returns:
-            Whether a new project was created.
-        """
-        if not self._maybe_save():
-            return False
-        wizard = self.wizard_factory()
-        if not wizard.exec():
-            return False
-        setup = wizard.setup()
-        try:
-            self.controller.new_from_setup(setup)
-        except (KeyError, ValueError) as exc:
-            self._show_error(f"Cannot create the project: {exc}")
-            return False
-        if setup.path is not None:
-            self.save_project_as(setup.path)
-        return True
-
-    def new_project(self, template: str = "periodic") -> None:
-        """Start a new fit project from a template.
-
-        Args:
-            template: Name of a template in `xstack.fit.templates.TEMPLATES`.
-        """
-        if self._maybe_save():
-            self.controller.new_project(template)
-
-    def open_project(self, path: Path | str | None = None) -> bool:
-        """Open a fit project, asking for the file name if not given.
-
-        Args:
-            path: The project file.
-
-        Returns:
-            Whether a project was opened.
-        """
-        if not self._maybe_save():
-            return False
-        if path is None:
-            chosen, _ = QFileDialog.getOpenFileName(self, "Open fit project", "", PROJECT_FILTER)
-            if not chosen:
-                return False
-            path = chosen
-        if self.controller.open_project(path):
-            self._add_recent(Path(path))
-            self.statusBar().showMessage(f"Opened {path}", 5000)
-            return True
-        return False
-
-    def save_project(self) -> bool:
-        """Save the project to its file, asking for a file name if it has none.
-
-        Returns:
-            Whether the project was saved.
-        """
-        if self.controller.path is None:
-            return self.save_project_as()
-        saved = self.controller.save_project()
-        if saved:
-            self.statusBar().showMessage(f"Saved {self.controller.path}", 5000)
-        return saved
-
-    def save_project_as(self, path: Path | str | None = None) -> bool:
-        """Save the project under a new file name.
-
-        Args:
-            path: The new file. Asked for if not given.
-
-        Returns:
-            Whether the project was saved.
-        """
-        if path is None:
-            chosen = ask_save_path(self, "Save fit project", PROJECT_FILTER, ".xfit")
-            if chosen is None:
-                return False
-            path = chosen
-        saved = self.controller.save_project(path)
-        if saved:
-            self._add_recent(Path(path))
-        return saved
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-        """Ask to save unsaved changes and store the window layout."""
-        if not self._maybe_save():
-            event.ignore()
-            return
-        self.job_runner.cancel()
-        self.plot_tabs.attach_all()
-        self.settings.setValue("main_window/geometry", self.saveGeometry())
-        self.settings.setValue("main_window/state", self.saveState())
-        event.accept()
 
 
 def _swatch(color: str) -> QPixmap:

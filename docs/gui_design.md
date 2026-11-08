@@ -288,6 +288,8 @@ src/xstack/gui/
   common/                # shared by all GUI applications
     __init__.py
     controller.py        # DocumentController (owns a core Document and QUndoStack), CommandAdapter
+    document_window.py   # DocumentWindow: base of the main windows (files, title, recent files, themes,
+                         #   docks, jobs)
     pages.py             # StepPage: base of all workflow pages; StructureCommands
     coating.py           # CoatingPage, convert_coating, has_constant_gamma, set_constant_gamma
     materials.py         # MaterialsPage, MaterialDialog
@@ -346,6 +348,11 @@ src/xstack/gui/
   application that uses them; each application passes its `StructureCommands` (`DESIGN_COMMANDS`,
   `FIT_COMMANDS`). `gui.common` imports neither application, and the applications don't import each
   other (`tests/test_package.py`).
+- Both `MainWindow` classes derive from `DocumentWindow`, which implements opening, saving, renaming,
+  the recent-files list, the window title, closing, theme switching, docks and job start and end.
+  The class attributes `project_kind`, `file_filter`, `file_suffix` and `app_name` hold the texts and
+  the file type of the application. The hooks `_theme_changed`, `_job_state_changed(running)`,
+  `_before_close` and `show_step_view` hold the application-specific behavior.
 - `ProjectController` is the single point of truth for the GUI. It emits `stateChanged`, `journalChanged`,
   `fileChanged`, and `errorOccurred`. `MainWindow` subscribes to these and refreshes the pages, the
   candidate list, the plots, and the title.

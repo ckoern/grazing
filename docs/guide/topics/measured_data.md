@@ -215,6 +215,11 @@ on the dialog.
   *Cu Kα* (8.048 keV); the presets *Mo Kα* (17.479 keV) and *Ag Kα* (22.163 keV) and *custom*
   values are available. Check the value: it determines the optical constants of the materials.
 - **Polarization** and **reflectivity in %**, as for the layout options.
+- **Values**: *reflectivity*, or *detector counts* if the R column (then labelled *N*) holds
+  counts. For counts, **Normalize to** chooses the *largest count* of the curve or a
+  *full-scale count* such as the direct-beam count, and a *factor* applied after the
+  normalization (1 by default); see [Detector counts](#detector-counts). Without a σ column the
+  uncertainty is √N, at least one count.
 - **Dataset name**: an identifier (letters, digits, underscore) that is not used yet; it is the
   prefix of the instrument parameters. The dialog derives it from the file name.
 - The **preview** shows the first rows of the file next to the converted values (θ in degrees or the

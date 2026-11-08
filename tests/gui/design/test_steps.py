@@ -1,6 +1,5 @@
 """Tests for the workflow pages in `xstack.gui.design.steps`."""
 
-import dataclasses
 import math
 from collections.abc import Callable
 
@@ -9,9 +8,7 @@ from PySide6.QtWidgets import QComboBox, QLineEdit
 from pytestqt.qtbot import QtBot
 
 from xstack.core.materials import get
-from xstack.core.parameters import ParameterSet
 from xstack.core.structure.coatings.graded import DepthGraded
-from xstack.core.structure.coatings.periodic import Periodic
 from xstack.core.structure.coatings.simple import NLayer, SingleLayer
 from xstack.design.manufacturing.constraints import (
     MaxTotalThickness,
@@ -28,9 +25,7 @@ from xstack.gui.design.steps import (
     MaterialsPage,
     ProcessPage,
     StepPage,
-    convert_coating,
 )
-from xstack.gui.design.steps.coating import _restack
 
 pytestmark = pytest.mark.gui
 
@@ -125,48 +120,6 @@ def test_materials_invalid_density(qtbot: QtBot, text: str) -> None:
 # --- CoatingPage and convert_coating -----------------------------------------------------
 
 
-def test_convert_periodic_to_depth_graded_keeps_settings() -> None:
-    w, si, c = get("W"), get("Si"), get("C")
-    old = Periodic.create(
-        w, si, N=30, sigma_H=0.5, sigma_L=0.3, interlayers={"interlayer_H_on_L": c}
-    )
-    new = convert_coating(old, "depth_graded")
-    assert isinstance(new, DepthGraded)
-    assert new.materials == old.materials
-    assert new.parameters["sigma_H"].value == 0.5
-    assert new.parameters["sigma_L"].value == 0.3
-
-
-def test_convert_carries_vary_settings() -> None:
-    state = new_state("periodic")
-    assert state.mirror is not None
-    old = state.mirror.coating
-    new = convert_coating(old, "depth_graded")
-    assert new.parameters["N"] == old.parameters["N"]
-
-
-def test_convert_options() -> None:
-    old = Periodic.create(get("W"), get("Si"))
-    graded = convert_coating(old, "depth_graded", top="L", law="linear", cap=True)
-    assert isinstance(graded, DepthGraded)
-    assert (graded.top, graded.law, graded.cap) == ("L", "linear", True)
-    periodic = convert_coating(graded, "periodic", top="H")
-    assert isinstance(periodic, Periodic)
-    assert periodic.top == "H"
-
-
-def test_convert_single_layer() -> None:
-    old = Periodic.create(get("W"), get("Si"))
-    new = convert_coating(old, "single_layer")
-    assert isinstance(new, SingleLayer)
-    assert new.materials["M"].name == "W"
-
-
-def test_convert_unknown_type() -> None:
-    with pytest.raises(ValueError, match="cannot be created"):
-        convert_coating(Periodic.create(get("W"), get("Si")), "nonsense")
-
-
 def test_coating_page_shows_parameters(qtbot: QtBot) -> None:
     state = new_state("periodic")
     page, _ = make_page(qtbot, CoatingPage, state)
@@ -254,31 +207,6 @@ def test_substrate_roughness_unchanged_emits_nothing(qtbot: QtBot) -> None:
     assert not rec.commands
 
 
-def test_convert_to_n_layer_from_bilayer_and_single() -> None:
-    old = Periodic.create(get("W"), get("Si"), d=5.0, gamma=0.4, sigma_H=0.5)
-    new = convert_coating(old, "n_layer")
-    assert isinstance(new, NLayer)
-    assert [m.name for _, m in new.material_roles] == ["W", "Si"]
-    assert new.parameters["t_W"].value == pytest.approx(2.0)
-    assert new.parameters["t_Si"].value == pytest.approx(3.0)
-    assert new.parameters["sigma_W"].value == pytest.approx(0.5)
-    single = convert_coating(SingleLayer.create(get("W"), t=12.0), "n_layer")
-    assert isinstance(single, NLayer)
-    assert single.count == 1
-    assert single.parameters["t_W"].value == pytest.approx(12.0)
-
-
-def test_convert_from_n_layer() -> None:
-    old = NLayer.create([get("Pt"), get("C"), get("Si")], [1.0, 2.0, 3.0])
-    for name in ("periodic", "depth_graded"):
-        new = convert_coating(old, name)
-        assert new.materials["H"].name == "Pt"
-        assert new.materials["L"].name == "C"
-    single = convert_coating(old, "single_layer")
-    assert single.materials["M"].name == "Pt"
-    assert convert_coating(old, "n_layer") is old
-
-
 def n_layer_state() -> ProjectState:
     state = new_state("periodic")
     assert state.mirror is not None
@@ -345,30 +273,6 @@ def test_coating_page_layer_material_change(qtbot: QtBot) -> None:
     assert isinstance(new.mirror.coating, NLayer)
     assert [m.name for _, m in new.mirror.coating.material_roles] == ["Pt", "Si"]
     assert new.mirror.coating.parameters["t_Si"].value == pytest.approx(4.0)
-
-
-def test_restack_renames_parameters_and_expressions() -> None:
-    old = NLayer.create([get("Pt"), get("C")], [3.0, "t_Pt + 1"])
-    new = _restack(old, [get("Si"), get("C")], [1, 2])
-    assert list(new.parameters)[::2] == ["t_Si", "t_C"]
-    assert new.parameters["t_C"].expr == "t_Si + 1"
-    dropped = _restack(old, [get("C")], [2])
-    assert dropped.parameters["t_C"].expr is None
-
-
-def test_restack_of_legacy_names() -> None:
-    new = NLayer.create([get("Pt"), get("C")], [3.0, 4.0])
-    legacy = NLayer(
-        new.name,
-        new.material_roles,
-        ParameterSet(
-            dataclasses.replace(p, name=n)
-            for n, p in zip(["t1", "sigma1", "t2", "sigma2"], new.parameters.values(), strict=True)
-        ),
-    )
-    restacked = _restack(legacy, [get("Pt"), get("C"), get("Pt")], [1, 2, None])
-    assert list(restacked.parameters)[::2] == ["t_Pt_1", "t_C", "t_Pt_2"]
-    assert restacked.parameters["t_C"].value == pytest.approx(4.0)
 
 
 # --- ConstraintsPage ---------------------------------------------------------------------

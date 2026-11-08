@@ -11,7 +11,6 @@ from xstack.design.project import Project, ProjectState
 from xstack.design.project.templates import new_state
 from xstack.fit.project import FitProject
 from xstack.fit.templates import new_state as new_fit_state
-from xstack.gui.common.coating import convert_coating, unique_block_name
 from xstack.gui.design.steps import CoatingPage
 from xstack.gui.fit.steps.structure import StructurePage
 
@@ -66,23 +65,6 @@ def choose(combo: object, data: str) -> None:
     index = combo.findData(data)  # type: ignore[attr-defined]
     combo.setCurrentIndex(index)  # type: ignore[attr-defined]
     combo.activated.emit(index)  # type: ignore[attr-defined]
-
-
-def test_unique_block_name() -> None:
-    assert unique_block_name("periodic", ()) == "periodic"
-    assert unique_block_name("depth_graded", ["graded", "graded2"]) == "graded3"
-
-
-def test_convert_to_and_from_combined() -> None:
-    periodic = Periodic.create(get("W"), get("Si"), d=3.5).with_parameter("d", vary=True)
-    combined = convert_coating(periodic, "composite")
-    assert isinstance(combined, Composite)
-    assert combined.block_names() == ("periodic",)
-    assert combined.parameters["periodic.d"].vary
-    assert convert_coating(combined, "composite") is combined
-    back = convert_coating(combined, "periodic")
-    assert isinstance(back, Periodic)
-    assert back.parameters["d"].value == 3.5
 
 
 def test_single_coating_hides_block_controls(qtbot: QtBot) -> None:

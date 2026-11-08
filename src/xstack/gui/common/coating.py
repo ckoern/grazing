@@ -1,7 +1,6 @@
 """Page for the coating type, its options and parameters, shared by the applications."""
 
 import dataclasses
-import re
 from collections.abc import Callable, Collection, Sequence
 from typing import Any, ClassVar
 
@@ -27,13 +26,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from xstack.core.materials import Material, default_library, get
+from xstack.core.materials import Material, default_library
 from xstack.core.parameters import ParameterSet
 from xstack.core.structure.coating import Coating, Mirror
 from xstack.core.structure.coatings.composite import Composite
 from xstack.core.structure.coatings.graded import DepthGraded, grading_laws
 from xstack.core.structure.coatings.periodic import Periodic
-from xstack.core.structure.coatings.simple import NLayer, SingleLayer
+from xstack.core.structure.coatings.simple import NLayer
+from xstack.core.structure.conversion import (
+    constant_gamma_changes,
+    convert_coating,
+    has_constant_gamma,
+    restack_layers,
+    unique_block_name,
+)
 from xstack.gui.common.pages import StepPage, StructureCommands
 from xstack.gui.common.parameter_table import ParameterTable
 from xstack.gui.common.style import COLORS
@@ -44,10 +50,7 @@ __all__ = [
     "COATING_TYPES",
     "BlockSketch",
     "CoatingPage",
-    "convert_coating",
-    "has_constant_gamma",
     "set_constant_gamma",
-    "unique_block_name",
 ]
 
 BLOCK_TYPES = {
@@ -60,137 +63,6 @@ BLOCK_TYPES = {
 
 COATING_TYPES = {**BLOCK_TYPES, "composite": "Combined coating (blocks)"}
 """Coating types that can be selected in the GUI, by registry name."""
-
-_BLOCK_NAMES = {
-    "periodic": "periodic",
-    "depth_graded": "graded",
-    "single_layer": "layer",
-    "n_layer": "stack",
-}
-
-
-def unique_block_name(type_name: str, used: Collection[str]) -> str:
-    """Return a name for a new block of a combined coating.
-
-    Args:
-        type_name: Registry name of the block's coating type.
-        used: Names of the existing blocks.
-
-    Returns:
-        A short name after the type (``"periodic"``, ``"graded"``, ``"layer"``, ``"stack"``),
-        with a number appended if it is already used.
-    """
-    base = _BLOCK_NAMES.get(type_name, "block")
-    name, number = base, 2
-    while name in used:
-        name, number = f"{base}{number}", number + 1
-    return name
-
-
-def _carry_over(new: Coating, old: Coating) -> Coating:
-    """Return `new` with the settings of parameters that also exist in `old`."""
-    params = ParameterSet(old.parameters.get(name, p) for name, p in new.parameters.items())
-    try:
-        return new.with_parameters(params)
-    except ValueError:
-        return new
-
-
-def _bilayer_stack(old: Coating) -> tuple[list[Material], list[float], list[float]]:
-    """Return the layers (top first) of one period of a bilayer coating."""
-    roles = old.materials
-    params = old.parameters
-    d = params["d"].value if "d" in params else params["d_max"].value if "d_max" in params else 4.0
-    gamma = (
-        params["gamma"].value
-        if "gamma" in params
-        else params["gamma_top"].value
-        if "gamma_top" in params
-        else 0.4
-    )
-    thickness = {"H": gamma * d, "L": (1.0 - gamma) * d}
-    sigma = {r: params[f"sigma_{r}"].value if f"sigma_{r}" in params else 0.0 for r in "HL"}
-    order = ["L", "H"] if getattr(old, "top", "H") == "L" else ["H", "L"]
-    return (
-        [roles[r] for r in order],
-        [thickness[r] for r in order],
-        [sigma[r] for r in order],
-    )
-
-
-def _to_n_layer(old: Coating, materials: Sequence[Material] | None) -> NLayer:
-    """Create an N-layer coating from `old` or, if given, from the new `materials`."""
-    if isinstance(old, NLayer):
-        mats = list(materials) if materials is not None else [m for _, m in old.material_roles]
-        return NLayer.create(mats, [5.0] * len(mats))
-    if isinstance(old, Periodic | DepthGraded):
-        mats, thicknesses, sigmas = _bilayer_stack(old)
-    else:
-        params = old.parameters
-        mats = [next(iter(old.materials.values()), get("W"))]
-        thicknesses = [params["t"].value if "t" in params else 5.0]
-        sigmas = [params["sigma"].value if "sigma" in params else 0.0]
-    if materials is not None:
-        mats = list(materials)
-        thicknesses = (thicknesses + [5.0] * len(mats))[: len(mats)]
-        sigmas = (sigmas + [0.0] * len(mats))[: len(mats)]
-    return NLayer.create(mats, thicknesses, sigmas)
-
-
-def convert_coating(old: Coating, type_name: str, **options: object) -> Coating:
-    """Create a coating of another type or with other options from an existing one.
-
-    Materials and the settings of parameters with the same name are taken over. Converting a
-    multilayer to a layer stack yields the two layers of one period (thicknesses Γ·d and
-    (1 - Γ)·d); converting a layer stack to a multilayer uses the materials of its first two
-    layers as absorber and spacer. Converting to ``"composite"`` makes the coating the only
-    block of a combined coating; converting a combined coating to another type converts its
-    first block.
-
-    Args:
-        old: The current coating.
-        type_name: Registry name of the new coating type.
-        **options: Options of the new type (``top``, ``law``, ``cap``, ``interlayers``, and
-            for ``"n_layer"`` the ``materials`` of all layers from the top).
-
-    Returns:
-        The new coating.
-
-    Raises:
-        ValueError: If the type is not supported.
-    """
-    if type_name == "composite":
-        if isinstance(old, Composite):
-            return old
-        return Composite.create([old.renamed(unique_block_name(old.type_name, ()))])
-    if isinstance(old, Composite):
-        old = old.block(old.block_names()[0])
-    roles = old.materials
-    first = next(iter(roles.values()), get("W"))
-    h = roles.get("H", roles.get("M1", roles.get("M", first)))
-    low = roles.get("L", roles.get("M2", get("Si")))
-    interlayers = {
-        r: m for r, m in roles.items() if r in ("interlayer_H_on_L", "interlayer_L_on_H")
-    }
-    if "interlayers" in options:
-        interlayers = options.pop("interlayers")  # type: ignore[assignment]
-    new: Coating
-    if type_name == "periodic":
-        new = Periodic.create(h, low, interlayers=interlayers, **options)  # type: ignore[arg-type]
-    elif type_name == "depth_graded":
-        new = DepthGraded.create(h, low, interlayers=interlayers, **options)  # type: ignore[arg-type]
-    elif type_name == "single_layer":
-        new = SingleLayer.create(h)
-    elif type_name == "n_layer":
-        if isinstance(old, NLayer) and "materials" not in options:
-            return old
-        new = _to_n_layer(old, options.get("materials"))  # type: ignore[arg-type]
-    else:
-        raise ValueError(f"coating type {type_name!r} cannot be created here")
-    new = _carry_over(new, old)
-    if isinstance(new, Periodic | DepthGraded) and isinstance(old, Periodic | DepthGraded):
-        new = new.with_interlayers(old.use_interlayers)
-    return new
 
 
 def visible_parameters(parameters: ParameterSet, inactive: Collection[str]) -> ParameterSet:
@@ -206,26 +78,12 @@ def visible_parameters(parameters: ParameterSet, inactive: Collection[str]) -> P
     return ParameterSet(p for name, p in parameters.items() if name not in inactive)
 
 
-def has_constant_gamma(coating: DepthGraded) -> bool:
-    """Return whether all graded bilayers of a coating share one Γ.
-
-    Args:
-        coating: The depth-graded coating.
-
-    Returns:
-        True if ``gamma_bottom`` is tied to ``gamma_top`` by an expression.
-    """
-    expr = coating.parameters["gamma_bottom"].expr
-    return expr is not None and expr.replace(" ", "") == "gamma_top"
-
-
 def set_constant_gamma(
     coating: DepthGraded, constant: bool, set_parameter: Callable[..., Any]
 ) -> Any:
     """Return a command that switches between one Γ and a linear Γ gradient.
 
-    With a constant Γ, ``gamma_bottom`` follows ``gamma_top`` through an expression. Without,
-    ``gamma_bottom`` starts at the current value, bounds and vary setting of ``gamma_top``.
+    See `xstack.core.structure.conversion.constant_gamma_changes` for the changes made.
 
     Args:
         coating: The current depth-graded coating.
@@ -235,64 +93,7 @@ def set_constant_gamma(
     Returns:
         The command.
     """
-    if constant:
-        return set_parameter("gamma_bottom", expr="gamma_top", vary=False)
-    top = coating.parameters["gamma_top"]
-    value = coating.parameters.evaluate()["gamma_top"]
-    return set_parameter(
-        "gamma_bottom", expr=None, value=value, vary=top.vary, min=top.min, max=top.max
-    )
-
-
-def _restack(old: NLayer, materials: Sequence[Material], sources: Sequence[int | None]) -> NLayer:
-    """Return a layer stack with new materials whose layers take over old parameter settings.
-
-    Args:
-        old: The current layer stack.
-        materials: Materials of the new stack from the top.
-        sources: For each new layer the 1-based index of the old layer whose thickness and
-            roughness settings it takes over, or None for a new layer.
-    """
-    new = NLayer.create(materials, [5.0] * len(materials), name=old.name)
-    valid = [s is not None and 2 * s <= len(old.parameters) for s in sources]
-    renamed: dict[str, str] = {}
-    for i, (source, ok) in enumerate(zip(sources, valid, strict=True), start=1):
-        if source is not None and ok:
-            renamed[old.thickness_name(source)] = new.thickness_name(i)
-            renamed[old.roughness_name(source)] = new.roughness_name(i)
-    old_names = set(old.parameters)
-    word = re.compile(r"[A-Za-z_]\w*")
-
-    def translate(expr: str | None) -> str | None:
-        """Rewrite an expression to the new names; None if it refers to a removed layer."""
-        if expr is None or any(w in old_names and w not in renamed for w in word.findall(expr)):
-            return None
-        return word.sub(lambda m: renamed.get(m.group(0), m.group(0)), expr)
-
-    params = []
-    for i, (source, ok) in enumerate(zip(sources, valid, strict=True), start=1):
-        pairs = (
-            (new.thickness_name(i), old.thickness_name),
-            (new.roughness_name(i), old.roughness_name),
-        )
-        for new_name, old_name_of in pairs:
-            template = new.parameters[new_name]
-            if source is None or not ok:
-                params.append(template)
-                continue
-            carried = old.parameters[old_name_of(source)]
-            params.append(
-                dataclasses.replace(
-                    carried,
-                    name=template.name,
-                    description=template.description,
-                    expr=translate(carried.expr),
-                )
-            )
-    try:
-        return new.with_parameters(ParameterSet(params))
-    except ValueError:
-        return new
+    return set_parameter("gamma_bottom", **constant_gamma_changes(coating, constant))
 
 
 class BlockSketch(QWidget):
@@ -861,7 +662,7 @@ class CoatingPage(StepPage):
         if not materials:
             self.errorOccurred.emit("A layer stack needs at least one layer.")
             return
-        self._commit(_restack(target, materials, sources))
+        self._commit(restack_layers(target, materials, sources))
 
     def _change_layer_material(self, row: int) -> None:
         target = self._target

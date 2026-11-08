@@ -9,13 +9,14 @@ from pytestqt.qtbot import QtBot
 
 from xstack.core.io.reflectivity import REFLECTIVITY_COLUMNS
 from xstack.core.structure.coatings.graded import DepthGraded
+from xstack.core.structure.conversion import has_constant_gamma
 from xstack.core.targets import Target
 from xstack.design.project import ProjectState
 from xstack.design.project.commands import set_parameter
 from xstack.design.project.templates import new_state
 from xstack.gui.design.main_window import INPUT_DESIGN_LABEL, MainWindow
 from xstack.gui.design.preview import display_targets, lowest_energy
-from xstack.gui.design.steps.coating import CoatingPage, has_constant_gamma, set_constant_gamma
+from xstack.gui.design.steps.coating import CoatingPage, set_constant_gamma
 
 pytestmark = pytest.mark.gui
 
@@ -30,11 +31,6 @@ def tied_state() -> ProjectState:
     return set_parameter("gamma_bottom", expr="gamma_top", vary=False).transform(
         new_state("depth_graded")
     )
-
-
-def test_has_constant_gamma() -> None:
-    assert not has_constant_gamma(graded(new_state("depth_graded")))
-    assert has_constant_gamma(graded(tied_state()))
 
 
 def test_set_constant_gamma_untie_copies_top_settings() -> None:

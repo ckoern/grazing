@@ -90,6 +90,7 @@ src/xstack/
         periodic.py         # Periodic: N × (H, L [, interlayers])
         graded.py           # DepthGraded, grading laws (PowerLaw, LinearLaw), grading_laws registry
         composite.py        # Composite: ordered blocks with name prefixes
+      conversion.py         # convert_coating, restack_layers, unique_block_name, constant-Γ helpers
       presets.py            # StructureChoice, build_mirror: starting structures by kind and materials,
                             #   COATING_KINDS, MATERIAL_PAIRS
     io/

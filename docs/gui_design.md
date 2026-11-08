@@ -289,7 +289,7 @@ src/xstack/gui/
     __init__.py
     controller.py        # DocumentController (owns a core Document and QUndoStack), CommandAdapter
     pages.py             # StepPage: base of all workflow pages; StructureCommands
-    coating.py           # CoatingPage, convert_coating, has_constant_gamma, set_constant_gamma
+    coating.py           # CoatingPage, set_constant_gamma
     materials.py         # MaterialsPage, MaterialDialog
     parameter_table.py   # ParameterTableModel, ParameterTable (optional display units)
     profile.py           # LayerProfilePlot, bilayer_profile

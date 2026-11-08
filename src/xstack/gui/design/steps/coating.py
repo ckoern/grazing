@@ -8,20 +8,12 @@ from xstack.core.structure.coatings.graded import DepthGraded
 from xstack.design.project import Command
 from xstack.design.project.commands import set_parameter
 from xstack.gui.common import coating as common
-from xstack.gui.common.coating import (
-    COATING_TYPES,
-    _restack,
-    convert_coating,
-    has_constant_gamma,
-)
+from xstack.gui.common.coating import COATING_TYPES
 from xstack.gui.design.steps.base import DESIGN_COMMANDS
 
 __all__ = [
     "COATING_TYPES",
     "CoatingPage",
-    "_restack",
-    "convert_coating",
-    "has_constant_gamma",
     "set_constant_gamma",
 ]
 

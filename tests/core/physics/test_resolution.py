@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from xstack.core.physics.resolution import extended_grid, gaussian_smear
+from grazing.core.physics.resolution import extended_grid, gaussian_smear
 
 
 class TestExtendedGrid:

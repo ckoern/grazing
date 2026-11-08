@@ -6,12 +6,12 @@ from typing import Any
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.core.optim.events import CancellationToken
-from xstack.design.optim import Pipeline
-from xstack.design.project.templates import new_state
-from xstack.gui.common.workers import Job
-from xstack.gui.design.main_window import MainWindow
-from xstack.gui.design.steps import OptimizePage
+from grazing.core.optim.events import CancellationToken
+from grazing.design.optim import Pipeline
+from grazing.design.project.templates import new_state
+from grazing.gui.common.workers import Job
+from grazing.gui.design.main_window import MainWindow
+from grazing.gui.design.steps import OptimizePage
 
 pytestmark = pytest.mark.gui
 

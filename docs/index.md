@@ -1,8 +1,8 @@
-# xstack
+# grazing
 
-xstack designs X-ray multilayer mirrors and fits measured X-ray reflectivity. It consists of a
-Python library and two applications: **xstack-design** optimizes mirror coatings for given
-targets and manufacturing constraints, **xstack-fit** determines the structure of a measured
+grazing designs X-ray multilayer mirrors and fits measured X-ray reflectivity. It consists of a
+Python library and two applications: **grazing-design** optimizes mirror coatings for given
+targets and manufacturing constraints, **grazing-fit** determines the structure of a measured
 sample from its reflectivity curves.
 
 ```{toctree}

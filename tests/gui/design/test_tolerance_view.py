@@ -1,15 +1,15 @@
-"""Tests for `xstack.gui.design.widgets.tolerance_view`."""
+"""Tests for `grazing.gui.design.widgets.tolerance_view`."""
 
 import numpy as np
 import pyqtgraph as pg
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.core.targets import AngleScan, EnergyScan, TargetSet
-from xstack.design.manufacturing import ErrorModel, ToleranceResult, tolerance_analysis
-from xstack.design.project.templates import new_state
-from xstack.gui.design.preview import tolerance_curves
-from xstack.gui.design.widgets.tolerance_view import ToleranceView
+from grazing.core.targets import AngleScan, EnergyScan, TargetSet
+from grazing.design.manufacturing import ErrorModel, ToleranceResult, tolerance_analysis
+from grazing.design.project.templates import new_state
+from grazing.gui.design.preview import tolerance_curves
+from grazing.gui.design.widgets.tolerance_view import ToleranceView
 
 pytestmark = pytest.mark.gui
 

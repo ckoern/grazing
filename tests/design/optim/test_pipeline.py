@@ -2,18 +2,18 @@
 
 import pytest
 
+from grazing.core.materials import get
+from grazing.core.optim import CancellationToken
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import Composite, Mirror, Periodic, SingleLayer
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.design.merit import MeanReflectivity
+from grazing.design.optim import DesignProblem, Pipeline
+from grazing.design.optim.pipeline import StageResult
+from grazing.design.optim.scan import GridScan
+from grazing.design.optim.stages import Stage
 from tests.design.optim.test_problem import ENERGY, THETA, make_problem
-from xstack.core.materials import get
-from xstack.core.optim import CancellationToken
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import Composite, Mirror, Periodic, SingleLayer
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import DesignProblem, Pipeline
-from xstack.design.optim.pipeline import StageResult
-from xstack.design.optim.scan import GridScan
-from xstack.design.optim.stages import Stage
 
 W = get("W")
 SI = get("Si")

@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.fit.steps.results`."""
+"""Tests for `grazing.gui.fit.steps.results`."""
 
 import csv
 import math
@@ -10,23 +10,23 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from xstack.core import materials
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, SingleLayer
-from xstack.fit.dataset import Dataset
-from xstack.fit.problem import FitProblem
-from xstack.fit.project import (
+from grazing.core import materials
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, SingleLayer
+from grazing.fit.dataset import Dataset
+from grazing.fit.problem import FitProblem
+from grazing.fit.project import (
     Command,
     FitProject,
     FitState,
     run_fit,
     store_result,
 )
-from xstack.fit.report import format_result
-from xstack.fit.results import FitResult
-from xstack.gui.fit.preview import compute_preview
-from xstack.gui.fit.steps.results import EXPORT_COLUMNS, ResultsPage
+from grazing.fit.report import format_result
+from grazing.fit.results import FitResult
+from grazing.gui.fit.preview import compute_preview
+from grazing.gui.fit.steps.results import EXPORT_COLUMNS, ResultsPage
 
 ANGLES = np.linspace(0.002, 0.012, 30)
 

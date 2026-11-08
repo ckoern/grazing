@@ -5,7 +5,7 @@ import math
 import lmfit
 import pytest
 
-from xstack.core.parameters import (
+from grazing.core.parameters import (
     Parameter,
     ParameterSet,
     Range,

@@ -5,9 +5,9 @@ import dataclasses
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.structure import Layer, Stack
-from xstack.design.manufacturing.process import DepositionProcess, DepositionStep
+from grazing.core import materials
+from grazing.core.structure import Layer, Stack
+from grazing.design.manufacturing.process import DepositionProcess, DepositionStep
 
 W = materials.get("W")
 SI = materials.get("Si")

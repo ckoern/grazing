@@ -4,9 +4,9 @@ import pytest
 from PySide6.QtWidgets import QCheckBox
 from pytestqt.qtbot import QtBot
 
+from grazing.fit.project import FitProject, FitState
+from grazing.gui.fit.steps import MaterialsPage, ParametersPage
 from tests.gui.fit.helpers import make_state
-from xstack.fit.project import FitProject, FitState
-from xstack.gui.fit.steps import MaterialsPage, ParametersPage
 
 pytestmark = pytest.mark.gui
 
@@ -80,9 +80,9 @@ def test_density_parameter_appears_on_parameters_page(qtbot: QtBot) -> None:
 
 
 def test_design_coating_page_shows_density_parameters(qtbot: QtBot) -> None:
-    from xstack.design.project.commands import set_parameter
-    from xstack.design.project.templates import new_state
-    from xstack.gui.design.steps import CoatingPage
+    from grazing.design.project.commands import set_parameter
+    from grazing.design.project.templates import new_state
+    from grazing.gui.design.steps import CoatingPage
 
     state = new_state("periodic")
     assert state.mirror is not None

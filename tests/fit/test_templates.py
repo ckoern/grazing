@@ -1,11 +1,11 @@
-"""Tests for `xstack.fit.templates`."""
+"""Tests for `grazing.fit.templates`."""
 
 import pytest
 
-from xstack.core.materials import get
-from xstack.core.structure import Mirror, SingleLayer
-from xstack.core.structure.presets import StructureChoice, build_mirror
-from xstack.fit.templates import ROUGHNESS_RANGE, TEMPLATES, for_fit, new_state
+from grazing.core.materials import get
+from grazing.core.structure import Mirror, SingleLayer
+from grazing.core.structure.presets import StructureChoice, build_mirror
+from grazing.fit.templates import ROUGHNESS_RANGE, TEMPLATES, for_fit, new_state
 
 
 @pytest.mark.parametrize("name", list(TEMPLATES))

@@ -1,4 +1,4 @@
-"""Tests for `xstack.core.io.data`."""
+"""Tests for `grazing.core.io.data`."""
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -6,10 +6,10 @@ from typing import Any
 
 import pytest
 
-from xstack.core.io import files
-from xstack.core.io.data import data_parsers, parser_for, read_curves
-from xstack.core.io.delimited import CsvParser
-from xstack.core.measurement import MeasuredCurve
+from grazing.core.io import files
+from grazing.core.io.data import data_parsers, parser_for, read_curves
+from grazing.core.io.delimited import CsvParser
+from grazing.core.measurement import MeasuredCurve
 
 
 class FakeParser:

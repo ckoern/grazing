@@ -7,14 +7,14 @@ import pyqtgraph as pg
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.core.optim.events import CancellationToken
-from xstack.design.manufacturing import ErrorModel, ToleranceResult, tolerance_analysis
-from xstack.design.project.templates import new_state
-from xstack.gui.common.workers import Job
-from xstack.gui.design.main_window import MainWindow
-from xstack.gui.design.preview import ToleranceCurves, tolerance_curves
-from xstack.gui.design.steps import AnalyzePage
-from xstack.gui.design.widgets.tolerance_view import sample_alpha
+from grazing.core.optim.events import CancellationToken
+from grazing.design.manufacturing import ErrorModel, ToleranceResult, tolerance_analysis
+from grazing.design.project.templates import new_state
+from grazing.gui.common.workers import Job
+from grazing.gui.design.main_window import MainWindow
+from grazing.gui.design.preview import ToleranceCurves, tolerance_curves
+from grazing.gui.design.steps import AnalyzePage
+from grazing.gui.design.widgets.tolerance_view import sample_alpha
 
 pytestmark = pytest.mark.gui
 

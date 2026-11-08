@@ -6,8 +6,8 @@ from PySide6.QtGui import QAction
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QAbstractItemView, QMenu
 
-from xstack.gui.design.main_window import MainWindow
-from xstack.gui.design.widgets.candidate_dialog import CandidateParametersDialog
+from grazing.gui.design.main_window import MainWindow
+from grazing.gui.design.widgets.candidate_dialog import CandidateParametersDialog
 
 pytestmark = pytest.mark.gui
 

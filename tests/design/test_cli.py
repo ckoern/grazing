@@ -4,16 +4,16 @@ from pathlib import Path
 
 import pytest
 
-from xstack.__main__ import main
-from xstack.core import materials
-from xstack.core.optim import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg, kev
-from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import Pipeline, Stage
-from xstack.design.project import Project, ProjectState, commands
+from grazing.__main__ import main
+from grazing.core import materials
+from grazing.core.optim import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg, kev
+from grazing.design.merit import MeanReflectivity
+from grazing.design.optim import Pipeline, Stage
+from grazing.design.project import Project, ProjectState, commands
 
 W = materials.get("W")
 SI = materials.get("Si")
@@ -39,7 +39,7 @@ def make_project(complete: bool = True) -> Project:
 
 @pytest.fixture
 def project_file(tmp_path: Path) -> Path:
-    path = tmp_path / "demo.xstack"
+    path = tmp_path / "demo.grazing"
     make_project().save(path)
     return path
 
@@ -47,7 +47,7 @@ def project_file(tmp_path: Path) -> Path:
 def test_run_writes_output(
     project_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    out = tmp_path / "out.xstack"
+    out = tmp_path / "out.grazing"
     assert main(["design", "run", str(project_file), "--output", str(out)]) == 0
     printed = capsys.readouterr().out
     assert "refine" in printed
@@ -68,7 +68,7 @@ def test_run_overwrites_input_by_default(project_file: Path) -> None:
 def test_run_verbose(
     project_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    out = tmp_path / "out.xstack"
+    out = tmp_path / "out.grazing"
     assert main(["design", "run", str(project_file), "--output", str(out), "--verbose"]) == 0
     assert "evaluations" in capsys.readouterr().out
 
@@ -83,22 +83,22 @@ def test_info(project_file: Path, capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_missing_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["design", "run", str(tmp_path / "missing.xstack")]) == 1
+    assert main(["design", "run", str(tmp_path / "missing.grazing")]) == 1
     captured = capsys.readouterr()
     assert captured.err.startswith("error:")
-    assert "missing.xstack" in captured.err
-    assert main(["design", "info", str(tmp_path / "missing.xstack")]) == 1
+    assert "missing.grazing" in captured.err
+    assert main(["design", "info", str(tmp_path / "missing.grazing")]) == 1
 
 
 def test_incomplete_project(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    path = tmp_path / "incomplete.xstack"
+    path = tmp_path / "incomplete.grazing"
     make_project(complete=False).save(path)
     assert main(["design", "run", str(path)]) == 1
     assert "targets" in capsys.readouterr().err
 
 
 def test_invalid_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    path = tmp_path / "bad.xstack"
+    path = tmp_path / "bad.grazing"
     path.write_text('{"format": "other"}')
     assert main(["design", "info", str(path)]) == 1
     assert "error:" in capsys.readouterr().err

@@ -6,15 +6,15 @@ from collections.abc import Mapping
 import numpy as np
 import pytest
 
-from xstack.core.materials import get
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.optim import LmfitOptimizer
-from xstack.core.parameters import ParameterValue, free
-from xstack.core.structure import Mirror, Periodic, SingleLayer
-from xstack.core.units import deg
-from xstack.fit.dataset import Dataset
-from xstack.fit.problem import FitProblem, Weighting
-from xstack.fit.results import FitResult
+from grazing.core.materials import get
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.optim import LmfitOptimizer
+from grazing.core.parameters import ParameterValue, free
+from grazing.core.structure import Mirror, Periodic, SingleLayer
+from grazing.core.units import deg
+from grazing.fit.dataset import Dataset
+from grazing.fit.problem import FitProblem, Weighting
+from grazing.fit.results import FitResult
 
 CU_KA = 8048.0
 MO_KA = 17479.0

@@ -6,12 +6,12 @@ import pytest
 from PySide6.QtCore import QSettings
 from pytestqt.qtbot import QtBot
 
-from xstack.core.structure.coatings.graded import DepthGraded
-from xstack.core.structure.coatings.simple import NLayer
-from xstack.core.structure.presets import StructureChoice
-from xstack.design.project import Project as Doc
-from xstack.gui.common.wizard import ProjectSetup, ProjectWizard
-from xstack.gui.design.main_window import MainWindow
+from grazing.core.structure.coatings.graded import DepthGraded
+from grazing.core.structure.coatings.simple import NLayer
+from grazing.core.structure.presets import StructureChoice
+from grazing.design.project import Project as Doc
+from grazing.gui.common.wizard import ProjectSetup, ProjectWizard
+from grazing.gui.design.main_window import MainWindow
 
 pytestmark = pytest.mark.gui
 
@@ -38,7 +38,7 @@ def make(qtbot: QtBot, settings: QSettings, setup: ProjectSetup | None) -> MainW
 def test_wizard_creates_and_saves_project(
     qtbot: QtBot, settings: QSettings, tmp_path: Path
 ) -> None:
-    path = tmp_path / "graded.xstack"
+    path = tmp_path / "graded.grazing"
     setup = ProjectSetup(
         "Graded Pt/C", path, StructureChoice("graded_linear", ("Pt", "C"), top="L")
     )
@@ -84,7 +84,7 @@ def test_default_factory_builds_project_wizard(qtbot: QtBot, settings: QSettings
     qtbot.addWidget(window)
     wizard = window.wizard_factory()
     assert isinstance(wizard, ProjectWizard)
-    assert wizard.suffix == ".xstack"
+    assert wizard.suffix == ".grazing"
 
 
 @pytest.mark.parametrize(

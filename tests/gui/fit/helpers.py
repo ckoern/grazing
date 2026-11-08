@@ -2,11 +2,11 @@
 
 import numpy as np
 
-from xstack.core.measurement import MeasuredCurve
-from xstack.fit.dataset import Dataset
-from xstack.fit.problem import FitProblem
-from xstack.fit.project import FitProject, FitState
-from xstack.fit.templates import new_state
+from grazing.core.measurement import MeasuredCurve
+from grazing.fit.dataset import Dataset
+from grazing.fit.problem import FitProblem
+from grazing.fit.project import FitProject, FitState
+from grazing.fit.templates import new_state
 
 ANGLES = np.linspace(0.002, 0.02, 40)
 

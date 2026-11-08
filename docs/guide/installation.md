@@ -1,21 +1,21 @@
 # Installation
 
-xstack needs Python 3.12 or newer. The library depends on numpy, scipy, lmfit and xraylib; the
+grazing needs Python 3.12 or newer. The library depends on numpy, scipy, lmfit and xraylib; the
 applications additionally on PySide6, pyqtgraph and matplotlib.
 
 Install from a checkout of the repository, preferably in its own environment, for example with
 conda:
 
 ```{code-block} bash
-conda create -n xstack python=3.12
-conda activate xstack
+conda create -n grazing python=3.12
+conda activate grazing
 pip install -e ".[gui]"
 ```
 
 The extras are:
 
 `gui`
-: the applications `xstack-design` and `xstack-fit`.
+: the applications `grazing-design` and `grazing-fit`.
 
 `dev`
 : tests, linters and type checking (pytest, ruff, mypy).
@@ -26,14 +26,14 @@ The extras are:
 Check the installation:
 
 ```{code-block} bash
-xstack --help
-xstack-design
-xstack-fit
+grazing --help
+grazing-design
+grazing-fit
 ```
 
-`xstack-design [PROJECT.xstack]` and `xstack-fit [PROJECT.xfit]` open the applications, optionally
-with a project; `python -m xstack.gui.design` and `python -m xstack.gui.fit` are equivalent. The
-command-line tools are `xstack design …` and `xstack fit …`.
+`grazing-design [PROJECT.grazing]` and `grazing-fit [PROJECT.gfit]` open the applications, optionally
+with a project; `python -m grazing.gui.design` and `python -m grazing.gui.fit` are equivalent. The
+command-line tools are `grazing design …` and `grazing fit …`.
 
 ## Building this documentation
 

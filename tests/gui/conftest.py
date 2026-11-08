@@ -12,8 +12,8 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from xstack.gui.common.garbage import GarbageCollector
-from xstack.gui.design.main_window import MainWindow
+from grazing.gui.common.garbage import GarbageCollector
+from grazing.gui.design.main_window import MainWindow
 
 
 @pytest.fixture(scope="session", autouse=True)

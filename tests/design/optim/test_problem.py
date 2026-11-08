@@ -7,16 +7,16 @@ from typing import Any, ClassVar
 import numpy as np
 import pytest
 
-from xstack.core.materials import get
-from xstack.core.optim import CancellationToken, LmfitOptimizer, ProgressEvent
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.design.manufacturing.constraints import MaxTotalThickness, MinLayerThickness
-from xstack.design.manufacturing.process import DepositionProcess
-from xstack.design.merit import MeanReflectivity
-from xstack.design.merit.base import EvaluationContext, FigureOfMerit
-from xstack.design.optim import DesignProblem, Evaluation
+from grazing.core.materials import get
+from grazing.core.optim import CancellationToken, LmfitOptimizer, ProgressEvent
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.design.manufacturing.constraints import MaxTotalThickness, MinLayerThickness
+from grazing.design.manufacturing.process import DepositionProcess
+from grazing.design.merit import MeanReflectivity
+from grazing.design.merit.base import EvaluationContext, FigureOfMerit
+from grazing.design.optim import DesignProblem, Evaluation
 
 W = get("W")
 SI = get("Si")

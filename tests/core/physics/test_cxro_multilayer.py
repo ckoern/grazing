@@ -12,11 +12,11 @@ from typing import cast
 import numpy as np
 import pytest
 
-from xstack.core.materials import Material, MaterialLibrary
-from xstack.core.physics import reflectivity
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.structure.coatings.bilayer import TopMaterial
-from xstack.core.units import HC
+from grazing.core.materials import Material, MaterialLibrary
+from grazing.core.physics import reflectivity
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.structure.coatings.bilayer import TopMaterial
+from grazing.core.units import HC
 
 DATA = Path(__file__).parent.parent.parent / "data" / "cxro_multilayer"
 LIBRARY = MaterialLibrary(default_provider="henke")

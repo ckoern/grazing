@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.design.steps.GoalPage`."""
+"""Tests for `grazing.gui.design.steps.GoalPage`."""
 
 import math
 from typing import TYPE_CHECKING
@@ -9,16 +9,16 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QComboBox, QLineEdit
 from pytestqt.qtbot import QtBot
 
-from xstack.core.targets import AngleScan, EnergyScan, TargetSet
-from xstack.design.project import Command, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.gui.design.steps import GoalPage
-from xstack.gui.design.steps.goal import TargetEditor
+from grazing.core.targets import AngleScan, EnergyScan, TargetSet
+from grazing.design.project import Command, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.gui.design.steps import GoalPage
+from grazing.gui.design.steps.goal import TargetEditor
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from xstack.gui.design.main_window import MainWindow
+    from grazing.gui.design.main_window import MainWindow
 
 pytestmark = pytest.mark.gui
 
@@ -291,7 +291,7 @@ def test_new_state_updates_fields_in_place(qtbot: QtBot) -> None:
 
 @pytest.fixture
 def window(qtbot: QtBot) -> "Iterator[MainWindow]":
-    from xstack.gui.design.main_window import MainWindow
+    from grazing.gui.design.main_window import MainWindow
 
     window = MainWindow(confirm_close=False)
     qtbot.addWidget(window)

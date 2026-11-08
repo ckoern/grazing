@@ -6,9 +6,9 @@ from typing import Any, ClassVar
 
 import pytest
 
-from xstack.core.document import Command, Document, History
-from xstack.core.parameters import Parameter
-from xstack.core.serialization import register_serializable, to_data
+from grazing.core.document import Command, Document, History
+from grazing.core.parameters import Parameter
+from grazing.core.serialization import register_serializable, to_data
 
 
 @dataclass(frozen=True)

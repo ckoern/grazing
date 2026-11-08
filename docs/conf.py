@@ -1,13 +1,13 @@
-"""Sphinx configuration of the xstack documentation."""
+"""Sphinx configuration of the grazing documentation."""
 
 import importlib
 import pkgutil
 from pathlib import Path
 
-from xstack import __version__
+from grazing import __version__
 
-project = "xstack"
-author = "xstack contributors"
+project = "grazing"
+author = "grazing contributors"
 release = __version__
 version = __version__
 
@@ -48,12 +48,12 @@ intersphinx_mapping = {
 }
 
 html_theme = "furo"
-html_title = f"xstack {__version__}"
+html_title = f"grazing {__version__}"
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True
 
 
-_PACKAGES = ("xstack.core", "xstack.design", "xstack.fit", "xstack.gui")
+_PACKAGES = ("grazing.core", "grazing.design", "grazing.fit", "grazing.gui")
 _API = Path(__file__).parent / "api" / "generated"
 
 

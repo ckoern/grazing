@@ -1,14 +1,14 @@
-"""Tests for `xstack.gui.common.forms`."""
+"""Tests for `grazing.gui.common.forms`."""
 
 import pytest
 from PySide6.QtWidgets import QCheckBox, QComboBox, QLineEdit
 from pytestqt.qtbot import QtBot
 
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.design.manufacturing.constraints import MaxCoatingTime, MinLayerThickness
-from xstack.design.merit.composite import TimePenalized
-from xstack.design.merit.optical import ProfileDeviation, SoftMinReflectivity
-from xstack.gui.common.forms import DataclassForm, editable_fields
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.design.manufacturing.constraints import MaxCoatingTime, MinLayerThickness
+from grazing.design.merit.composite import TimePenalized
+from grazing.design.merit.optical import ProfileDeviation, SoftMinReflectivity
+from grazing.gui.common.forms import DataclassForm, editable_fields
 
 pytestmark = pytest.mark.gui
 

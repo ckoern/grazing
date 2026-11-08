@@ -1,10 +1,10 @@
 # User guide
 
-xstack has two tools that share one library:
+grazing has two tools that share one library:
 
-- **Design** (xstack-design): find the layer structure of a mirror that reflects best for given
+- **Design** (grazing-design): find the layer structure of a mirror that reflects best for given
   energies and angles, within manufacturing limits, and check how robust it is.
-- **Fit** (xstack-fit): determine the actual structure of a coated sample from its measured
+- **Fit** (grazing-fit): determine the actual structure of a coated sample from its measured
   reflectivity, with uncertainties.
 
 Each tool can be used through its application or from Python. Start with the quick start that
@@ -12,8 +12,8 @@ matches what you want to do; the topics go deeper into individual subjects.
 
 | | Application | Python library |
 |---|---|---|
-| **Design** a mirror | [Design a mirror in xstack-design](quickstart_design_gui.md) | [Design a mirror with Python](quickstart_design_library.md) |
-| **Fit** a measurement | [Fit a measurement in xstack-fit](quickstart_fit_gui.md) | [Fit a measurement with Python](quickstart_fit_library.md) |
+| **Design** a mirror | [Design a mirror in grazing-design](quickstart_design_gui.md) | [Design a mirror with Python](quickstart_design_library.md) |
+| **Fit** a measurement | [Fit a measurement in grazing-fit](quickstart_fit_gui.md) | [Fit a measurement with Python](quickstart_fit_library.md) |
 
 The physics behind both tools is summarized in the
 [physics background](../physics_background.md).

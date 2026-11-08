@@ -11,8 +11,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from numpy.typing import ArrayLike, NDArray
 
-from xstack.core.physics.fresnel import Polarization
-from xstack.core.physics.kernel import KernelResult, parratt
+from grazing.core.physics.fresnel import Polarization
+from grazing.core.physics.kernel import KernelResult, parratt
 
 FloatArr = NDArray[np.float64]
 ComplexArr = NDArray[np.complex128]

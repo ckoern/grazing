@@ -12,18 +12,18 @@ materials. The example on this page has three blocks:
 
 ## In the library
 
-{py:class}`~xstack.core.structure.coatings.composite.Composite` combines the blocks. Their names
+{py:class}`~grazing.core.structure.coatings.composite.Composite` combines the blocks. Their names
 must be unique identifiers, because they become the prefix of the block's parameters and material
 roles:
 
 ```python
 import numpy as np
 
-from xstack.core.materials import get
-from xstack.core.physics import reflectivity
-from xstack.core.structure import Composite, Mirror, Periodic
-from xstack.core.structure.coatings import DepthGraded, NLayer
-from xstack.core.units import deg
+from grazing.core.materials import get
+from grazing.core.physics import reflectivity
+from grazing.core.structure import Composite, Mirror, Periodic
+from grazing.core.structure.coatings import DepthGraded, NLayer
+from grazing.core.units import deg
 
 coating = Composite.create(
     [
@@ -77,7 +77,7 @@ of all parameters of the other blocks:
 and put back with `with_block`:
 
 ```python
-from xstack.core.structure import SingleLayer
+from grazing.core.structure import SingleLayer
 
 coating = mirror.coating
 wsi = coating.block("wsi").with_interlayers(True)
@@ -93,7 +93,7 @@ coating it leaves the start values unchanged.
 
 ## In the applications
 
-On the **Coating** step of xstack-design (and the **Structure** step of xstack-fit), choose the
+On the **Coating** step of grazing-design (and the **Structure** step of grazing-fit), choose the
 coating type *Combined coating (blocks)*. The current coating becomes the first block.
 
 ![Coating step with a combined coating](../images/design_combined_coating.png)

@@ -1,11 +1,11 @@
-# xstack core library: architecture
+# grazing core library: architecture
 
-Status: implemented. Target: Python 3.12, numpy, lmfit, fully type-hinted (`mypy --strict` for everything except `xstack.gui`).
+Status: implemented. Target: Python 3.12, numpy, lmfit, fully type-hinted (`mypy --strict` for everything except `grazing.gui`).
 See `physics_background.md` for the physics and `kernel_verification.md` for the test strategy.
 
 ## 1. Design principles
 
-1. **Library first.** Every GUI feature is a library call. Only `xstack.gui` imports Qt.
+1. **Library first.** Every GUI feature is a library call. Only `grazing.gui` imports Qt.
 2. **Layered data flow.** Each layer only knows the one below:
 
    ```
@@ -34,19 +34,19 @@ See `physics_background.md` for the physics and `kernel_verification.md` for the
 
 ## 2. Package layout
 
-Modules under `src/xstack/` (all files; `__pycache__` directories omitted). The layers depend only
+Modules under `src/grazing/` (all files; `__pycache__` directories omitted). The layers depend only
 downward: `core` ← `design` and `fit` ← `gui`. Design and fit never import each other; they cooperate
 through registries filled from entry points (see 3.11).
 
 ```
-src/xstack/
+src/grazing/
   __init__.py               # package version
-  __main__.py               # command dispatcher: `xstack design ...`, `xstack fit ...`
+  __main__.py               # command dispatcher: `grazing design ...`, `grazing fit ...`
   core/                     # physics, parameters, serialization (no Qt)
     __init__.py
     units.py                # constants and conversion helpers (keV↔eV, deg/mrad↔rad, Å↔nm, µm, E↔λ, θ↔q)
     plugins.py              # Registry[T]: named registry with register/get/names;
-                            #   load_plugins() imports the `xstack.plugins` entry points
+                            #   load_plugins() imports the `grazing.plugins` entry points
     parameters.py           # Parameter, Range, free(), ParameterSet, lmfit conversion
     serialization.py        # versioned JSON: to_data, from_data, register_serializable,
                             #   register_component_registry
@@ -101,14 +101,14 @@ src/xstack/
                             #   (loads plugins first)
       data.py               # DataParser protocol, data_parsers registry, read_curves(path, options)
       delimited.py          # CsvLayout, CsvParser: measured curves from CSV/TSV/column files,
-                            #   automatic reading of xstack reflectivity exports
+                            #   automatic reading of grazing reflectivity exports
       models.py             # ImportedModel, ModelReader protocol, model_readers registry,
                             #   read_models(path): start models from other applications' files
       reflectivity.py       # reflectivity_table(), write_reflectivity_csv(): export of curves (CSV)
   design/                   # mirror design workflow (depends on core)
     __init__.py
-    cli.py                  # `xstack design run|info`
-    plugin.py               # XstackModelReader: designs of `.xstack` files as fit models
+    cli.py                  # `grazing design run|info`
+    plugin.py               # GrazingModelReader: designs of `.grazing` files as fit models
     recipe.py               # layer_table, write_recipe_csv, write_recipe_json
     merit/
       __init__.py
@@ -133,7 +133,7 @@ src/xstack/
       tradeoff.py           # time_tradeoff, TradeoffPoint, TradeoffResult, default_limits
     project/
       __init__.py
-      project.py            # ProjectState, Candidate, Command, Project (`.xstack` files)
+      project.py            # ProjectState, Candidate, Command, Project (`.grazing` files)
       commands.py           # command functions (set_mirror, store_results, run_pipeline, …)
       templates.py          # ready-made project states (new_state, TEMPLATES)
   fit/                      # fitting of measured reflectivity (depends on core, not on design)
@@ -144,24 +144,24 @@ src/xstack/
     dataset.py              # Dataset: curve + instrument + fit ranges/excluded ranges (mask)
     problem.py              # FitProblem (Problem protocol), FitEvaluation, weightings
     results.py              # analyze(): uncertainties and correlations; FitStatistics, FitResult
-    project.py              # FitState, StoredFit, FitProject (`.xfit` files), command functions,
+    project.py              # FitState, StoredFit, FitProject (`.gfit` files), command functions,
                             #   run_fit
     templates.py            # start structures of new fit projects (new_state, TEMPLATES)
     report.py               # text reports of parameters and results
-    cli.py                  # `xstack fit new|run|info|export`
+    cli.py                  # `grazing fit new|run|info|export`
   gui/                      # PySide6 applications (not imported by core, design or fit)
     __init__.py
     common/                 # components shared by both applications
       style.py, forms.py, files.py, workers.py, controller.py, pages.py, coating.py,
       materials.py, parameter_table.py, journal_view.py, profile.py, wizard.py, garbage.py,
       plot_tabs.py
-    design/                 # the design application (`xstack-design`)
+    design/                 # the design application (`grazing-design`)
       __main__.py, app.py, main_window.py, controller.py, plots.py, preview.py
       steps/                # one page per workflow step (goal, estimate, materials, coating,
                             #   constraints, process, scan, optimize, tradeoff, analyze), base.py
       widgets/              # candidate_dialog.py, design_comparison.py, journal_view.py,
                             #   parameter_table.py, tolerance_view.py
-    fit/                    # the fit application (`xstack-fit`)
+    fit/                    # the fit application (`grazing-fit`)
       __main__.py, app.py, main_window.py, controller.py, plots.py, preview.py
       steps/                # one page per workflow step (data, materials, structure, parameters,
                             #   fit, results), base.py
@@ -520,7 +520,7 @@ class Optimizer(ABC):
             cancel: CancellationToken | None = None) -> OptimizationResult[E]: ...
 ```
 
-Optimizers are generic core pieces (`xstack.core.optim`) that run on any `Problem`.
+Optimizers are generic core pieces (`grazing.core.optim`) that run on any `Problem`.
 `DesignProblem` satisfies that protocol, and design and fitting use the same optimizers.
 A `Problem` provides `parameters`, `with_parameters`, `evaluate(values)`, `quantities(evaluation)`,
 `bounds_hints()` and `residuals(evaluation, size)`. `residuals` returns the residual vector of an
@@ -531,7 +531,7 @@ residuals from that evaluation.
 
 - `LmfitOptimizer(method=…)` wraps `lmfit.Minimizer` for `leastsq`, `least_squares`, `nelder`,
   `lbfgsb`, `powell`, `differential_evolution`, and the other lmfit methods. Global methods
-  (`GLOBAL_METHODS` in `xstack.core.optim.optimizers`) vary integer parameters, which are rounded
+  (`GLOBAL_METHODS` in `grazing.core.optim.optimizers`) vary integer parameters, which are rounded
   when the coating is built; they require finite bounds for all free parameters. Local methods keep integer parameters fixed. The start
   design is evaluated first, so the result is never worse than it; differential evolution also includes
   it in its initial population (unless an `init` option is given).
@@ -632,7 +632,7 @@ class Candidate:
     notes: str = ""
 
 @dataclass(frozen=True)
-class Command(document.Command[ProjectState]):   # fields from xstack.core.document.Command
+class Command(document.Command[ProjectState]):   # fields from grazing.core.document.Command
     description: str
     transform: Callable[[ProjectState], ProjectState]
     merge_key: str = ""               # commands with the same non-empty key may be merged in the undo history
@@ -647,9 +647,9 @@ class Project(Document[ProjectState]):
     def load(cls, path: Path | str) -> "Project": ...
 ```
 
-Documents are generic core pieces: `Document[S]` (`xstack.core.document`) provides execute,
+Documents are generic core pieces: `Document[S]` (`grazing.core.document`) provides execute,
 undo/redo, subscribe and save/load for any state type `S`, with `History[S]` as its undo stack.
-`Project` subclasses it with the file format `"xstack-project"`, and the design `Command` is a
+`Project` subclasses it with the file format `"grazing-project"`, and the design `Command` is a
 `Command[ProjectState]`.
 
 - **Input design and candidates.** `ProjectState.mirror` is the input design. It is only changed by
@@ -670,13 +670,13 @@ undo/redo, subscribe and save/load for any state type `S`, with `History[S]` as 
   save point; consecutive commands with the same merge key are merged into one step unless the
   document was saved in between (the rule of Qt's `QUndoStack`, which mirrors the history in the GUI).
 - Scripted use: `project.execute(commands.set_parameter("N", vary=True, min=20, max=80))`.
-- **Journal** (`xstack.core.journal`): `Journal` is an append-only list of
+- **Journal** (`grazing.core.journal`): `Journal` is an append-only list of
   `JournalEntry(timestamp, kind, message, data)`.
   Executed commands and optimization runs (`record_run`) are logged. Undo adds an entry and does not
   delete one. The journal is saved with the project.
-- **Serialization**: JSON through `to_data()` and `from_data()` in `xstack.core.serialization`. A document
-  file carries its `format` name and `schema_version` (`"xstack-project"` for `.xstack`, `"xstack-fit"`
-  for `.xfit`), which are checked when reading. Every registered class is written with a type tag
+- **Serialization**: JSON through `to_data()` and `from_data()` in `grazing.core.serialization`. A document
+  file carries its `format` name and `schema_version` (`"grazing-project"` for `.grazing`, `"grazing-fit"`
+  for `.gfit`), which are checked when reading. Every registered class is written with a type tag
   (`register_serializable(tag, cls)`) and its parameters, and plugins serialize without extra code.
   Registries of serializable components are attached with `register_component_registry(prefix, registry)`.
   Serializable classes and registries register themselves in the module that defines them. Callables are
@@ -698,7 +698,7 @@ optimizers: Registry[type[Optimizer]]       # register_optimizer
 models: Registry[ReflectivityModel]
 interface_models: Registry[InterfaceModel]
 providers: Registry[OpticalConstantsProvider]
-model_readers: Registry[ModelReader]        # filled by plugins, e.g. design's `.xstack` reader
+model_readers: Registry[ModelReader]        # filled by plugins, e.g. design's `.grazing` reader
 data_parsers: Registry[DataParser]          # "csv" built in; further formats from plugins
 ```
 
@@ -715,17 +715,17 @@ class MyCoating(Coating):
 The registries are the single source of names. The serializer and the GUI read the same registries, so
 a registered class appears in serialization and in the GUI's type choices without other code.
 
-Packages contribute to registries they don't own through entry points in the group `xstack.plugins`.
+Packages contribute to registries they don't own through entry points in the group `grazing.plugins`.
 Each entry point names a module that registers its components when imported:
 
 ```toml
-[project.entry-points."xstack.plugins"]
-design = "xstack.design.plugin"
+[project.entry-points."grazing.plugins"]
+design = "grazing.design.plugin"
 ```
 
 `load_plugins()` imports all of them once; a plugin that fails to load is skipped with a
 `PluginWarning`. Lookups in registries filled by plugins (`reader_for(path)`, `parser_for(path)`) call it first. This
-is how fit reads `.xstack` designs without importing `xstack.design`, and how third-party packages
+is how fit reads `.grazing` designs without importing `grazing.design`, and how third-party packages
 add components.
 
 ### 3.12 Fitting
@@ -751,10 +751,10 @@ A fit compares one structure model (a `Mirror`) with one or more measured curves
   finite-difference Jacobian at the best fit, C = s²(JᵀJ)⁻¹ with s² = 1 for χ² weighting and the reduced
   objective otherwise. It does not depend on the optimizer. `FitResult` holds the best parameters, the
   statistics and the run information.
-- `FitProject` (`fit/project.py`) stores `FitState` in `.xfit` files with undo history and journal.
+- `FitProject` (`fit/project.py`) stores `FitState` in `.gfit` files with undo history and journal.
   The structure is defined in the fit project itself (`fit/templates.py` provides start
   structures); `import_model(path)` optionally reads one through the model-reader registry, e.g. a
-  design from an `.xstack` file. `run_fit` runs the `optimizers` of the state as stages, each from
+  design from a `.grazing` file. `run_fit` runs the `optimizers` of the state as stages, each from
   the best values of the previous one. Every stored result is a `StoredFit` (name, result, fitted
   structure, model, notes) in `FitState.results`; `apply_fit` restores one.
 
@@ -765,21 +765,21 @@ A fit compares one structure model (a `Mirror`) with one or more measured curves
 Parameters are given as `free(value, min, max)` to vary them, or as plain numbers to fix them.
 
 ```python
-from xstack.core.materials import get
-from xstack.core.parameters import free
-from xstack.core.physics.models import ParrattModel
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg
-from xstack.design.manufacturing import (
+from grazing.core.materials import get
+from grazing.core.parameters import free
+from grazing.core.physics.models import ParrattModel
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg
+from grazing.design.manufacturing import (
     DepositionProcess, MaxCoatingTime, MaxTotalThickness, MinLayerThickness,
 )
-from xstack.design.merit import MeanReflectivity, TimePenalized
-from xstack.design.optim import Pipeline
-from xstack.design.optim.problem import DesignProblem
-from xstack.design.project import Project, ProjectState
-from xstack.design.project.commands import run_pipeline
-from xstack.design.recipe import write_recipe_csv
+from grazing.design.merit import MeanReflectivity, TimePenalized
+from grazing.design.optim import Pipeline
+from grazing.design.optim.problem import DesignProblem
+from grazing.design.project import Project, ProjectState
+from grazing.design.project.commands import run_pipeline
+from grazing.design.recipe import write_recipe_csv
 
 W, Si = get("W"), get("Si")
 coating = Periodic.create(
@@ -817,16 +817,16 @@ global search and a project file). Instrument parameters are given to `Dataset.c
 parameters:
 
 ```python
-from xstack.core.io import CsvLayout, read_curves
-from xstack.core.materials import get
-from xstack.core.optim import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.units import deg
-from xstack.fit.dataset import Dataset
-from xstack.fit.problem import FitProblem
-from xstack.fit.report import format_result
-from xstack.fit.results import FitResult
+from grazing.core.io import CsvLayout, read_curves
+from grazing.core.materials import get
+from grazing.core.optim import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.units import deg
+from grazing.fit.dataset import Dataset
+from grazing.fit.problem import FitProblem
+from grazing.fit.report import format_result
+from grazing.fit.results import FitResult
 
 layout = CsvLayout(x_column="2theta_deg", reflectivity_column="R", uncertainty_column="dR",
                    quantity="two_theta", energy=8048.0)
@@ -846,7 +846,7 @@ print(format_result(result))     # best values, uncertainties and strong correla
 
 ## 5. Tooling
 
-`pyproject.toml` (src layout, hatchling), ruff (line length 100), mypy (strict except for `xstack.gui`), pytest,
+`pyproject.toml` (src layout, hatchling), ruff (line length 100), mypy (strict except for `grazing.gui`), pytest,
 hypothesis, pytest-benchmark. numpy, scipy, lmfit and xraylib are core dependencies. Optional extras:
-`xstack[gui]` (PySide6, pyqtgraph, matplotlib) and `xstack[dev]`. The scripts `xstack`, `xstack-design`
-and `xstack-fit` start the command line and the two applications.
+`grazing[gui]` (PySide6, pyqtgraph, matplotlib) and `grazing[dev]`. The scripts `grazing`, `grazing-design`
+and `grazing-fit` start the command line and the two applications.

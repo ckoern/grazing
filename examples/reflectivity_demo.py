@@ -5,7 +5,7 @@ This script shows how to
 * build a periodic W/Si multilayer and a depth-graded (power-law) W/Si multilayer with a cap,
 * scan the angle at 8048 eV and define a coupled set of three energy scans (15 to 70 keV at
   0.15, 0.2 and 0.25 degrees grazing incidence, weights 1, 2 and 1),
-* compute the angle scans directly with `xstack.core.calc`,
+* compute the angle scans directly with `grazing.core.calc`,
 * compute the energy scans with the exact `ParrattModel`, as targets of a figure of merit,
 * rate the designs on the energy scans with the `MeanReflectivity` figure of merit, and
 * plot the curves.
@@ -20,13 +20,13 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from xstack.core.calc import reflectivity_vs_angle
-from xstack.core.materials import get
-from xstack.core.physics.models import ParrattModel
-from xstack.core.structure import DepthGraded, Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg, kev, mrad, to_deg, to_kev, to_mrad
-from xstack.design.merit import EvaluationContext, MeanReflectivity
+from grazing.core.calc import reflectivity_vs_angle
+from grazing.core.materials import get
+from grazing.core.physics.models import ParrattModel
+from grazing.core.structure import DepthGraded, Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg, kev, mrad, to_deg, to_kev, to_mrad
+from grazing.design.merit import EvaluationContext, MeanReflectivity
 
 
 def main(save: bool = False) -> None:

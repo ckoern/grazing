@@ -1,10 +1,10 @@
-# xstack GUI: design and layout
+# grazing GUI: design and layout
 
 Stack: PySide6, pyqtgraph for interactive plots. There are two applications: the design application
-(package `xstack.gui.design`, sections 1–4) and the fit application (package `xstack.gui.fit`,
-section 5). Shared components live in `xstack.gui.common`.
-Launch them with `xstack-design [PROJECT.xstack]` or `python -m xstack.gui.design`, and
-`xstack-fit [PROJECT.xfit]` or `python -m xstack.gui.fit`.
+(package `grazing.gui.design`, sections 1–4) and the fit application (package `grazing.gui.fit`,
+section 5). Shared components live in `grazing.gui.common`.
+Launch them with `grazing-design [PROJECT.grazing]` or `python -m grazing.gui.design`, and
+`grazing-fit [PROJECT.gfit]` or `python -m grazing.gui.fit`.
 
 ## 1. Principles
 
@@ -65,7 +65,7 @@ the project now*; without a location the project stays unsaved); page *Coating* 
 power-law grading), the materials (one material; the layers from the top; or absorber and spacer
 with a *Material combination* such as W/Si, Pt/C, Ir/B4C, Ir/C), the top layer of the bilayers and
 the substrate; page *Summary* lists the choices. *Create* builds the structure with
-`xstack.core.structure.presets.build_mirror`. The design application takes targets, figure of merit
+`grazing.core.structure.presets.build_mirror`. The design application takes targets, figure of merit
 and constraints from the matching template (single layer and individual layers: single-layer
 template; periodic; depth-graded); everything stays editable. *New from template* creates a project
 from a template directly.
@@ -264,7 +264,7 @@ design map of a scan). A plot that is detached is not switched; its window stays
 
 ### 2.6 Design language
 
-Defined in `xstack.gui.common.style`.
+Defined in `grazing.gui.common.style`.
 
 - **Themes**: `light` and `dark`, plus `system`, which follows the operating system. The choice is set
   under View > Theme and saved in the settings. `apply_style` is called once at start-up by the application
@@ -284,7 +284,7 @@ Defined in `xstack.gui.common.style`.
 ## 3. Architecture inside the GUI package
 
 ```
-src/xstack/gui/
+src/grazing/gui/
   __init__.py
   common/                # shared by all GUI applications
     __init__.py
@@ -307,7 +307,7 @@ src/xstack/gui/
     workers.py           # Task, LatestRunner (latest-request-wins), Job and JobRunner (one at a time)
   design/                # the design application
     __init__.py
-    __main__.py            # python -m xstack.gui.design
+    __main__.py            # python -m grazing.gui.design
     app.py                 # QApplication setup, theme from settings, main()
     controller.py          # ProjectController: DocumentController of the design Project, templates
     main_window.py         # MainWindow: docks, splitter, workflow and plot tabs, actions, menus, settings
@@ -369,7 +369,7 @@ src/xstack/gui/
 
 ## 4. Project files
 
-- Single `.xstack` JSON file written by the core serializer. It contains the project state (input design,
+- Single `.grazing` JSON file written by the core serializer. It contains the project state (input design,
   targets, figure of merit, constraints, process, model, pipeline, candidates, notes) and the journal.
 - Opening, saving, and saving as use file dialogs. Closing or opening another project asks to save
   unsaved changes. The window title shows the project name, the file name, and a modified marker
@@ -379,10 +379,10 @@ src/xstack/gui/
 - The Open recent menu lists the last 8 files.
 - The undo stack is not saved. The journal is.
 
-## 5. The fit application (`xstack-fit`)
+## 5. The fit application (`grazing-fit`)
 
 The fit application fits measured reflectivity curves with a structure model. It works on its own;
-importing a design from `xstack-design` is an optional shortcut. The window frame, styling, undo,
+importing a design from `grazing-design` is an optional shortcut. The window frame, styling, undo,
 journal, background jobs and file handling are the same as in the design application.
 
 ```
@@ -408,14 +408,14 @@ journal, background jobs and file handling are the same as in the design applica
   menu) opens the import dialog (file, columns, quantity
   and unit of x, photon energy with presets, polarization, percent, preview of the values read; a
   photon energy or wavelength stated in the file's comment lines is taken over);
-  xstack reflectivity exports are read without settings, one dataset per target.
+  grazing reflectivity exports are read without settings, one dataset per target.
 - **Data**: settings of the selected dataset (name, included, energy or angle, polarization, weight) and
   its fit ranges and excluded ranges, with the number of points in each (*Add fit range*, *Add excluded
   range*, *Remove*, *Fit all points*) and the buttons *Add data…* and *Remove dataset*. In the reflectivity plot,
   Shift-drag adds a fit range, Ctrl-drag an excluded range, also on top of existing ranges;
   a drag without modifier moves a shaded range or its edges.
 - **Structure**: the shared coating page (coating type, options, layers, substrate roughness), a start
-  structure from a template or from an `.xstack` design project (input design or a candidate), and the
+  structure from a template or from a `.grazing` design project (input design or a candidate), and the
   reflectivity and roughness model.
 - **Materials**: the shared materials page.
 - **Parameters**: all fit parameters, coating parameters followed by `<dataset>.<instrument parameter>`;
@@ -433,5 +433,5 @@ journal, background jobs and file handling are the same as in the design applica
 - **Plots**: as in the design application (§2.3), plot tabs can be detached and switch with the step:
   Reflectivity for Data, Parameters and Fit; Layer profile for Structure and Materials; Correlations
   for Results; Convergence while a fit runs.
-- **Files**: `.xfit` projects (`xstack.fit.project.FitProject`) with measured data, structure, settings,
+- **Files**: `.gfit` projects (`grazing.fit.project.FitProject`) with measured data, structure, settings,
   saved fits and the journal.

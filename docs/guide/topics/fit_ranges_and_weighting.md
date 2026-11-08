@@ -7,13 +7,13 @@ This page explains each of them and what it implies. The examples use the Cu Kα
 minute.
 
 ```python
-from xstack.core.io import CsvLayout, read_curves
-from xstack.core.materials import get
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.units import deg
-from xstack.fit.dataset import Dataset
-from xstack.fit.project import FitState, run_fit
+from grazing.core.io import CsvLayout, read_curves
+from grazing.core.materials import get
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.units import deg
+from grazing.fit.dataset import Dataset
+from grazing.fit.project import FitState, run_fit
 
 layout = CsvLayout(
     x_column="2theta_deg",
@@ -67,15 +67,15 @@ def fit(weighting, upper_angle=3.0):
 A dataset keeps every measured point. The points that are fitted are those that lie inside at least
 one *fit range* (all points if there is none) and outside every *excluded range*. Ranges are
 closed intervals of the scanned variable, in rad of the grazing angle θ or in eV of the energy, and
-`xstack-fit` shows them in degrees or keV. Excluded points stay in the data and in the plots, in
+`grazing-fit` shows them in degrees or keV. Excluded points stay in the data and in the plots, in
 grey. With the weighting `"log"`, points with R ≤ 0 are not fitted either, and with `"chi2"`,
 points with σ ≤ 0.
 
-In `xstack-fit`, **Shift-drag** in the reflectivity plot adds a fit range and **Ctrl-drag** an
+In `grazing-fit`, **Shift-drag** in the reflectivity plot adds a fit range and **Ctrl-drag** an
 excluded range; the shaded ranges can be moved and resized by their edges, or edited in the table
 of the Data page. In Python use
-{py:meth}`~xstack.fit.dataset.Dataset.with_ranges` or the command
-{py:func}`~xstack.fit.project.set_ranges`.
+{py:meth}`~grazing.fit.dataset.Dataset.with_ranges` or the command
+{py:func}`~grazing.fit.project.set_ranges`.
 
 Choose the ranges by asking which points the model can describe, and which points carry
 information.
@@ -91,7 +91,7 @@ parameters but protects the structure. The footprint factor of the example
 ```python
 import numpy as np
 
-from xstack.fit.instrument import footprint_factor
+from grazing.fit.instrument import footprint_factor
 
 angles = np.array([0.02, 0.05, 0.1, 0.2, 0.35])
 factor = footprint_factor(deg(angles), beam_width=0.05e6, sample_length=20e6)
@@ -127,10 +127,10 @@ residuals of all fitted points of all datasets (each multiplied by √weight of 
 | `"log"` | log₁₀ R_model − log₁₀ R_meas | R_meas ≤ 0 | all decades alike |
 | `"linear"` | R_model − R_meas | | the high reflectivity region |
 
-In `xstack-fit` the weighting is chosen on the Fit page: *χ² (measured uncertainties)*,
+In `grazing-fit` the weighting is chosen on the Fit page: *χ² (measured uncertainties)*,
 *Logarithmic* or *Linear*. In Python it is the `weighting` of the
-{py:class}`~xstack.fit.problem.FitProblem` or the state of the project, set with
-{py:func}`~xstack.fit.project.set_weighting`.
+{py:class}`~grazing.fit.problem.FitProblem` or the state of the project, set with
+{py:func}`~grazing.fit.project.set_weighting`.
 
 **χ² weighting** is the statistically correct least-squares fit if the uncertainties describe
 the noise of the measurement. Then χ²_red is meaningful (about one for a good fit), and the parameter
@@ -186,8 +186,8 @@ What is measured is not the reflectivity R of the sample but
 
 where ⊛ G_σ is a convolution with a Gaussian of standard deviation σ (the *resolution*), and F is the
 footprint factor. All six quantities are parameters of the
-{py:class}`~xstack.fit.instrument.Instrument` of a dataset, which can be fixed or varied like
-the parameters of the structure. They appear in the fit as `<dataset>.<name>`. In `xstack-fit`
+{py:class}`~grazing.fit.instrument.Instrument` of a dataset, which can be fixed or varied like
+the parameters of the structure. They appear in the fit as `<dataset>.<name>`. In `grazing-fit`
 angles are shown in degrees and the footprint lengths in mm; in the library, angles are in rad and
 lengths in nm.
 
@@ -232,22 +232,22 @@ when the fit range reaches below the angle where F is close to 1.
 ## Film densities
 
 Deposited films are often less dense than the bulk material, and the density sets the optical constants:
-δ and β are proportional to it. A density can be a fit parameter. In xstack-fit, check *Density
+δ and β are proportional to it. A density can be a fit parameter. In grazing-fit, check *Density
 parameter* for the role on the **Materials** page; the parameter (`rho_H`, `rho_L`, `rho_substrate`, …)
 then appears on the **Parameters** page, where you set *Vary* and the bounds (by default 0.5 to 1.1 times
-the bulk density). In Python, {py:meth}`~xstack.core.structure.coating.Mirror.with_density_parameters`
+the bulk density). In Python, {py:meth}`~grazing.core.structure.coating.Mirror.with_density_parameters`
 adds the parameters:
 
 ```python
-from xstack.core.io import CsvLayout, read_curves
-from xstack.core.materials import get
-from xstack.core.optim import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.units import deg
-from xstack.fit.dataset import Dataset
-from xstack.fit.problem import FitProblem
-from xstack.fit.results import FitResult
+from grazing.core.io import CsvLayout, read_curves
+from grazing.core.materials import get
+from grazing.core.optim import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.units import deg
+from grazing.fit.dataset import Dataset
+from grazing.fit.problem import FitProblem
+from grazing.fit.results import FitResult
 
 layout = CsvLayout(
     x_column="2theta_deg",

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from xstack.core.materials import ChantlerProvider, Material, delta_beta, providers
+from grazing.core.materials import ChantlerProvider, Material, delta_beta, providers
 
 SI = Material("Si", "Si", 2.33)
 W = Material("W", "W", 19.25)

@@ -2,13 +2,13 @@
 
 A fit returns best values; what they are worth depends on three questions. Is this the best
 minimum (not just a local one)? Does the model describe the data? How well do the data determine
-each parameter? This page explains how xstack computes the uncertainties and correlations, how to
+each parameter? This page explains how grazing computes the uncertainties and correlations, how to
 read them, and how to check a fit. The example snippets fit the Cu Kα measurement of the
 [quick starts](../quickstart_fit_library.md) and take about half a minute together.
 
 ## How uncertainties are computed
 
-At the best-fit values, xstack computes the Jacobian **J** of the residual vector with respect to
+At the best-fit values, grazing computes the Jacobian **J** of the residual vector with respect to
 the free parameters by finite differences (a relative step of 10⁻⁵ of each value, one-sided at a
 bound). The covariance matrix of the parameters is
 
@@ -40,9 +40,9 @@ What this means:
   analyze a fit that has converged.
 - Integer parameters (such as the number of bilayers) and parameters with equal bounds are left out.
 
-In Python, {py:func}`~xstack.fit.results.analyze` computes the statistics of a problem, and
-every {py:class}`~xstack.fit.results.FitResult` carries them in `statistics`
-({py:class}`~xstack.fit.results.FitStatistics`: `names`, `values`, `errors`, `correlation`,
+In Python, {py:func}`~grazing.fit.results.analyze` computes the statistics of a problem, and
+every {py:class}`~grazing.fit.results.FitResult` carries them in `statistics`
+({py:class}`~grazing.fit.results.FitStatistics`: `names`, `values`, `errors`, `correlation`,
 `reduced_objective`, `strong_correlations()`).
 
 ## Reading the results
@@ -133,17 +133,17 @@ evolution with an initial population spread over the box), followed by a local
 refinement from its best point. It needs finite bounds, so the choice of the bounds is part of the
 search: narrower bounds from prior knowledge make it much more efficient. The snippet starts
 with the failed local fit and then runs a global search with a small budget (a production fit
-uses more evaluations, the default of `xstack-fit` is 4000, and several seeds):
+uses more evaluations, the default of `grazing-fit` is 4000, and several seeds):
 
 ```python
-from xstack.core.io import CsvLayout, read_curves
-from xstack.core.materials import get
-from xstack.core.optim import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.units import deg
-from xstack.fit.dataset import Dataset
-from xstack.fit.project import (
+from grazing.core.io import CsvLayout, read_curves
+from grazing.core.materials import get
+from grazing.core.optim import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.units import deg
+from grazing.fit.dataset import Dataset
+from grazing.fit.project import (
     FitProject,
     add_dataset,
     run_fit,
@@ -210,7 +210,7 @@ project.execute(store_result(best, name="global search"))
 print(f"global search + refinement: chi2_red = {best.statistics.reduced_objective:.3g}")
 ```
 
-The convergence plot of `xstack-fit` (tab **Convergence**) shows the best objective of each stage
+The convergence plot of `grazing-fit` (tab **Convergence**) shows the best objective of each stage
 against the evaluations: the global stage lowers the objective step by step as the population
 finds better regions, and the local stage then falls quickly into the minimum.
 
@@ -224,11 +224,11 @@ a different Γ) can exist for data of a limited range.
 
 ## Comparing saved fits
 
-Every fit is saved in the project: in `xstack-fit` on the Results page, in Python in
-`project.state.results` (a tuple of {py:class}`~xstack.fit.project.StoredFit`, with the name, the result,
+Every fit is saved in the project: in `grazing-fit` on the Results page, in Python in
+`project.state.results` (a tuple of {py:class}`~grazing.fit.project.StoredFit`, with the name, the result,
 the structure with the fitted values, the model and notes). Saved fits make it cheap to compare
 alternatives: other weightings, other ranges, other start values, a parameter fixed or free. In
-`xstack-fit` select a fit to see its table; *Apply* restores its structure and parameter values in
+`grazing-fit` select a fit to see its table; *Apply* restores its structure and parameter values in
 the project, so the plot shows it and the next fit starts from it. Rename a fit to say what it
 is (Rename…, F2 or double-click).
 
@@ -264,7 +264,7 @@ once the beam width is zero (no footprint), so freeing it makes the matrix JᵀJ
 ```python
 import math
 
-from xstack.fit.results import analyze
+from grazing.fit.results import analyze
 
 fitted = project.state.problem()  # the best values of the global search are applied
 parameters = fitted.parameters.replace("cu_ka.beam_width", value=0.0).replace(

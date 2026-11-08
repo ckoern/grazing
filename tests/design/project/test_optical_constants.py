@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from xstack.core.materials import DEFAULT_PROVIDER, default_library, provider_library
-from xstack.design.project import Project
-from xstack.design.project.commands import set_optical_constants
-from xstack.design.project.templates import new_state
+from grazing.core.materials import DEFAULT_PROVIDER, default_library, provider_library
+from grazing.design.project import Project
+from grazing.design.project.commands import set_optical_constants
+from grazing.design.project.templates import new_state
 
 
 def test_design_default_and_command() -> None:
@@ -27,7 +27,7 @@ def test_design_default_and_command() -> None:
 def test_design_save_and_load(tmp_path: Path) -> None:
     project = Project(new_state("periodic"))
     project.execute(set_optical_constants("henke_photo"))
-    path = tmp_path / "p.xstack"
+    path = tmp_path / "p.grazing"
     project.save(path)
     assert Project.load(path).state.optical_constants == "henke_photo"
 

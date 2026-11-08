@@ -1,24 +1,24 @@
-# xstack development milestones
+# grazing development milestones
 
 Each milestone ends in a usable, tested state and is merged to `main` on its own. Design
 references: `architecture_core.md`, `gui_design.md`, `kernel_verification.md`, `physics_background.md`.
-Environment: conda env `xstack` (Python 3.12). Optical constants come from Henke/CXRO for E ≤ 30 keV
+Environment: conda env `grazing` (Python 3.12). Optical constants come from Henke/CXRO for E ≤ 30 keV
 and from **xraylib** for E > 30 keV.
 
 "Done when" lists the acceptance criteria for each milestone.
 
 Status: M0–M12 and the fitting tool are implemented. M13 is open. Module names in M0–M9 are
-relative to `xstack.core` (materials, parameters, targets, units, physics, structure, optim,
-io) or `xstack.design` (merit, manufacturing, optim, project, recipe), and the GUI modules of
-M10–M12 are in `xstack.gui.common` and `xstack.gui.design`.
+relative to `grazing.core` (materials, parameters, targets, units, physics, structure, optim,
+io) or `grazing.design` (merit, manufacturing, optim, project, recipe), and the GUI modules of
+M10–M12 are in `grazing.gui.common` and `grazing.gui.design`.
 
 ---
 
 ## M0: Project scaffolding
 - `pyproject.toml` (src layout, hatchling). Extras: `gui` (PySide6, pyqtgraph, matplotlib) and
   `dev` (pytest, hypothesis, mpmath, pytest-benchmark, ruff, mypy).
-- `src/xstack/` package skeleton, `tests/`, `.gitignore`, ruff and mypy config (strict for core), README.
-- `environment.yml` mirroring the `xstack` conda env.
+- `src/grazing/` package skeleton, `tests/`, `.gitignore`, ruff and mypy config (strict for core), README.
+- `environment.yml` mirroring the `grazing` conda env.
 - `units.py` (eV↔keV, E↔λ, deg/mrad↔rad, Å↔nm) with tests.
 
 **Done when:** `pip install -e .[dev]` works in the env, and `pytest`, `ruff check`, and `mypy` pass on the skeleton.
@@ -103,7 +103,7 @@ designs such as NuSTAR-type W/Si).
 - `Project` aggregate, `Candidate` snapshots.
 - Versioned JSON serialization driven by the registries (type tags), round-trip tests for every registered type.
 - `Command` protocol and `History` (undo/redo, merge of consecutive edits), `Journal`.
-- CLI: `xstack design run project.xstack` (headless pipeline).
+- CLI: `grazing design run project.grazing` (headless pipeline).
 
 **Done when:** save → load → identical results, undo/redo property tests pass (random command
 sequences return to the original state), and the journal is persisted.
@@ -152,7 +152,7 @@ Smoke tests run with pytest-qt.
 
 ## Fitting tool (version 0.2.0)
 Plan and decisions: `fitting_plan.md`. Package split into `core`, `design`, `fit` and `gui`;
-`xstack fit` CLI; GUI `xstack-fit`; `.xfit` projects. Example: `examples/fit_reflectivity.py`.
+`grazing fit` CLI; GUI `grazing-fit`; `.gfit` projects. Example: `examples/fit_reflectivity.py`.
 
 ---
 

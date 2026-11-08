@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import xraylib
 
-from xstack.core.materials import (
+from grazing.core.materials import (
     HenkeProvider,
     Material,
     XraylibProvider,
@@ -12,7 +12,7 @@ from xstack.core.materials import (
     providers,
     refractive_index,
 )
-from xstack.core.materials.providers import compton_f2
+from grazing.core.materials.providers import compton_f2
 
 SI = Material("Si", "Si", 2.33)
 W = Material("W", "W", 19.25)
@@ -21,7 +21,7 @@ AU = Material("Au", "Au", 19.32)
 
 
 def raw_henke_table(symbol: str) -> np.ndarray:
-    path = resources.files("xstack.core.materials").joinpath("data", "henke", f"{symbol}.nff")
+    path = resources.files("grazing.core.materials").joinpath("data", "henke", f"{symbol}.nff")
     with resources.as_file(path) as p:
         return np.loadtxt(p, skiprows=1)
 

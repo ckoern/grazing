@@ -1,13 +1,13 @@
-"""Tests for `xstack.fit.report`."""
+"""Tests for `grazing.fit.report`."""
 
 import math
 
 import pytest
 
-from xstack.core.parameters import Parameter, ParameterSet, free
-from xstack.fit.instrument import Instrument
-from xstack.fit.report import display_value, format_parameters, format_result
-from xstack.fit.results import FitResult, FitStatistics
+from grazing.core.parameters import Parameter, ParameterSet, free
+from grazing.fit.instrument import Instrument
+from grazing.fit.report import display_value, format_parameters, format_result
+from grazing.fit.results import FitResult, FitStatistics
 
 
 class TestDisplayValue:

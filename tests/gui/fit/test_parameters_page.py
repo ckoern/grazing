@@ -7,10 +7,10 @@ import pytest
 from PySide6.QtCore import Qt
 from pytestqt.qtbot import QtBot
 
+from grazing.core.parameters import ParameterSet
+from grazing.fit.project import FitProject, FitState, set_parameter
+from grazing.gui.fit.steps.parameters import ParametersPage
 from tests.gui.fit.helpers import make_state
-from xstack.core.parameters import ParameterSet
-from xstack.fit.project import FitProject, FitState, set_parameter
-from xstack.gui.fit.steps.parameters import ParametersPage
 
 
 @pytest.fixture

@@ -12,25 +12,25 @@ for example on an optic whose angle changes along its length.
 
 ## Several targets in a design problem
 
-A {py:class}`~xstack.core.targets.TargetSet` holds the targets and the `combine` mode. Every
-{py:class}`~xstack.core.targets.EnergyScan` (an energy range at a fixed angle) or
-{py:class}`~xstack.core.targets.AngleScan` (an angle range at a fixed energy) has a `weight`, a
+A {py:class}`~grazing.core.targets.TargetSet` holds the targets and the `combine` mode. Every
+{py:class}`~grazing.core.targets.EnergyScan` (an energy range at a fixed angle) or
+{py:class}`~grazing.core.targets.AngleScan` (an angle range at a fixed energy) has a `weight`, a
 `polarization`, the number of `points` and a number of `reflections`. Optional names label the targets
 in plots and in exported files.
 
 ```python
 from dataclasses import replace
 
-from xstack.core.materials import get
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import DepthGraded, Mirror
-from xstack.core.targets import EnergyScan, Target, TargetSet
-from xstack.core.units import deg, kev
-from xstack.design.manufacturing import MinLayerThickness
-from xstack.design.merit import MeanReflectivity, SoftMinReflectivity
-from xstack.design.optim import DesignProblem, Pipeline
-from xstack.design.optim.stages import Stage
+from grazing.core.materials import get
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import DepthGraded, Mirror
+from grazing.core.targets import EnergyScan, Target, TargetSet
+from grazing.core.units import deg, kev
+from grazing.design.manufacturing import MinLayerThickness
+from grazing.design.merit import MeanReflectivity, SoftMinReflectivity
+from grazing.design.optim import DesignProblem, Pipeline
+from grazing.design.optim.stages import Stage
 
 tungsten, silicon = get("W"), get("Si")
 coating = DepthGraded.create(
@@ -71,7 +71,7 @@ problem = DesignProblem(
 ## Weights
 
 The weights are relative: they are normalized to a sum of one
-({py:meth}`~xstack.core.targets.TargetSet.normalized_weights`). Here the central angle counts three times
+({py:meth}`~grazing.core.targets.TargetSet.normalized_weights`). Here the central angle counts three times
 as much as the outermost ones, because the optic spends more of its length there. Weights express
 *importance*, so choose them from the application: the fraction of the aperture, of the photon flux,
 or of the user time that is spent in each condition. The optimizer improves the heavily weighted
@@ -203,6 +203,6 @@ per target, with the columns `target`, `axis`, `reflections`, the single-reflect
 ## Related
 
 - [Depth-graded supermirrors and the coating time](design_depth_graded.md)
-- [Design a mirror in xstack-design](../quickstart_design_gui.md)
-- {py:class}`xstack.core.targets.TargetSet` and the figures of merit in the
+- [Design a mirror in grazing-design](../quickstart_design_gui.md)
+- {py:class}`grazing.core.targets.TargetSet` and the figures of merit in the
   [physics background](../../physics_background.md).

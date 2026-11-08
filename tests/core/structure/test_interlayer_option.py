@@ -2,12 +2,12 @@
 
 import pytest
 
-from xstack.core.materials import get
-from xstack.core.serialization import from_data, to_data
-from xstack.core.structure import Mirror, Periodic, SingleLayer
-from xstack.core.structure.coatings import DepthGraded
-from xstack.core.structure.coatings.bilayer import INTERLAYER_PARAMETERS
-from xstack.core.structure.coatings.composite import Composite
+from grazing.core.materials import get
+from grazing.core.serialization import from_data, to_data
+from grazing.core.structure import Mirror, Periodic, SingleLayer
+from grazing.core.structure.coatings import DepthGraded
+from grazing.core.structure.coatings.bilayer import INTERLAYER_PARAMETERS
+from grazing.core.structure.coatings.composite import Composite
 
 W, SI, WSI2 = get("W"), get("Si"), get("WSi2")
 

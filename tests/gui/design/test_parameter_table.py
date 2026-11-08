@@ -1,14 +1,14 @@
-"""Tests for `xstack.gui.design.widgets.parameter_table`."""
+"""Tests for `grazing.gui.design.widgets.parameter_table`."""
 
 import pytest
 from PySide6.QtCore import QModelIndex, Qt
 from pytestqt.qtbot import QtBot
 
-from xstack.core.parameters import ParameterSet
-from xstack.design.project import Command
-from xstack.design.project.templates import new_state
-from xstack.gui.design.controller import ProjectController
-from xstack.gui.design.widgets.parameter_table import ParameterTable, ParameterTableModel
+from grazing.core.parameters import ParameterSet
+from grazing.design.project import Command
+from grazing.design.project.templates import new_state
+from grazing.gui.design.controller import ProjectController
+from grazing.gui.design.widgets.parameter_table import ParameterTable, ParameterTableModel
 
 pytestmark = pytest.mark.gui
 

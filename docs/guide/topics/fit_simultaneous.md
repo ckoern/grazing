@@ -32,7 +32,7 @@ Parameters are shared with *expressions*: the parameter of one dataset is given 
 terms of another one, such as `cu_ka.offset`. A parameter with an expression is neither fixed nor
 free; it follows the other parameter.
 
-## In xstack-fit
+## In grazing-fit
 
 Add both files with *Add data…* and give them the dataset names `cu_ka` and `mo_ka`. The Mo Kα file
 states its energy in the header (17.479 keV), which the dialog takes over; see
@@ -64,14 +64,14 @@ A string given for an instrument parameter is an expression. The Mo Kα dataset 
 the Cu Kα dataset:
 
 ```python
-from xstack.core.io import CsvLayout, read_curves
-from xstack.core.materials import get
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.units import deg
-from xstack.fit.dataset import Dataset
-from xstack.fit.project import FitState, run_fit
-from xstack.fit.report import format_result
+from grazing.core.io import CsvLayout, read_curves
+from grazing.core.materials import get
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.units import deg
+from grazing.fit.dataset import Dataset
+from grazing.fit.project import FitState, run_fit
+from grazing.fit.report import format_result
 
 
 def read(name, energy):
@@ -138,7 +138,7 @@ correlation between the period and the offset is weaker, because the second curv
 offset independently.
 
 A shared parameter can also be set on an existing dataset with
-{py:func}`~xstack.fit.project.set_parameter`, for example
+{py:func}`~grazing.fit.project.set_parameter`, for example
 `set_parameter("mo_ka.offset", expr="cu_ka.offset", vary=False)`, and removed again with
 `expr=None` and a value.
 

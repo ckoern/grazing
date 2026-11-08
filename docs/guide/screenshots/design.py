@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 from PySide6.QtWidgets import QScrollArea
 
 from docs.guide.screenshots import design_window, pump, save, screenshot
-from xstack.core.targets import EnergyScan, Target, TargetSet
-from xstack.core.units import deg, kev
-from xstack.design.manufacturing import DepositionProcess, MaxCoatingTime, MinLayerThickness
-from xstack.design.merit import MeanReflectivity, TimePenalized
-from xstack.design.project.commands import (
+from grazing.core.targets import EnergyScan, Target, TargetSet
+from grazing.core.units import deg, kev
+from grazing.design.manufacturing import DepositionProcess, MaxCoatingTime, MinLayerThickness
+from grazing.design.merit import MeanReflectivity, TimePenalized
+from grazing.design.project.commands import (
     add_constraint,
     promote_candidate,
     select_candidate,
@@ -18,11 +18,11 @@ from xstack.design.project.commands import (
     set_process,
     set_targets,
 )
-from xstack.gui.common.wizard import ProjectWizard
-from xstack.gui.design.main_window import PROJECT_FILTER
+from grazing.gui.common.wizard import ProjectWizard
+from grazing.gui.design.main_window import PROJECT_FILTER
 
 if TYPE_CHECKING:
-    from xstack.gui.design.main_window import MainWindow
+    from grazing.gui.design.main_window import MainWindow
 
 ENERGY = 8048.0
 WINDOW = (1500, 1100)
@@ -41,7 +41,7 @@ STEPS_ALL = (
 
 
 def _wizard(kind: str, pair: str, name: str) -> ProjectWizard:
-    wizard = ProjectWizard("design project", ".xstack", PROJECT_FILTER)
+    wizard = ProjectWizard("design project", ".grazing", PROJECT_FILTER)
     wizard.resize(700, 620)
     wizard.show()
     wizard.set_name(name)
@@ -404,10 +404,10 @@ def design_graded_tradeoff() -> None:
 
 def _combined() -> "MainWindow":
     """Window with the combined coating of the guide topic."""
-    from xstack.core.materials import get
-    from xstack.core.structure import Composite, Mirror, Periodic
-    from xstack.core.structure.coatings import DepthGraded, NLayer
-    from xstack.design.project.commands import set_mirror
+    from grazing.core.materials import get
+    from grazing.core.structure import Composite, Mirror, Periodic
+    from grazing.core.structure.coatings import DepthGraded, NLayer
+    from grazing.design.project.commands import set_mirror
 
     window = _window(_wizard("periodic", "W/Si", "Combined Pt/C and W/Si mirror"))
     coating = Composite.create(

@@ -4,23 +4,23 @@ from pathlib import Path
 
 import pytest
 
-from xstack.core import materials
-from xstack.core.document import Command as DocumentCommand
-from xstack.core.optim import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.physics.models import KinematicModel
-from xstack.core.structure import Mirror, NLayer, Periodic, SingleLayer
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg, kev
-from xstack.design.manufacturing import (
+from grazing.core import materials
+from grazing.core.document import Command as DocumentCommand
+from grazing.core.optim import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.physics.models import KinematicModel
+from grazing.core.structure import Mirror, NLayer, Periodic, SingleLayer
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg, kev
+from grazing.design.manufacturing import (
     DepositionProcess,
     MaxLayers,
     MaxTotalThickness,
     MinLayerThickness,
 )
-from xstack.design.merit import Flatness, MeanReflectivity
-from xstack.design.optim import Pipeline, Stage
-from xstack.design.project import Candidate, Project, ProjectState, commands
+from grazing.design.merit import Flatness, MeanReflectivity
+from grazing.design.optim import Pipeline, Stage
+from grazing.design.project import Candidate, Project, ProjectState, commands
 
 W = materials.get("W")
 SI = materials.get("Si")
@@ -377,7 +377,7 @@ def test_rename_project_undo_and_round_trip(tmp_path: Path) -> None:
     project = Project()
     project.execute(commands.rename_project("mirror A"))
     assert project.state.name == "mirror A"
-    path = tmp_path / "named.xstack"
+    path = tmp_path / "named.grazing"
     project.save(path)
     assert Project.load(path).state.name == "mirror A"
     project.undo()

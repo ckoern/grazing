@@ -14,7 +14,7 @@ that reflects 15 to 70 keV at a fixed grazing angle of 0.2°. It is also the scr
 
 ## The graded coating
 
-The coating {py:class}`~xstack.core.structure.coatings.graded.DepthGraded` has these parameters:
+The coating {py:class}`~grazing.core.structure.coatings.graded.DepthGraded` has these parameters:
 
 | Parameter | Meaning |
 |---|---|
@@ -28,12 +28,12 @@ The grading law decides how the period changes with the bilayer index. The defau
 d<sub>i</sub> = a / (b + i)<sup>c</sup>, used for NuSTAR-type mirrors with an exponent c around
 0.2 to 0.25; the constants a and b follow from d<sub>max</sub> and d<sub>min</sub>. The alternative
 is a linear change. Laws are registered by name in
-{py:data}`~xstack.core.structure.coatings.graded.grading_laws`.
+{py:data}`~grazing.core.structure.coatings.graded.grading_laws`.
 
 ```python
 import numpy as np
 
-from xstack.core.structure.coatings.graded import grading_laws
+from grazing.core.structure.coatings.graded import grading_laws
 
 values = {"d_min": 3.0, "d_max": 10.0, "c": 0.25}
 for name in ("power_law", "linear"):
@@ -54,7 +54,7 @@ The number of bilayers of a supermirror is large, and each layer costs a fixed o
 target switching, rotation) on top of the time for its thickness. Reflectivity grows with `N`
 but saturates: the last bilayers add little. A figure of merit that only rates the reflectivity
 therefore chooses a design with hundreds of layers for a marginal gain.
-{py:class}`~xstack.design.merit.composite.TimePenalized` adds the coating time T to the figure of
+{py:class}`~grazing.design.merit.composite.TimePenalized` adds the coating time T to the figure of
 merit F of the optics:
 
 (1 − w)·F + w·T / T<sub>ref</sub>
@@ -63,7 +63,7 @@ with the weight w in [0, 1] and the reference time T<sub>ref</sub>. The time ent
 so that both terms have a comparable size: choose T<sub>ref</sub> as the longest acceptable coating
 time (or the time of a typical design). A weight of 0 optimizes the reflectivity only; larger weights
 trade reflectivity for time. The weight has no physical unit, it expresses your preference. The
-time requires a {py:class}`~xstack.design.manufacturing.process.DepositionProcess`.
+time requires a {py:class}`~grazing.design.manufacturing.process.DepositionProcess`.
 
 Compare it with a **constraint**: `MaxCoatingTime` forbids designs above a limit, whatever their
 reflectivity, and the optimizer gets no incentive to stay below it. The penalty ranks designs
@@ -71,21 +71,21 @@ by a smooth preference. The two combine well: a hard limit that you cannot excee
 that avoids wasting time below it.
 
 ```python
-from xstack.core.materials import get
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import DepthGraded, Mirror
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg, kev
-from xstack.design.manufacturing import (
+from grazing.core.materials import get
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import DepthGraded, Mirror
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg, kev
+from grazing.design.manufacturing import (
     DepositionProcess,
     MaxCoatingTime,
     MaxTotalThickness,
     MinLayerThickness,
 )
-from xstack.design.merit import MeanReflectivity, TimePenalized
-from xstack.design.optim import DesignProblem, Pipeline
-from xstack.design.optim.stages import Stage
+from grazing.design.merit import MeanReflectivity, TimePenalized
+from grazing.design.optim import DesignProblem, Pipeline
+from grazing.design.optim.stages import Stage
 
 HOUR = 3600.0
 tungsten, silicon = get("W"), get("Si")
@@ -166,14 +166,14 @@ trade-off sweep below does.
 
 ## The trade-off between reflectivity and time
 
-{py:func}`~xstack.design.optim.tradeoff.time_tradeoff` optimizes the problem for a series of maximum
+{py:func}`~grazing.design.optim.tradeoff.time_tradeoff` optimizes the problem for a series of maximum
 coating times (a so-called ε-constraint sweep). Each point is the best design that was found within
 its time limit, so the points trace the best achievable reflectivity as a function of the time you
 are willing to spend. With a weight of 0 the sweep isolates the reflectivity (with a nonzero weight
 the figure of merit already contains a time term).
 
 ```python
-from xstack.design.optim.tradeoff import time_tradeoff
+from grazing.design.optim.tradeoff import time_tradeoff
 
 problem = build_problem(0.0)
 tradeoff = time_tradeoff(problem, points=4, lowest=0.3, pipeline=small_pipeline(problem))
@@ -209,11 +209,11 @@ knee) and only 0.418 at 4.6 h, so the last two hours buy 0.02.
 
 Reading the result:
 
-- **Marginal gain**: {py:meth}`~xstack.design.optim.tradeoff.TradeoffResult.marginal_gains`
+- **Marginal gain**: {py:meth}`~grazing.design.optim.tradeoff.TradeoffResult.marginal_gains`
   gives the improvement of the figure of merit per additional hour between neighbouring points.
   The front is steep at the left (a little time gives much reflectivity) and flat at the right.
   Where the gain falls below the value of an hour to you, the extra time is not worth it.
-- **Knee**: {py:meth}`~xstack.design.optim.tradeoff.TradeoffResult.knee` is the point farthest from
+- **Knee**: {py:meth}`~grazing.design.optim.tradeoff.TradeoffResult.knee` is the point farthest from
   the straight line between the shortest and the longest design (with both axes scaled to [0, 1]): the
   best compromise if you have no other criterion. It returns `None` for fewer than three feasible points
   or an almost straight front.

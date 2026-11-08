@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.common.garbage`."""
+"""Tests for `grazing.gui.common.garbage`."""
 
 import gc
 import os
@@ -10,7 +10,7 @@ from collections.abc import Iterator
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.gui.common.garbage import GarbageCollector
+from grazing.gui.common.garbage import GarbageCollector
 
 pytestmark = pytest.mark.gui
 
@@ -55,18 +55,18 @@ SCRIPT = textwrap.dedent(
     """
     import threading, time
     from PySide6.QtWidgets import QApplication
-    from xstack.core.structure.presets import StructureChoice, build_mirror
-    from xstack.core.physics.models import ParrattModel
-    from xstack.core.targets import EnergyScan
-    from xstack.gui.common.wizard import ProjectWizard
+    from grazing.core.structure.presets import StructureChoice, build_mirror
+    from grazing.core.physics.models import ParrattModel
+    from grazing.core.targets import EnergyScan
+    from grazing.gui.common.wizard import ProjectWizard
 
     app = QApplication([])
-    from xstack.gui.common.garbage import GarbageCollector
+    from grazing.gui.common.garbage import GarbageCollector
 
     collector = GarbageCollector(interval_ms=20)
 
     def drop_wizard():
-        wizard = ProjectWizard("design project", ".xstack", "x (*.xstack)")
+        wizard = ProjectWizard("design project", ".grazing", "x (*.grazing)")
         wizard.show()
         app.processEvents()
         wizard.close()

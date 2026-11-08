@@ -5,7 +5,7 @@ from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from xstack.gui.fit.plots import FitReflectivityPlot
+from grazing.gui.fit.plots import FitReflectivityPlot
 
 LEFT = Qt.MouseButton.LeftButton
 NONE = Qt.KeyboardModifier.NoModifier

@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.fit.steps.data`."""
+"""Tests for `grazing.gui.fit.steps.data`."""
 
 from pathlib import Path
 from typing import Any
@@ -8,13 +8,13 @@ import pytest
 from PySide6.QtWidgets import QDialog
 from pytestqt.qtbot import QtBot
 
-from xstack.core.io import files
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.units import deg, kev
-from xstack.fit.dataset import Dataset
-from xstack.fit.project import Command, FitProject, FitState
-from xstack.gui.fit.steps.data import DataPage
-from xstack.gui.fit.widgets import ImportDialog
+from grazing.core.io import files
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.units import deg, kev
+from grazing.fit.dataset import Dataset
+from grazing.fit.project import Command, FitProject, FitState
+from grazing.gui.fit.steps.data import DataPage
+from grazing.gui.fit.widgets import ImportDialog
 
 
 @pytest.fixture(autouse=True)

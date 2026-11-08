@@ -1,4 +1,4 @@
-"""Tests for `xstack.fit.project`."""
+"""Tests for `grazing.fit.project`."""
 
 from dataclasses import replace
 from pathlib import Path
@@ -6,19 +6,19 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.io.models import read_models
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.physics.models import KinematicModel, ParrattModel
-from xstack.core.structure import Mirror, SingleLayer
-from xstack.design.plugin import INPUT_DESIGN
-from xstack.design.project import Candidate, Project
-from xstack.design.project.templates import new_state
-from xstack.fit.dataset import Dataset
-from xstack.fit.problem import FitProblem
-from xstack.fit.project import (
+from grazing.core import materials
+from grazing.core.io.models import read_models
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.physics.models import KinematicModel, ParrattModel
+from grazing.core.structure import Mirror, SingleLayer
+from grazing.design.plugin import INPUT_DESIGN
+from grazing.design.project import Candidate, Project
+from grazing.design.project.templates import new_state
+from grazing.fit.dataset import Dataset
+from grazing.fit.problem import FitProblem
+from grazing.fit.project import (
     FILE_SUFFIX,
     SCHEMA_VERSION,
     FitProject,
@@ -46,7 +46,7 @@ from xstack.fit.project import (
     set_weighting,
     store_result,
 )
-from xstack.fit.results import FitResult
+from grazing.fit.results import FitResult
 
 PT, SI = materials.get("Pt"), materials.get("Si")
 ANGLES = np.linspace(0.002, 0.012, 30)
@@ -120,8 +120,8 @@ class TestState:
             state.dataset("b")
 
     def test_file_constants(self) -> None:
-        assert FILE_SUFFIX == ".xfit"
-        assert FitProject.file_format == "xstack-fit"
+        assert FILE_SUFFIX == ".gfit"
+        assert FitProject.file_format == "grazing-fit"
         assert FitProject.schema_version == SCHEMA_VERSION == 1
 
 
@@ -145,16 +145,16 @@ class TestCommands:
             "fit 1", FitResult(make_state().problem().parameters, None), make_mirror()
         )
         project = FitProject(make_state().evolve(model=KinematicModel(), results=(stored,)))
-        project.execute(set_mirror(make_mirror(40.0), source="file.xstack: x"))
+        project.execute(set_mirror(make_mirror(40.0), source="file.grazing: x"))
         assert project.state.results == (stored,)
         assert project.state.mirror == make_mirror(40.0)
         assert project.state.model == KinematicModel()
-        assert project.state.model_source == "file.xstack: x"
+        assert project.state.model_source == "file.grazing: x"
 
     def test_set_mirror_without_source_keeps_source(self) -> None:
-        project = FitProject(make_state().evolve(model_source="a.xstack: run 1"))
+        project = FitProject(make_state().evolve(model_source="a.grazing: run 1"))
         project.execute(set_mirror(make_mirror(40.0)))
-        assert project.state.model_source == "a.xstack: run 1"
+        assert project.state.model_source == "a.grazing: run 1"
 
     def test_set_coating(self) -> None:
         project = make_project()
@@ -205,26 +205,26 @@ class TestCommands:
 
 class TestImportModel:
     def test_input_design(self, tmp_path: Path) -> None:
-        path = tmp_path / "mirror.xstack"
+        path = tmp_path / "mirror.grazing"
         save_design(path)
         project = make_project()
         project.execute(import_model(path))
         assert project.state.mirror == read_models(path)[0].mirror
-        assert project.state.model_source == f"mirror.xstack: {INPUT_DESIGN}"
+        assert project.state.model_source == f"mirror.grazing: {INPUT_DESIGN}"
         assert project.state.result is None
 
     def test_candidate_by_name(self, tmp_path: Path) -> None:
-        path = tmp_path / "mirror.xstack"
+        path = tmp_path / "mirror.grazing"
         save_design(path, with_candidate=True)
         project = make_project()
         project.execute(import_model(path, "refined"))
         assert project.state.mirror is not None
         assert project.state.mirror.parameters["t"].value == 42.0
         assert project.state.model == KinematicModel()
-        assert project.state.model_source == "mirror.xstack: refined"
+        assert project.state.model_source == "mirror.grazing: refined"
 
     def test_default_is_first_model(self, tmp_path: Path) -> None:
-        path = tmp_path / "mirror.xstack"
+        path = tmp_path / "mirror.grazing"
         save_design(path, with_candidate=True)
         project = make_project()
         project.execute(import_model(path))
@@ -232,13 +232,13 @@ class TestImportModel:
         assert project.state.mirror.parameters["t"].value == 30.0
 
     def test_unknown_name(self, tmp_path: Path) -> None:
-        path = tmp_path / "mirror.xstack"
+        path = tmp_path / "mirror.grazing"
         save_design(path, with_candidate=True)
         with pytest.raises(ValueError, match=r"no model 'nope'.*available.*'refined'"):
             import_model(path, "nope")
 
     def test_file_without_model(self, tmp_path: Path) -> None:
-        path = tmp_path / "empty.xstack"
+        path = tmp_path / "empty.grazing"
         save_design(path, empty=True)
         with pytest.raises(ValueError, match="contains no structure model"):
             import_model(path)
@@ -251,7 +251,7 @@ class TestImportModel:
 
     def test_missing_file(self, tmp_path: Path) -> None:
         with pytest.raises(OSError):
-            import_model(tmp_path / "missing.xstack")
+            import_model(tmp_path / "missing.grazing")
 
 
 class TestDatasetCommands:
@@ -503,8 +503,8 @@ class TestSavedFits:
     def test_saved_fits_survive_save_and_load(self, tmp_path: Path) -> None:
         project = make_project()
         self.store(project, 35.0)
-        project.save(tmp_path / "p.xfit")
-        assert FitProject.load(tmp_path / "p.xfit").state.results == project.state.results
+        project.save(tmp_path / "p.gfit")
+        assert FitProject.load(tmp_path / "p.gfit").state.results == project.state.results
 
 
 class TestRunStages:
@@ -589,14 +589,14 @@ class TestFiles:
             model=KinematicModel(),
             weighting="linear",
         )
-        path = tmp_path / "e.xfit"
+        path = tmp_path / "e.gfit"
         FitProject(state).save(path)
         assert FitProject.load(path).state == state
 
     def test_rejects_design_file(self, tmp_path: Path) -> None:
-        path = tmp_path / "design.xstack"
+        path = tmp_path / "design.grazing"
         save_design(path)
-        with pytest.raises(ValueError, match="not an xstack fit project file"):
+        with pytest.raises(ValueError, match="not a grazing fit project file"):
             FitProject.load(path)
 
     def test_rejects_other_version(self, tmp_path: Path) -> None:

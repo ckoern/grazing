@@ -3,7 +3,7 @@
 import pytest
 from PySide6.QtWidgets import QInputDialog
 
-from xstack.gui.design.main_window import MainWindow
+from grazing.gui.design.main_window import MainWindow
 
 pytestmark = pytest.mark.gui
 

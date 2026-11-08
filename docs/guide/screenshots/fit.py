@@ -8,22 +8,22 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from docs.guide.screenshots import IMAGES, fit_window, pump, save, screenshot
-from xstack.core.optim import LmfitOptimizer
-from xstack.core.units import deg
-from xstack.fit.project import (
+from grazing.core.optim import LmfitOptimizer
+from grazing.core.units import deg
+from grazing.fit.project import (
     add_dataset,
     set_optimizers,
     set_parameter,
     set_ranges,
     set_weighting,
 )
-from xstack.gui.common.wizard import ProjectWizard
-from xstack.gui.fit.main_window import PROJECT_FILTER
-from xstack.gui.fit.steps.parameters import share_command
-from xstack.gui.fit.widgets.import_dialog import ImportDialog
+from grazing.gui.common.wizard import ProjectWizard
+from grazing.gui.fit.main_window import PROJECT_FILTER
+from grazing.gui.fit.steps.parameters import share_command
+from grazing.gui.fit.widgets.import_dialog import ImportDialog
 
 if TYPE_CHECKING:
-    from xstack.gui.fit.main_window import MainWindow
+    from grazing.gui.fit.main_window import MainWindow
 
 REPOSITORY = Path(__file__).parents[3]
 DATA = REPOSITORY / "examples" / "data"
@@ -38,7 +38,7 @@ ARTIFACT = [(deg(2.05), deg(2.15))]
 
 
 def _wizard() -> ProjectWizard:
-    wizard = ProjectWizard("fit project", ".xfit", PROJECT_FILTER)
+    wizard = ProjectWizard("fit project", ".gfit", PROJECT_FILTER)
     wizard.set_name("W/Si multilayer, Cu Kα")
     wizard.set_kind("periodic")
     wizard.set_pair("W/Si")

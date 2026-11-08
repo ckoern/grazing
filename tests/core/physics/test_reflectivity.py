@@ -4,11 +4,11 @@ import numpy as np
 import pytest
 from numpy.typing import ArrayLike, NDArray
 
-from xstack.core import materials
-from xstack.core.materials import MaterialLibrary
-from xstack.core.physics.reflectivity import reflectivity, stack_response
-from xstack.core.structure.stack import Layer, Stack
-from xstack.core.units import energy_to_wavelength
+from grazing.core import materials
+from grazing.core.materials import MaterialLibrary
+from grazing.core.physics.reflectivity import reflectivity, stack_response
+from grazing.core.structure.stack import Layer, Stack
+from grazing.core.units import energy_to_wavelength
 
 ENERGY = 8048.0
 SI = materials.get("Si")

@@ -1,28 +1,28 @@
 # Tolerances, process and recipe
 
 A design is only as good as the coating that comes out of the machine. This page covers the three
-parts of xstack that connect a design to manufacturing: the *constraints* that keep a design within what
+parts of grazing that connect a design to manufacturing: the *constraints* that keep a design within what
 can be deposited, the *process model* that gives the coating time, and the *tolerance analysis* that
 shows how the design reacts to errors, followed by the export of the *recipe*. The examples use the
 periodic W/B4C monochromator of the quick starts ([GUI](../quickstart_design_gui.md),
 [library](../quickstart_design_library.md)).
 
 ```python
-from xstack.core.materials import get
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg
-from xstack.design.manufacturing import (
+from grazing.core.materials import get
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg
+from grazing.design.manufacturing import (
     DepositionProcess,
     MaxCoatingTime,
     MaxLayers,
     MaxTotalThickness,
     MinLayerThickness,
 )
-from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import DesignProblem
-from xstack.design.optim.stages import BraggOutline
+from grazing.design.merit import MeanReflectivity
+from grazing.design.optim import DesignProblem
+from grazing.design.optim.stages import BraggOutline
 
 ENERGY = 8048.0
 tungsten, carbide, silicon = get("W"), get("B4C"), get("Si")
@@ -68,7 +68,7 @@ design = problem.with_parameters(BraggOutline(refraction=True).run(problem).para
 
 ## The process model: coating time
 
-{py:class}`~xstack.design.manufacturing.process.DepositionProcess` computes the coating time of a stack
+{py:class}`~grazing.design.manufacturing.process.DepositionProcess` computes the coating time of a stack
 as
 
 T = t<sub>fixed</sub> + Σ<sub>layers</sub> ( t / rate + t<sub>layer</sub> + t<sub>material</sub> )
@@ -106,7 +106,7 @@ overhead per layer in s, the fixed overhead per run in h, and the resulting coat
 
 ## Constraints
 
-A {py:class}`~xstack.design.manufacturing.constraints.Constraint` rates a design for what can be
+A {py:class}`~grazing.design.manufacturing.constraints.Constraint` rates a design for what can be
 manufactured. The built-in ones are `MinLayerThickness(minimum, materials)` (an empty
 `materials` means all), `MaxTotalThickness`, `MaxLayers` and `MaxCoatingTime` (which needs the
 process). Each has a `severity`:
@@ -153,8 +153,8 @@ for each constraint as soon as you change the design.
 ## Tolerance analysis
 
 The deposited coating differs from the design. The Monte Carlo
-{py:func}`~xstack.design.manufacturing.tolerance.tolerance_analysis` draws random errors from an
-{py:class}`~xstack.design.manufacturing.tolerance.ErrorModel`, builds the perturbed stack, and evaluates
+{py:func}`~grazing.design.manufacturing.tolerance.tolerance_analysis` draws random errors from an
+{py:class}`~grazing.design.manufacturing.tolerance.ErrorModel`, builds the perturbed stack, and evaluates
 the figure of merit of every sample. The figure of merit is evaluated on the *physical* stack,
 including any mixed layers; the coating time and the constraints are evaluated on the stack *as
 deposited*, so a sample is feasible if the real layers satisfy the constraints.
@@ -177,7 +177,7 @@ your deposition system: the reproducibility of a layer thickness is usually a fe
 single layer; rate calibration and drift depend on the monitoring of the process.
 
 ```python
-from xstack.design.manufacturing import ErrorModel, tolerance_analysis
+from grazing.design.manufacturing import ErrorModel, tolerance_analysis
 
 models = {
     "random thickness 2 %": ErrorModel(thickness_random=0.02),
@@ -250,7 +250,7 @@ check the design against the real limit; the cost is a small loss of nominal ref
 
 ## Export the recipe
 
-{py:func}`~xstack.design.recipe.layer_table` returns one row per layer of non-zero thickness. The
+{py:func}`~grazing.design.recipe.layer_table` returns one row per layer of non-zero thickness. The
 columns are `step` (deposition order, 1 is on the substrate), `layer_index` (0 is the top layer),
 `tag`, `material`, `formula`, `thickness_nm` and `roughness_nm` and, with a process, `duration_s` and
 `start_s`. The rows are in deposition order or, with `order="top_down"`, from the surface down.
@@ -258,7 +258,7 @@ columns are `step` (deposition order, 1 is on the substrate), `layer_index` (0 i
 ```python
 import json
 
-from xstack.design.recipe import layer_table, write_recipe_csv, write_recipe_json
+from grazing.design.recipe import layer_table, write_recipe_csv, write_recipe_json
 
 stack = nominal.stack
 assert stack is not None
@@ -283,7 +283,7 @@ mixed layers or other errors of the tolerance analysis; they are not part of the
 
 ## Related
 
-- [Design a mirror in xstack-design](../quickstart_design_gui.md): the tolerance analysis and the recipe in the
+- [Design a mirror in grazing-design](../quickstart_design_gui.md): the tolerance analysis and the recipe in the
   workflow.
 - [Depth-graded supermirrors and the coating time](design_depth_graded.md): the coating time as a design
   goal.

@@ -1,11 +1,11 @@
-"""Tests for `xstack.core.materials.material`."""
+"""Tests for `grazing.core.materials.material`."""
 
 import dataclasses
 
 import pytest
 import xraylib
 
-from xstack.core.materials import VACUUM, Material
+from grazing.core.materials import VACUUM, Material
 
 
 def weight(z: int) -> float:

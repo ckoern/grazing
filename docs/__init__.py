@@ -1,1 +1,1 @@
-"""Sources of the xstack documentation (Sphinx)."""
+"""Sources of the grazing documentation (Sphinx)."""

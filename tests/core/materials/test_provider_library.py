@@ -2,7 +2,7 @@
 
 import pytest
 
-from xstack.core.materials import (
+from grazing.core.materials import (
     DEFAULT_PROVIDER,
     default_library,
     delta_beta,

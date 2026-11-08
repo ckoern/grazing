@@ -5,11 +5,10 @@ from dataclasses import fields
 import numpy as np
 import pytest
 
-from tests.design.optim.test_problem import make_problem
-from xstack.core.materials import VACUUM, Material, delta_beta, get
-from xstack.core.optim import CancellationToken, ProgressEvent
-from xstack.core.structure import Layer, Stack
-from xstack.design.manufacturing import (
+from grazing.core.materials import VACUUM, Material, delta_beta, get
+from grazing.core.optim import CancellationToken, ProgressEvent
+from grazing.core.structure import Layer, Stack
+from grazing.design.manufacturing import (
     ErrorModel,
     MaxTotalThickness,
     mixed_material,
@@ -18,6 +17,7 @@ from xstack.design.manufacturing import (
     thickness_tolerance,
     tolerance_analysis,
 )
+from tests.design.optim.test_problem import make_problem
 
 W = get("W")
 SI = get("Si")
@@ -396,8 +396,8 @@ class TestToleranceAnalysis:
 
 
 def test_constraints_use_deposited_stack_with_mixing() -> None:
-    from xstack.design.manufacturing import ErrorModel, tolerance_analysis
-    from xstack.design.project.templates import new_state
+    from grazing.design.manufacturing import ErrorModel, tolerance_analysis
+    from grazing.design.project.templates import new_state
 
     problem = new_state("periodic").problem().evolve(points=20)
     errors = ErrorModel(interlayer_thickness=0.5)

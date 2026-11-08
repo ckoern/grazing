@@ -8,9 +8,9 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from PySide6.QtWidgets import QApplication
 
-from xstack.design.project import Project
-from xstack.design.project.commands import rename_project, set_notes
-from xstack.gui.common.controller import DocumentController
+from grazing.design.project import Project
+from grazing.design.project.commands import rename_project, set_notes
+from grazing.gui.common.controller import DocumentController
 
 
 def make_controller() -> DocumentController:
@@ -31,7 +31,7 @@ class TestSavePoint:
         controller = make_controller()
         controller.execute(rename_project("renamed"))
         controller.execute(set_notes("one"))
-        assert controller.save_project(tmp_path / "project.xstack")
+        assert controller.save_project(tmp_path / "project.grazing")
         controller.execute(set_notes("two"))
         assert_in_step(controller)
         assert controller.undo_stack.count() == 3
@@ -60,7 +60,7 @@ class TestSavePoint:
     ) -> None:
         controller = make_controller()
         controller.execute(set_notes("one"))
-        assert controller.save_project(tmp_path / "project.xstack")
+        assert controller.save_project(tmp_path / "project.grazing")
         controller.execute(set_notes("two"))
         controller.execute(set_notes("three"))
         assert controller.undo_stack.count() == 2
@@ -74,7 +74,7 @@ class TestSavePoint:
     ) -> None:
         controller = make_controller()
         controller.execute(set_notes("one"))
-        assert controller.save_project(tmp_path / "project.xstack")
+        assert controller.save_project(tmp_path / "project.grazing")
         controller.undo()
         controller.execute(set_notes("two"))
         controller.execute(set_notes("three"))
@@ -148,7 +148,7 @@ def test_histories_stay_in_step(qapp: QApplication, ops: list[tuple[str, str]]) 
     controller = make_controller()
     reference = ReferenceStack()
     with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / "project.xstack"
+        path = Path(directory) / "project.grazing"
         for op, value in ops:
             match op:
                 case "notes":

@@ -1,10 +1,10 @@
-"""Tests for `xstack.core.materials.library`."""
+"""Tests for `grazing.core.materials.library`."""
 
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.materials import (
+from grazing.core import materials
+from grazing.core.materials import (
     DEFAULT_PROVIDER,
     PRESETS,
     VACUUM,

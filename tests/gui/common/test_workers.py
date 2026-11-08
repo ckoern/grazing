@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.common.workers`."""
+"""Tests for `grazing.gui.common.workers`."""
 
 import functools
 import threading
@@ -9,7 +9,7 @@ import pytest
 from PySide6.QtCore import QThreadPool
 from pytestqt.qtbot import QtBot
 
-from xstack.gui.common.workers import LatestRunner, Task
+from grazing.gui.common.workers import LatestRunner, Task
 
 pytestmark = pytest.mark.gui
 

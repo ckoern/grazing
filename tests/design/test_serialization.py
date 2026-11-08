@@ -8,18 +8,18 @@ from typing import Any, ClassVar
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.materials import Material
-from xstack.core.optim import LmfitOptimizer
-from xstack.core.parameters import Parameter, ParameterSet, free
-from xstack.core.physics.models import KinematicModel, ParrattModel
-from xstack.core.serialization import (
+from grazing.core import materials
+from grazing.core.materials import Material
+from grazing.core.optim import LmfitOptimizer
+from grazing.core.parameters import Parameter, ParameterSet, free
+from grazing.core.physics.models import KinematicModel, ParrattModel
+from grazing.core.serialization import (
     SerializationError,
     from_data,
     register_serializable,
     to_data,
 )
-from xstack.core.structure import (
+from grazing.core.structure import (
     Composite,
     DepthGraded,
     Layer,
@@ -30,17 +30,17 @@ from xstack.core.structure import (
     Stack,
     register_coating,
 )
-from xstack.core.structure.coating import Coating, coatings
-from xstack.core.targets import AngleScan, EnergyScan, Profile, TargetSet
-from xstack.core.units import deg, kev
-from xstack.design.manufacturing import (
+from grazing.core.structure.coating import Coating, coatings
+from grazing.core.targets import AngleScan, EnergyScan, Profile, TargetSet
+from grazing.core.units import deg, kev
+from grazing.design.manufacturing import (
     DepositionProcess,
     MaxCoatingTime,
     MaxLayers,
     MaxTotalThickness,
     MinLayerThickness,
 )
-from xstack.design.merit import (
+from grazing.design.merit import (
     CallableMerit,
     EvaluationContext,
     Flatness,
@@ -51,8 +51,8 @@ from xstack.design.merit import (
     TimePenalized,
     WeightedSum,
 )
-from xstack.design.optim import BraggOutline, DesignProblem, GridScan, Pipeline, Stage
-from xstack.design.project import Candidate, ProjectState
+from grazing.design.optim import BraggOutline, DesignProblem, GridScan, Pipeline, Stage
+from grazing.design.project import Candidate, ProjectState
 
 W = materials.get("W")
 SI = materials.get("Si")
@@ -536,7 +536,7 @@ class TestRegisterSerializable:
 
 
 def test_unregistered_coating_is_not_serializable() -> None:
-    from xstack.core.structure.coating import register_coating
+    from grazing.core.structure.coating import register_coating
 
     @dataclass(frozen=True)
     class Temporary(SingleLayer):

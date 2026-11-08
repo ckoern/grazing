@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.common.wizard`."""
+"""Tests for `grazing.gui.common.wizard`."""
 
 from pathlib import Path
 
@@ -6,16 +6,16 @@ import pytest
 from PySide6.QtWidgets import QWizard
 from pytestqt.qtbot import QtBot
 
-from xstack.core.materials import MaterialLibrary, default_library
-from xstack.core.structure.presets import MATERIAL_PAIRS, StructureChoice, build_mirror
-from xstack.gui.common.wizard import ProjectWizard
+from grazing.core.materials import MaterialLibrary, default_library
+from grazing.core.structure.presets import MATERIAL_PAIRS, StructureChoice, build_mirror
+from grazing.gui.common.wizard import ProjectWizard
 
 pytestmark = pytest.mark.gui
 
 
 @pytest.fixture
 def wizard(qtbot: QtBot) -> ProjectWizard:
-    w = ProjectWizard("design project", ".xstack", "xstack projects (*.xstack)")
+    w = ProjectWizard("design project", ".grazing", "grazing projects (*.grazing)")
     qtbot.addWidget(w)
     w.show()
     return w
@@ -136,9 +136,9 @@ def test_location_validation(wizard: ProjectWizard, tmp_path: Path) -> None:
 def test_path_suffix_and_save_now(wizard: ProjectWizard, tmp_path: Path) -> None:
     wizard.set_path(tmp_path / "m")
     assert wizard._project.save_now.isChecked()
-    assert wizard.setup().path == tmp_path / "m.xstack"
-    wizard.set_path(tmp_path / "n.XSTACK")
-    assert wizard.setup().path == tmp_path / "n.XSTACK"
+    assert wizard.setup().path == tmp_path / "m.grazing"
+    wizard.set_path(tmp_path / "n.GRAZING")
+    assert wizard.setup().path == tmp_path / "n.GRAZING"
     wizard._project.save_now.setChecked(False)
     assert wizard.setup().path is None
     assert wizard._project.isComplete()
@@ -155,7 +155,7 @@ def test_navigation_and_summary(wizard: ProjectWizard, tmp_path: Path, qtbot: Qt
     wizard.next()
     text = wizard._summary.text.toPlainText()
     assert "My mirror" in text
-    assert str(tmp_path / "m.xstack") in text
+    assert str(tmp_path / "m.grazing") in text
     assert "Periodic multilayer" in text
     assert "Absorber (H): Pt" in text
     assert "Spacer (L): C" in text
@@ -171,7 +171,7 @@ def test_navigation_and_summary(wizard: ProjectWizard, tmp_path: Path, qtbot: Qt
 
 def test_summary_error_disables_finish(qtbot: QtBot) -> None:
     library = MaterialLibrary.from_dict(default_library().to_dict())
-    wizard = ProjectWizard("design project", ".xstack", "xstack (*.xstack)", library)
+    wizard = ProjectWizard("design project", ".grazing", "grazing (*.grazing)", library)
     qtbot.addWidget(wizard)
     wizard.show()
     library.remove("W")

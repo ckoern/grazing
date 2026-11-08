@@ -1,16 +1,16 @@
-"""Tests for `xstack.gui.design.plots`."""
+"""Tests for `grazing.gui.design.plots`."""
 
 import numpy as np
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.core.materials import get
-from xstack.core.structure.coating import Mirror
-from xstack.core.structure.coatings.periodic import Periodic
-from xstack.core.structure.stack import Stack
-from xstack.core.targets import AngleScan, EnergyScan
-from xstack.design.project.templates import new_state
-from xstack.gui.design.plots import (
+from grazing.core.materials import get
+from grazing.core.structure.coating import Mirror
+from grazing.core.structure.coatings.periodic import Periodic
+from grazing.core.structure.stack import Stack
+from grazing.core.targets import AngleScan, EnergyScan
+from grazing.design.project.templates import new_state
+from grazing.gui.design.plots import (
     ConvergencePlot,
     Curve,
     LayerProfilePlot,

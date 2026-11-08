@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Guidance for working on xstack, a Python library and PySide6 GUIs for designing X-ray multilayer
-mirrors (`xstack-design`) and fitting measured reflectivity (`xstack-fit`).
+Guidance for working on grazing, a Python library and PySide6 GUIs for designing X-ray multilayer
+mirrors (`grazing-design`) and fitting measured reflectivity (`grazing-fit`).
 
 ## Key documents
-- `xstack_concept.md`: product concept and requirements
+- `grazing_concept.md`: product concept and requirements
 - `docs/physics_background.md`: physics reference
 - `docs/architecture_core.md`: core library architecture
 - `docs/gui_design.md`: GUI design and layout
@@ -13,7 +13,7 @@ mirrors (`xstack-design`) and fitting measured reflectivity (`xstack-fit`).
 - `docs/fitting_plan.md`: plan and decisions for the fitting tool (`feature/fitting`)
 
 ## Environment
-- Use the conda environment `xstack` (Python 3.12): `conda run -n xstack <cmd>` or `conda activate xstack`.
+- Use the conda environment `grazing` (Python 3.12): `conda run -n grazing <cmd>` or `conda activate grazing`.
 - Install the package in editable mode: `pip install -e ".[dev,gui,docs]"`. Install additional packages with pip.
 - Run checks before committing:
   - `pytest`
@@ -22,19 +22,19 @@ mirrors (`xstack-design`) and fitting measured reflectivity (`xstack-fit`).
   - `sphinx-build -W --keep-going -b html docs docs/_build/html` when docs or docstrings change
 
 ## Code style
-- Target Python 3.12. Use type hints everywhere. Everything except `xstack.gui` passes `mypy --strict`.
+- Target Python 3.12. Use type hints everywhere. Everything except `grazing.gui` passes `mypy --strict`.
 - Formatting and linting with ruff (line length 100). Configuration lives in `pyproject.toml`.
-- Package layers: `xstack.core` (shared physics, structure, parameters, serialization) ←
-  `xstack.design` and `xstack.fit` ← `xstack.gui` (`gui.common`, `gui.design`, `gui.fit`). Lower
+- Package layers: `grazing.core` (shared physics, structure, parameters, serialization) ←
+  `grazing.design` and `grazing.fit` ← `grazing.gui` (`gui.common`, `gui.design`, `gui.fit`). Lower
   layers never import higher ones, and design and fit never import each other, so that each can be
   installed without the other; `gui.common` imports neither application and `gui.design` and
   `gui.fit` don't import each other. They cooperate through registries filled from entry points (e.g.
-  design provides the reader of `.xstack` files as a model source for fit).
-  `tests/test_package.py` checks the layering. Only `xstack.gui` imports Qt.
+  design provides the reader of `.grazing` files as a model source for fit).
+  `tests/test_package.py` checks the layering. Only `grazing.gui` imports Qt.
 - Use numpy for numerics and lmfit for optimization.
 - Prefer frozen dataclasses for physical value objects. Mutable state lives in the `Project`.
 - Internal units: lengths in nm, energies in eV, angles in rad, time in s, density in g/cm³.
-  Convert at the boundaries with `xstack.core.units`.
+  Convert at the boundaries with `grazing.core.units`.
 - Extension points (coatings, constraints, figures of merit, optimizers, models, providers) use
   protocols and registries. Add new kinds by registering new classes, not by editing existing dispatch code.
   Serializable classes register themselves in the module that defines them.

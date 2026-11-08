@@ -22,24 +22,24 @@ Run it with ``python examples/graded_time_penalty.py``. ``--plot`` shows the ref
 import argparse
 from pathlib import Path
 
-from xstack.core.materials import get
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import DepthGraded, Mirror
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg, kev, to_kev
-from xstack.design.manufacturing import (
+from grazing.core.materials import get
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import DepthGraded, Mirror
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg, kev, to_kev
+from grazing.design.manufacturing import (
     DepositionProcess,
     MaxCoatingTime,
     MaxTotalThickness,
     MinLayerThickness,
     thickness_tolerance,
 )
-from xstack.design.merit import MeanReflectivity, TimePenalized
-from xstack.design.optim import DesignProblem, Pipeline
-from xstack.design.optim.pipeline import PipelineResult, StageResult
-from xstack.design.optim.stages import Stage
-from xstack.design.recipe import write_recipe_csv
+from grazing.design.merit import MeanReflectivity, TimePenalized
+from grazing.design.optim import DesignProblem, Pipeline
+from grazing.design.optim.pipeline import PipelineResult, StageResult
+from grazing.design.optim.stages import Stage
+from grazing.design.recipe import write_recipe_csv
 
 ANGLE = deg(0.2)
 HOUR = 3600.0

@@ -1,13 +1,13 @@
-"""Tests for `xstack.gui.design.widgets.design_comparison`."""
+"""Tests for `grazing.gui.design.widgets.design_comparison`."""
 
 import pytest
 from PySide6.QtCore import Qt
 from pytestqt.qtbot import QtBot
 
-from xstack.design.project import Command
-from xstack.design.project.project import Candidate, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.gui.design.widgets.design_comparison import DesignComparisonView
+from grazing.design.project import Command
+from grazing.design.project.project import Candidate, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.gui.design.widgets.design_comparison import DesignComparisonView
 
 pytestmark = pytest.mark.gui
 

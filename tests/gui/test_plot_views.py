@@ -6,11 +6,11 @@ import pytest
 from PySide6.QtCore import QSettings
 from pytestqt.qtbot import QtBot
 
-from xstack.gui.common.workers import Job
-from xstack.gui.design.main_window import WORKFLOW_STEPS as DESIGN_STEPS
-from xstack.gui.design.main_window import MainWindow as DesignWindow
-from xstack.gui.fit.main_window import WORKFLOW_STEPS as FIT_STEPS
-from xstack.gui.fit.main_window import MainWindow as FitWindow
+from grazing.gui.common.workers import Job
+from grazing.gui.design.main_window import WORKFLOW_STEPS as DESIGN_STEPS
+from grazing.gui.design.main_window import MainWindow as DesignWindow
+from grazing.gui.fit.main_window import WORKFLOW_STEPS as FIT_STEPS
+from grazing.gui.fit.main_window import MainWindow as FitWindow
 
 pytestmark = pytest.mark.gui
 

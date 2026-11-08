@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.fit.main_window`."""
+"""Tests for `grazing.gui.fit.main_window`."""
 
 import time
 from collections.abc import Callable
@@ -11,22 +11,22 @@ import pytest
 from PySide6.QtCore import QSettings, Qt
 from pytestqt.qtbot import QtBot
 
-from tests.gui.fit.helpers import ANGLES, make_state
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.optim.optimizers import LmfitOptimizer, Optimizer, Tracker
-from xstack.core.units import deg
-from xstack.fit.dataset import Dataset
-from xstack.fit.problem import FitProblem
-from xstack.fit.project import (
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.optim.optimizers import LmfitOptimizer, Optimizer, Tracker
+from grazing.core.units import deg
+from grazing.fit.dataset import Dataset
+from grazing.fit.problem import FitProblem
+from grazing.fit.project import (
     FitProject,
     FitState,
     rename_dataset,
     set_optimizers,
     set_weighting,
 )
-from xstack.fit.templates import new_state
-from xstack.gui.fit.main_window import WORKFLOW_STEPS, MainWindow
-from xstack.gui.fit.plots import RangeViewBox
+from grazing.fit.templates import new_state
+from grazing.gui.fit.main_window import WORKFLOW_STEPS, MainWindow
+from grazing.gui.fit.plots import RangeViewBox
+from tests.gui.fit.helpers import ANGLES, make_state
 
 pytestmark = pytest.mark.gui
 
@@ -95,7 +95,7 @@ def run_fit_and_wait(qtbot: QtBot, window: MainWindow, count: int = 1) -> None:
 
 
 def test_opens_with_periodic_template(fit_window: MainWindow) -> None:
-    assert "xstack-fit" in fit_window.windowTitle()
+    assert "grazing-fit" in fit_window.windowTitle()
     state = fit_window.controller.state
     assert state.mirror is not None
     assert type(state.mirror.coating).__name__ == "Periodic"
@@ -317,10 +317,10 @@ def test_save_and_open_restores_fits(
     load(window, make_state(("a", "b")))
     wait_preview(qtbot, window)
     run_fit_and_wait(qtbot, window)
-    path = tmp_path / "p.xfit"
+    path = tmp_path / "p.gfit"
     assert window.save_project_as(path)
     assert not window.isWindowModified()
-    assert "p.xfit" in window.windowTitle()
+    assert "p.gfit" in window.windowTitle()
     assert [a.text() for a in window.recent_menu.actions()] == [str(path)]
 
     other = make_fit_window()
@@ -334,7 +334,7 @@ def test_save_and_open_restores_fits(
 
 
 def test_open_missing_file_fails(fit_window: MainWindow, tmp_path: Path) -> None:
-    assert not fit_window.open_project(tmp_path / "missing.xfit")
+    assert not fit_window.open_project(tmp_path / "missing.gfit")
 
 
 def test_new_project_replaces_state(qtbot: QtBot, fit_window: MainWindow) -> None:

@@ -19,16 +19,16 @@ budget.
 
 import argparse
 
-from xstack.core.materials import default_library, get
-from xstack.core.parameters import free
-from xstack.core.physics import bragg
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg, energy_to_wavelength, to_deg
-from xstack.design.manufacturing import MinLayerThickness
-from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import DesignProblem, Pipeline
-from xstack.design.optim.pipeline import PipelineResult, StageResult
+from grazing.core.materials import default_library, get
+from grazing.core.parameters import free
+from grazing.core.physics import bragg
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg, energy_to_wavelength, to_deg
+from grazing.design.manufacturing import MinLayerThickness
+from grazing.design.merit import MeanReflectivity
+from grazing.design.optim import DesignProblem, Pipeline
+from grazing.design.optim.pipeline import PipelineResult, StageResult
 
 ENERGY = 8048.0  # Cu K-alpha in eV
 ANGLE = deg(1.0)

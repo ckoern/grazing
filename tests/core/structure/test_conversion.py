@@ -4,10 +4,10 @@ import dataclasses
 
 import pytest
 
-from xstack.core.materials import get
-from xstack.core.parameters import ParameterSet
-from xstack.core.structure import Composite, DepthGraded, NLayer, Periodic, SingleLayer
-from xstack.core.structure.conversion import (
+from grazing.core.materials import get
+from grazing.core.parameters import ParameterSet
+from grazing.core.structure import Composite, DepthGraded, NLayer, Periodic, SingleLayer
+from grazing.core.structure.conversion import (
     constant_gamma_changes,
     convert_coating,
     has_constant_gamma,

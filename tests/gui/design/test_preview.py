@@ -1,11 +1,11 @@
-"""Tests for `xstack.gui.design.preview`."""
+"""Tests for `grazing.gui.design.preview`."""
 
 import pytest
 
-from xstack.core.parameters import ParameterSet
-from xstack.core.structure.coating import Mirror
-from xstack.design.project.templates import new_state
-from xstack.gui.design.preview import compute_preview
+from grazing.core.parameters import ParameterSet
+from grazing.core.structure.coating import Mirror
+from grazing.design.project.templates import new_state
+from grazing.gui.design.preview import compute_preview
 
 pytestmark = pytest.mark.gui
 
@@ -23,7 +23,7 @@ def test_complete_state() -> None:
 
 
 def test_results_per_target() -> None:
-    from xstack.core.targets import AngleScan, EnergyScan, TargetSet
+    from grazing.core.targets import AngleScan, EnergyScan, TargetSet
 
     state = new_state("periodic")
     first = state.targets.targets[0]  # type: ignore[union-attr]

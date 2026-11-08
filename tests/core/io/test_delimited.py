@@ -1,4 +1,4 @@
-"""Tests for `xstack.core.io.delimited`."""
+"""Tests for `grazing.core.io.delimited`."""
 
 import math
 from pathlib import Path
@@ -6,16 +6,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.io import files
-from xstack.core.io.data import read_curves
-from xstack.core.io.delimited import UNITS, CsvLayout, CsvParser
-from xstack.core.io.reflectivity import reflectivity_table, write_reflectivity_csv
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.physics.models import ParrattModel
-from xstack.core.structure import Layer, Stack
-from xstack.core.targets import AngleScan, EnergyScan
-from xstack.core.units import angle_to_q, angstrom, deg, energy_to_wavelength, kev, mrad
+from grazing.core import materials
+from grazing.core.io import files
+from grazing.core.io.data import read_curves
+from grazing.core.io.delimited import UNITS, CsvLayout, CsvParser
+from grazing.core.io.reflectivity import reflectivity_table, write_reflectivity_csv
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.physics.models import ParrattModel
+from grazing.core.structure import Layer, Stack
+from grazing.core.targets import AngleScan, EnergyScan
+from grazing.core.units import angle_to_q, angstrom, deg, energy_to_wavelength, kev, mrad
 
 ANGLES_DEG = [0.1, 0.2, 0.3]
 R = [0.9, 0.5, 0.2]

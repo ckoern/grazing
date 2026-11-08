@@ -13,21 +13,21 @@ deposition recipe.
 
 ## The design problem
 
-A {py:class}`~xstack.design.optim.problem.DesignProblem` bundles everything needed to rate a
+A {py:class}`~grazing.design.optim.problem.DesignProblem` bundles everything needed to rate a
 design: the mirror (coating and substrate), the targets (where it shall reflect), the figure of
 merit (how reflectivity is rated), the constraints (what can be manufactured) and, optionally, a
 deposition process (how long coating takes). The optimizer only varies the *free* parameters of
 the coating.
 
 ```python
-from xstack.core.materials import get
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg
-from xstack.design.manufacturing import DepositionProcess, MinLayerThickness
-from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import DesignProblem
+from grazing.core.materials import get
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg
+from grazing.design.manufacturing import DepositionProcess, MinLayerThickness
+from grazing.design.merit import MeanReflectivity
+from grazing.design.optim import DesignProblem
 
 ENERGY = 8048.0  # Cu K-alpha in eV
 tungsten, carbide, silicon = get("W"), get("B4C"), get("Si")
@@ -70,20 +70,20 @@ The choices and their implications:
   would take from a measurement or from {doc}`fitting a reflectivity curve <quickstart_fit_library>`.
   Narrow bounds make the search faster and more reliable; bounds that exclude the optimum make it
   impossible. The number of bilayers `N` is an integer parameter and is searched by the grid-scan and
-  global stages. The parameters of {py:class}`~xstack.core.structure.coatings.periodic.Periodic` are the
+  global stages. The parameters of {py:class}`~grazing.core.structure.coatings.periodic.Periodic` are the
   number of bilayers `N`, the period `d` (nm) and the absorber fraction
   `gamma` = t<sub>W</sub> / d.
-- **Units.** The library works in nm, eV and rad. {py:func}`~xstack.core.units.deg` and
-  {py:func}`~xstack.core.units.kev` convert at the boundary.
-- **Target.** An {py:class}`~xstack.core.targets.EnergyScan` rates the mirror on an energy range at one
+- **Units.** The library works in nm, eV and rad. {py:func}`~grazing.core.units.deg` and
+  {py:func}`~grazing.core.units.kev` convert at the boundary.
+- **Target.** An {py:class}`~grazing.core.targets.EnergyScan` rates the mirror on an energy range at one
   grazing angle. A ±1 % band is narrow, so the optimizer builds a Bragg peak that covers it.
   `polarization="s"` is appropriate for a horizontally reflecting synchrotron mirror; the
   default is unpolarized.
-- **Figure of merit.** {py:class}`~xstack.design.merit.optical.MeanReflectivity` has the value 1 − ⟨R⟩,
+- **Figure of merit.** {py:class}`~grazing.design.merit.optical.MeanReflectivity` has the value 1 − ⟨R⟩,
   so lower is better and a perfect mirror scores 0. It rewards a high *average* over the whole band:
   a narrow peak that misses part of the band scores worse than a broad, lower one. See the
   [figures of merit](../physics_background.md) for the alternatives.
-- **Constraint.** {py:class}`~xstack.design.manufacturing.constraints.MinLayerThickness` of 0.8 nm
+- **Constraint.** {py:class}`~grazing.design.manufacturing.constraints.MinLayerThickness` of 0.8 nm
   is a hard constraint: designs with thinner layers are infeasible. Layers thinner than about 1 nm
   do not form continuous films, so the optimizer must not use them. The optimizers also use it
   to narrow the bounds of `gamma` for a given period.
@@ -99,8 +99,8 @@ print(f"start: mean R = {1 - start.merit:.3f}, feasible = {start.feasible}")
 print(f"coating time = {start.coating_time / 3600:.1f} h")
 ```
 
-{py:meth}`~xstack.design.optim.problem.DesignProblem.evaluate` returns an
-{py:class}`~xstack.design.optim.problem.Evaluation` with the figure of merit (`merit`), the
+{py:meth}`~grazing.design.optim.problem.DesignProblem.evaluate` returns an
+{py:class}`~grazing.design.optim.problem.Evaluation` with the figure of merit (`merit`), the
 `objective` (the figure of merit plus penalties for violated constraints), the reflectivity curves
 (`results`), the stack and the constraint results. The problem object is immutable; the free
 parameters keep their start values.
@@ -111,9 +111,9 @@ Before searching numerically, the Bragg law provides start values. The first sta
 is this analytic estimate; you can also run it alone:
 
 ```python
-from xstack.core.materials import default_library
-from xstack.core.physics import bragg
-from xstack.design.optim.stages import BraggOutline
+from grazing.core.materials import default_library
+from grazing.core.physics import bragg
+from grazing.design.optim.stages import BraggOutline
 
 outline = BraggOutline(refraction=True).run(problem)
 estimated = outline.parameters.value_dict()
@@ -136,7 +136,7 @@ design starts from these values.
 
 ## Run the pipeline
 
-{py:meth}`~xstack.design.optim.pipeline.Pipeline.default` builds the standard staged
+{py:meth}`~grazing.design.optim.pipeline.Pipeline.default` builds the standard staged
 optimization:
 
 1. `outline`: the analytic estimate above.
@@ -150,10 +150,10 @@ makes the first two stages cheap. Each stage starts from the best design so far,
 design is never worse than the start design.
 
 ```python
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.design.optim import Pipeline
-from xstack.design.optim.pipeline import StageResult
-from xstack.design.optim.stages import Stage
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.design.optim import Pipeline
+from grazing.design.optim.pipeline import StageResult
+from grazing.design.optim.stages import Stage
 
 default = Pipeline.default(problem, seed=0, global_iterations=6, population=8, coarse_points=21)
 pipeline = Pipeline(
@@ -204,13 +204,13 @@ the optimized design as a problem, use `problem.with_parameters(result.parameter
 ## Keep results in a project
 
 For anything you want to keep, store the result in a
-{py:class}`~xstack.design.project.project.Project`. A project holds the input design, the targets, the
+{py:class}`~grazing.design.project.project.Project`. A project holds the input design, the targets, the
 figure of merit, constraints, process, stored designs (*candidates*) and a journal. All changes
 go through commands, so that they can be undone and are recorded, exactly as in the GUI.
 
 ```python
-from xstack.design.project import Project, ProjectState
-from xstack.design.project.commands import store_pipeline_result
+from grazing.design.project import Project, ProjectState
+from grazing.design.project.commands import store_pipeline_result
 
 project = Project(
     ProjectState(
@@ -233,7 +233,7 @@ print(f"input design still has N = {project.state.mirror.coating.parameters['N']
 
 The optimization result becomes a selected candidate; **the input design is never overwritten**. To
 continue from a candidate, promote it with
-{py:func}`~xstack.design.project.commands.promote_candidate`. Commands can be undone:
+{py:func}`~grazing.design.project.commands.promote_candidate`. Commands can be undone:
 
 ```python
 project.undo()
@@ -242,34 +242,34 @@ project.redo()
 print(f"after redo: {len(project.state.candidates)} candidate")
 ```
 
-{py:func}`~xstack.design.project.commands.run_pipeline` combines both steps: it runs a pipeline on the
+{py:func}`~grazing.design.project.commands.run_pipeline` combines both steps: it runs a pipeline on the
 project's problem, records the run in the journal and stores the final design. The GUI does the same.
 
 ```{code-block} python
-from xstack.design.project.commands import run_pipeline
+from grazing.design.project.commands import run_pipeline
 
 run_pipeline(project, pipeline, candidate_name="optimized")
 ```
 
-The project is saved as a JSON file with the suffix `.xstack` and can be opened in
-`xstack-design`:
+The project is saved as a JSON file with the suffix `.grazing` and can be opened in
+`grazing-design`:
 
 ```python
-project.save("monochromator.xstack")
-reloaded = Project.load("monochromator.xstack")
+project.save("monochromator.grazing")
+reloaded = Project.load("monochromator.grazing")
 print(reloaded.state.selected, len(reloaded.journal), "journal entries")
 ```
 
 ## Tolerance analysis
 
 A design that is optimal on paper may be fragile. The Monte Carlo
-{py:func}`~xstack.design.manufacturing.tolerance.tolerance_analysis` draws random manufacturing errors
-from an {py:class}`~xstack.design.manufacturing.tolerance.ErrorModel`, builds the perturbed stacks and
+{py:func}`~grazing.design.manufacturing.tolerance.tolerance_analysis` draws random manufacturing errors
+from an {py:class}`~grazing.design.manufacturing.tolerance.ErrorModel`, builds the perturbed stacks and
 evaluates the figure of merit for each. Compare two error models: random thickness errors of 2 %
 per layer, and the same plus a systematic 1 % rate calibration error per material.
 
 ```python
-from xstack.design.manufacturing import ErrorModel, tolerance_analysis
+from grazing.design.manufacturing import ErrorModel, tolerance_analysis
 
 optimized = problem.with_parameters(result.parameters)
 models = {
@@ -301,7 +301,7 @@ The deposition recipe is the layer table of the stack in deposition order, with 
 roughness and, given a process, the duration and start time of every layer:
 
 ```python
-from xstack.design.recipe import layer_table, write_recipe_csv, write_recipe_json
+from grazing.design.recipe import layer_table, write_recipe_csv, write_recipe_json
 
 stack = final.stack
 assert stack is not None
@@ -314,7 +314,7 @@ write_recipe_json("recipe.json", stack, process)
 Row 1 is the layer on the substrate (`order="deposition"`); use `order="top_down"` to list the
 surface first. The JSON file adds the substrate, the total thickness and the total coating time.
 Use the *nominal* thicknesses with the calibration of your own deposition system: the recipe
-assumes the rates given to the {py:class}`~xstack.design.manufacturing.process.DepositionProcess`.
+assumes the rates given to the {py:class}`~grazing.design.manufacturing.process.DepositionProcess`.
 
 ## Next steps
 

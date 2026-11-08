@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pytest
 
-from xstack.core.physics import bragg
+from grazing.core.physics import bragg
 
 
 def test_plain_bragg_law_round_trip() -> None:

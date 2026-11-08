@@ -1,4 +1,4 @@
-"""Tests for `xstack.fit.problem`."""
+"""Tests for `grazing.fit.problem`."""
 
 import math
 from dataclasses import replace
@@ -7,14 +7,14 @@ from typing import Any
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.optim import LmfitOptimizer
-from xstack.core.parameters import Parameter, ParameterSet, free
-from xstack.core.physics.models import KinematicModel
-from xstack.core.structure import Mirror, SingleLayer
-from xstack.fit.dataset import Dataset
-from xstack.fit.problem import FAILED_OBJECTIVE, WEIGHTINGS, FitProblem, Weighting
+from grazing.core import materials
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.optim import LmfitOptimizer
+from grazing.core.parameters import Parameter, ParameterSet, free
+from grazing.core.physics.models import KinematicModel
+from grazing.core.structure import Mirror, SingleLayer
+from grazing.fit.dataset import Dataset
+from grazing.fit.problem import FAILED_OBJECTIVE, WEIGHTINGS, FitProblem, Weighting
 
 PT, SI = materials.get("Pt"), materials.get("Si")
 ANGLES = np.linspace(0.002, 0.012, 40)

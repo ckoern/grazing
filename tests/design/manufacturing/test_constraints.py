@@ -2,17 +2,17 @@
 
 import pytest
 
-from xstack.core import materials
-from xstack.core.parameters import free
-from xstack.core.structure import DepthGraded, Layer, Mirror, Periodic, SingleLayer, Stack
-from xstack.design.manufacturing.constraints import (
+from grazing.core import materials
+from grazing.core.parameters import free
+from grazing.core.structure import DepthGraded, Layer, Mirror, Periodic, SingleLayer, Stack
+from grazing.design.manufacturing.constraints import (
     MaxCoatingTime,
     MaxLayers,
     MaxTotalThickness,
     MinLayerThickness,
     constraints,
 )
-from xstack.design.manufacturing.process import DepositionProcess
+from grazing.design.manufacturing.process import DepositionProcess
 
 W = materials.get("W")
 SI = materials.get("Si")

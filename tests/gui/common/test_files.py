@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QFileDialog
 
-from xstack.gui.common import files
-from xstack.gui.common.files import ask_save_path, with_suffix
-from xstack.gui.design.main_window import MainWindow
+from grazing.gui.common import files
+from grazing.gui.common.files import ask_save_path, with_suffix
+from grazing.gui.design.main_window import MainWindow
 
 
 @pytest.mark.parametrize(
@@ -68,4 +68,4 @@ def test_save_project_appends_suffix(
 ) -> None:
     fake_dialog(monkeypatch, str(tmp_path / "project"))
     assert window.save_project_as()
-    assert (tmp_path / "project.xstack").exists()
+    assert (tmp_path / "project.grazing").exists()

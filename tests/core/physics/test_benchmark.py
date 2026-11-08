@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from xstack.core.physics.kernel import parratt
+from grazing.core.physics.kernel import parratt
 
 
 def periodic_inputs(points: int, bilayers: int) -> dict[str, Any]:

@@ -7,8 +7,8 @@ from types import ModuleType
 
 import pytest
 
-from xstack.core.io import CsvLayout, read_curves
-from xstack.core.units import deg
+from grazing.core.io import CsvLayout, read_curves
+from grazing.core.units import deg
 
 EXAMPLES = Path(__file__).parents[2] / "examples"
 
@@ -26,7 +26,7 @@ def load(name: str) -> ModuleType:
 @pytest.mark.slow
 def test_fit_reflectivity(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     example = load("fit_reflectivity")
-    project = tmp_path / "fit.xfit"
+    project = tmp_path / "fit.gfit"
     example.main(["--quick", "--project", str(project)])
     out = capsys.readouterr().out
     assert "χ²_red" in out

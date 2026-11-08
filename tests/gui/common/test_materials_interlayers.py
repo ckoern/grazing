@@ -4,12 +4,12 @@ import pytest
 from PySide6.QtWidgets import QComboBox
 from pytestqt.qtbot import QtBot
 
-from xstack.core.structure import Periodic
-from xstack.design.project import Project, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.gui.common.materials import INTERLAYER_START
-from xstack.gui.common.profile import LayerProfilePlot
-from xstack.gui.design.steps import MaterialsPage
+from grazing.core.structure import Periodic
+from grazing.design.project import Project, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.gui.common.materials import INTERLAYER_START
+from grazing.gui.common.profile import LayerProfilePlot
+from grazing.gui.design.steps import MaterialsPage
 
 pytestmark = pytest.mark.gui
 

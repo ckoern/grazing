@@ -1,13 +1,13 @@
-"""Tests for `xstack.fit.dataset`."""
+"""Tests for `grazing.fit.dataset`."""
 
 import numpy as np
 import pytest
 
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.parameters import free
-from xstack.core.serialization import from_data, to_data
-from xstack.fit.dataset import Dataset
-from xstack.fit.instrument import Instrument
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.parameters import free
+from grazing.core.serialization import from_data, to_data
+from grazing.fit.dataset import Dataset
+from grazing.fit.instrument import Instrument
 
 X = [0.01, 0.02, 0.03, 0.04, 0.05]
 

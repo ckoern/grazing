@@ -7,16 +7,16 @@ import pytest
 from PySide6.QtCore import Qt
 from pytestqt.qtbot import QtBot
 
-from xstack.core.io.reflectivity import REFLECTIVITY_COLUMNS
-from xstack.core.structure.coatings.graded import DepthGraded
-from xstack.core.structure.conversion import has_constant_gamma
-from xstack.core.targets import Target
-from xstack.design.project import ProjectState
-from xstack.design.project.commands import set_parameter
-from xstack.design.project.templates import new_state
-from xstack.gui.design.main_window import INPUT_DESIGN_LABEL, MainWindow
-from xstack.gui.design.preview import display_targets, lowest_energy
-from xstack.gui.design.steps.coating import CoatingPage, set_constant_gamma
+from grazing.core.io.reflectivity import REFLECTIVITY_COLUMNS
+from grazing.core.structure.coatings.graded import DepthGraded
+from grazing.core.structure.conversion import has_constant_gamma
+from grazing.core.targets import Target
+from grazing.design.project import ProjectState
+from grazing.design.project.commands import set_parameter
+from grazing.design.project.templates import new_state
+from grazing.gui.design.main_window import INPUT_DESIGN_LABEL, MainWindow
+from grazing.gui.design.preview import display_targets, lowest_energy
+from grazing.gui.design.steps.coating import CoatingPage, set_constant_gamma
 
 pytestmark = pytest.mark.gui
 
@@ -105,7 +105,7 @@ def test_checkbox_disabled_for_periodic(qtbot: QtBot) -> None:
 def test_checkbox_after_loading_project(window: MainWindow, tmp_path: Path) -> None:
     window.new_project("depth_graded")
     window.controller.execute(set_constant_gamma(graded(window.controller.state), True))
-    path = tmp_path / "tied.xstack"
+    path = tmp_path / "tied.grazing"
     assert window.save_project_as(path)
 
     window.new_project("depth_graded")

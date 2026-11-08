@@ -15,7 +15,10 @@ class CommandAdapter(QUndoCommand):
     """Qt undo command that mirrors one step of the core project history.
 
     The core command has already been executed when the adapter is pushed; redo and undo
-    delegate to the core project's history.
+    delegate to the core project's history. Qt merges a pushed adapter into the previous one if
+    both have the same non-empty merge key and the stack is not at its clean index, which is
+    the same rule the core `History` applies with its save point, so both histories have the
+    same steps.
 
     Args:
         controller: The project controller.

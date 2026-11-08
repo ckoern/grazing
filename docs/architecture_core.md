@@ -658,7 +658,9 @@ undo/redo, subscribe and save/load for any state type `S`, with `History[S]` as 
   `set_parameter`, `set_parameters`, `set_targets`, `set_merit`, `set_process`, `set_model`, `set_pipeline`,
   `add_constraint`, `remove_constraint`, `replace_constraint`, `add_candidate`, `remove_candidate`,
   `rename_candidate`, `select_candidate`, `promote_candidate`, `store_results`, `store_pipeline_result`,
-  `remove_candidates`, `rename_project`, `set_notes`. `History` keeps the undo and redo stacks.
+  `remove_candidates`, `rename_project`, `set_notes`. `History` keeps the undo and redo stacks and the
+  save point; consecutive commands with the same merge key are merged into one step unless the
+  document was saved in between (the rule of Qt's `QUndoStack`, which mirrors the history in the GUI).
 - Scripted use: `project.execute(commands.set_parameter("N", vary=True, min=20, max=80))`.
 - **Journal** (`xstack.core.journal`): `Journal` is an append-only list of
   `JournalEntry(timestamp, kind, message, data)`.

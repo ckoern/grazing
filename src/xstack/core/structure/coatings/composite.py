@@ -1,23 +1,30 @@
 """Composite coating made of several coatings stacked on top of each other."""
 
-import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import ClassVar, Self
 
 from xstack.core.materials import Material
-from xstack.core.parameters import Parameter, ParameterSet
+from xstack.core.parameters import (
+    Parameter,
+    ParameterSet,
+    expression_names,
+    rename_in_expression,
+)
 from xstack.core.structure.coating import Coating, register_coating
 from xstack.core.structure.stack import Layer
 
 __all__ = ["Composite"]
 
-_NAME = r"[A-Za-z_][\w.]*"
 
+def _rename_prefix(expr: str, old: str, new: str) -> str:
+    """Replace the namespace `old` by `new` in the names of an expression (`""` strips it)."""
+    head = old + "."
 
-def _prefix_pattern(prefix: str) -> re.Pattern[str]:
-    """Pattern of a ``prefix.`` at the start of a name token."""
-    return re.compile(rf"(?<![\w.]){re.escape(prefix)}\.")
+    def rename(name: str) -> str:
+        return new + name[len(head) :] if name.startswith(head) else name
+
+    return rename_in_expression(expr, rename)
 
 
 @register_coating
@@ -249,7 +256,7 @@ class Composite(Coating):
         for p in self.parameters.values():
             if p.name in removed:
                 continue
-            if p.expr is not None and set(re.findall(_NAME, p.expr)) & removed:
+            if p.expr is not None and expression_names(p.expr) & removed:
                 p = p.evolve(expr=None, value=values[p.name])
             kept.append(p)
         blocks = [b for b in self.blocks if b.name != name]
@@ -296,11 +303,10 @@ class Composite(Coating):
             raise ValueError(f"block name {new_name!r} must be an identifier")
         if new_name in self.block_names():
             raise ValueError(f"a block named {new_name!r} already exists")
-        pattern = _prefix_pattern(name)
         params = [
             p.evolve(
-                name=pattern.sub(new_name + ".", p.name),
-                expr=pattern.sub(new_name + ".", p.expr) if p.expr is not None else None,
+                name=_rename_prefix(p.name, name, new_name + "."),
+                expr=_rename_prefix(p.expr, name, new_name + ".") if p.expr is not None else None,
             )
             for p in self.parameters.values()
         ]
@@ -337,11 +343,10 @@ class Composite(Coating):
 
     def _block_parameters(self, block: Coating) -> ParameterSet:
         prefix = block.name + "."
-        pattern = _prefix_pattern(block.name)
         updated: list[Parameter] = []
         for local_name in block.parameters:
             outer = self.parameters[prefix + local_name]
-            expr = pattern.sub("", outer.expr) if outer.expr is not None else None
+            expr = _rename_prefix(outer.expr, block.name, "") if outer.expr is not None else None
             updated.append(outer.evolve(name=local_name, expr=expr))
         return ParameterSet(updated)
 

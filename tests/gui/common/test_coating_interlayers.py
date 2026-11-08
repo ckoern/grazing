@@ -4,11 +4,11 @@ import pytest
 from pytestqt.qtbot import QtBot
 
 from xstack.core.materials import get
-from xstack.core.structure import DepthGraded, Periodic
+from xstack.core.structure import Periodic
 from xstack.design.project import Command, ProjectState
 from xstack.design.project.templates import new_state
 from xstack.fit.templates import new_state as new_fit_state
-from xstack.gui.common.coating import convert_coating, visible_parameters
+from xstack.gui.common.coating import visible_parameters
 from xstack.gui.design.steps import CoatingPage
 from xstack.gui.fit.steps.parameters import ParametersPage
 
@@ -82,14 +82,6 @@ def test_disabled_for_other_coatings(qtbot: QtBot) -> None:
     page, _ = coating_page(qtbot, new_state("single_layer"))
     assert not page.interlayer_check.isEnabled()
     assert not page.interlayer_check.isChecked()
-
-
-def test_convert_keeps_option() -> None:
-    on = Periodic.create(get("W"), get("Si")).with_interlayers(True)
-    converted = convert_coating(on, "depth_graded")
-    assert isinstance(converted, DepthGraded)
-    assert converted.use_interlayers
-    assert not convert_coating(on.with_interlayers(False), "depth_graded").use_interlayers  # type: ignore[attr-defined]
 
 
 def test_visible_parameters() -> None:

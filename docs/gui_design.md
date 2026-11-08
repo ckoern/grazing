@@ -292,7 +292,7 @@ src/xstack/gui/
     document_window.py   # DocumentWindow: base of the main windows (files, title, recent files, themes,
                          #   docks, jobs)
     pages.py             # StepPage: base of all workflow pages; StructureCommands
-    coating.py           # CoatingPage, convert_coating, has_constant_gamma, set_constant_gamma
+    coating.py           # CoatingPage, set_constant_gamma
     materials.py         # MaterialsPage, MaterialDialog
     parameter_table.py   # ParameterTableModel, ParameterTable (optional display units)
     profile.py           # LayerProfilePlot, bilayer_profile

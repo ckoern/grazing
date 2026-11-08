@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from grazing.core.calc import reflectivity_vs_angle, reflectivity_vs_energy
+from grazing.core.calc import reflectivity_map, reflectivity_vs_angle, reflectivity_vs_energy
 from grazing.core.materials import get
 from grazing.core.physics.models import KinematicModel, ParrattModel
 from grazing.core.structure import Composite, Mirror, Periodic, SingleLayer
@@ -68,6 +68,53 @@ def test_shapes() -> None:
     assert grid.shape == (3, 5)
     single = reflectivity_vs_angle(MIRROR, ANGLES[1], energy=ENERGIES[2])
     assert grid[2, 1] == pytest.approx(float(single))
+
+
+def test_map_matches_scans() -> None:
+    energies, angles = ENERGIES[::30], ANGLES[::20]
+    grid = reflectivity_map(MIRROR, energy=energies, angle=angles)
+    assert grid.shape == (energies.size, angles.size)
+    for i, energy in enumerate(energies):
+        np.testing.assert_allclose(
+            grid[i], reflectivity_vs_angle(MIRROR, angles, energy=energy), rtol=1e-12
+        )
+    for j, angle in enumerate(angles):
+        np.testing.assert_allclose(
+            grid[:, j], reflectivity_vs_energy(MIRROR, energies, angle=angle), rtol=1e-12
+        )
+
+
+def test_map_is_always_two_dimensional() -> None:
+    assert reflectivity_map(MIRROR, energy=8048.0, angle=deg(1.0)).shape == (1, 1)
+    assert reflectivity_map(MIRROR, energy=8048.0, angle=ANGLES).shape == (1, ANGLES.size)
+    assert reflectivity_map(MIRROR, energy=ENERGIES, angle=deg(0.2)).shape == (ENERGIES.size, 1)
+    assert reflectivity_map(MIRROR, energy=[8048.0], angle=list(ANGLES[:3])).shape == (1, 3)
+
+
+def test_map_options_are_passed_on() -> None:
+    kwargs = {"polarization": "s", "model": "kinematic", "provider": "chantler"}
+    grid = reflectivity_map(MIRROR, energy=[8048.0], angle=ANGLES, **kwargs)  # type: ignore[arg-type]
+    expected = reflectivity_vs_angle(MIRROR, ANGLES, energy=8048.0, **kwargs)  # type: ignore[arg-type]
+    np.testing.assert_array_equal(grid[0], expected)
+
+
+def test_map_rejects_multidimensional_axes() -> None:
+    with pytest.raises(ValueError, match="one-dimensional"):
+        reflectivity_map(MIRROR, energy=ENERGIES[:4].reshape(2, 2), angle=ANGLES)
+    with pytest.raises(ValueError, match="one-dimensional"):
+        reflectivity_map(MIRROR, energy=ENERGIES, angle=ANGLES[:4].reshape(2, 2))
+
+
+def test_map_arguments_are_keywords() -> None:
+    with pytest.raises(TypeError):
+        reflectivity_map(MIRROR, ENERGIES, ANGLES)  # type: ignore[call-arg]
+
+
+def test_map_invalid_values() -> None:
+    with pytest.raises(ValueError, match="grazing angles"):
+        reflectivity_map(MIRROR, energy=ENERGIES, angle=[0.01, 0.0])
+    with pytest.raises(ValueError, match="energies"):
+        reflectivity_map(MIRROR, energy=[8048.0, -1.0], angle=ANGLES)
 
 
 @pytest.mark.parametrize("name", ["kinematic", "kinematic_no_refraction", "parratt"])

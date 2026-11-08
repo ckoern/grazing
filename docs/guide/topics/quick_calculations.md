@@ -23,8 +23,18 @@ print(f"highest reflectivity above 1 deg: {r_angle[angles > deg(1.0)].max():.3f}
 ```
 
 Angles are in rad and energies in eV, like everywhere in the library; `deg` and `kev` convert them.
-The fixed value must be given by keyword (`energy=` or `angle=`). If it is an array too, the
-arguments broadcast against each other, which gives a map.
+The fixed value must be given by keyword (`energy=` or `angle=`).
+
+For a map of the reflectivity over energy and angle, use
+{py:func}`~grazing.core.calc.reflectivity_map`. It combines every energy with every angle and
+returns one row per energy and one column per angle:
+
+```python
+from grazing.core.calc import reflectivity_map
+
+grid = reflectivity_map(mirror, energy=energies, angle=angles)
+print(grid.shape)  # (300, 600)
+```
 
 Optional arguments choose the polarization (unpolarized by default), the reflectivity model
 (Parratt with Névot–Croce roughness by default) and the optical constants:

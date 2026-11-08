@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from xstack.core import materials
+from xstack.core.document import Command as DocumentCommand
 from xstack.core.optim import LmfitOptimizer
 from xstack.core.parameters import free
 from xstack.core.physics.models import KinematicModel
@@ -19,7 +20,7 @@ from xstack.design.manufacturing import (
 )
 from xstack.design.merit import Flatness, MeanReflectivity
 from xstack.design.optim import Pipeline, Stage
-from xstack.design.project import Candidate, Command, Project, ProjectState, commands
+from xstack.design.project import Candidate, Project, ProjectState, commands
 
 W = materials.get("W")
 SI = materials.get("Si")
@@ -47,7 +48,7 @@ def make_project() -> Project:
     )
 
 
-def check_undoable(project: Project, command: Command) -> ProjectState:
+def check_undoable(project: Project, command: DocumentCommand[ProjectState]) -> ProjectState:
     """Execute a command, check it changes the state and that undo/redo restore states."""
     before = project.state
     project.execute(command)

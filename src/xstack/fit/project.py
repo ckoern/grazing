@@ -24,9 +24,10 @@ from pathlib import Path
 from typing import Any
 
 from xstack.core import document
+from xstack.core.commands import rename_project, set_notes, set_optical_constants
 from xstack.core.document import Document
 from xstack.core.io.models import read_models
-from xstack.core.materials import DEFAULT_PROVIDER, MaterialLibrary, provider_library, providers
+from xstack.core.materials import DEFAULT_PROVIDER, MaterialLibrary, provider_library
 from xstack.core.optim.events import CancellationToken, EventSink
 from xstack.core.optim.optimizers import LmfitOptimizer, Optimizer
 from xstack.core.parameters import ParameterSet
@@ -244,30 +245,6 @@ def _require_mirror(state: FitState) -> Mirror:
     return state.mirror
 
 
-def rename_project(name: str) -> Command:
-    """Rename the project.
-
-    Args:
-        name: New name.
-
-    Returns:
-        The command.
-    """
-    return Command(f"Rename project to {name!r}", lambda s: s.evolve(name=name))
-
-
-def set_notes(notes: str) -> Command:
-    """Replace the notes.
-
-    Args:
-        notes: The new notes.
-
-    Returns:
-        The command.
-    """
-    return Command("Edit notes", lambda s: s.evolve(notes=notes), merge_key="notes")
-
-
 def set_mirror(
     mirror: Mirror, model: ReflectivityModel | None = None, source: str | None = None
 ) -> Command:
@@ -336,24 +313,6 @@ def import_model(path: Path | str, name: str | None = None) -> Command:
             raise ValueError(f"no model {name!r} in {Path(path).name} (available: {available})")
         chosen = matches[0]
     return set_mirror(chosen.mirror, chosen.model, f"{Path(path).name}: {chosen.name}")
-
-
-def set_optical_constants(provider: str) -> Command:
-    """Choose the optical-constants provider of the project.
-
-    Args:
-        provider: Name of a registered optical-constants provider.
-
-    Returns:
-        The command.
-
-    Raises:
-        KeyError: If the provider is not registered.
-    """
-    providers.get(provider)
-    return Command(
-        f"Set optical constants ({provider})", lambda s: s.evolve(optical_constants=provider)
-    )
 
 
 def set_model(model: ReflectivityModel) -> Command:

@@ -18,8 +18,8 @@ from collections.abc import Sequence
 from dataclasses import replace
 from typing import Any
 
+from xstack.core.commands import rename_project, set_notes, set_optical_constants
 from xstack.core.journal import Journal
-from xstack.core.materials import providers
 from xstack.core.optim.events import CancellationToken, EventSink
 from xstack.core.parameters import ParameterSet
 from xstack.core.physics.models import ReflectivityModel
@@ -72,18 +72,6 @@ def _require_mirror(state: ProjectState) -> Mirror:
     return state.mirror
 
 
-def rename_project(name: str) -> Command:
-    """Rename the project.
-
-    Args:
-        name: New project name.
-
-    Returns:
-        The command.
-    """
-    return Command(f"Rename project to {name!r}", lambda s: s.evolve(name=name))
-
-
 def set_display_ranges(ranges: dict[str, tuple[float, float]]) -> Command:
     """Replace the plot ranges of the scan axes.
 
@@ -98,18 +86,6 @@ def set_display_ranges(ranges: dict[str, tuple[float, float]]) -> Command:
     return Command(
         "Set plot range", lambda s: s.evolve(display_ranges=dict(copy)), merge_key="display_ranges"
     )
-
-
-def set_notes(notes: str) -> Command:
-    """Replace the project notes.
-
-    Args:
-        notes: The notes.
-
-    Returns:
-        The command.
-    """
-    return Command("Edit notes", lambda s: s.evolve(notes=notes), merge_key="notes")
 
 
 def set_mirror(mirror: Mirror) -> Command:
@@ -213,24 +189,6 @@ def set_process(process: DepositionProcess | None) -> Command:
     """
     text = "Remove deposition process" if process is None else "Set deposition process"
     return Command(text, lambda s: s.evolve(process=process))
-
-
-def set_optical_constants(provider: str) -> Command:
-    """Choose the optical-constants provider of the project.
-
-    Args:
-        provider: Name of a registered optical-constants provider.
-
-    Returns:
-        The command.
-
-    Raises:
-        KeyError: If the provider is not registered.
-    """
-    providers.get(provider)
-    return Command(
-        f"Set optical constants ({provider})", lambda s: s.evolve(optical_constants=provider)
-    )
 
 
 def set_model(model: ReflectivityModel) -> Command:

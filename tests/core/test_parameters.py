@@ -5,7 +5,15 @@ import math
 import lmfit
 import pytest
 
-from xstack.core.parameters import Parameter, ParameterSet, Range, free, resolve
+from xstack.core.parameters import (
+    Parameter,
+    ParameterSet,
+    Range,
+    expression_names,
+    free,
+    rename_in_expression,
+    resolve,
+)
 
 
 class TestParameterValidation:
@@ -481,3 +489,24 @@ class TestEvaluate:
         ps = ParameterSet([Parameter("a", 3.0), Parameter("b", 0.0, expr="2*(a")])
         with pytest.raises(ValueError):
             ps.evaluate()
+
+
+class TestExpressionNames:
+    def test_names_dotted_functions_and_numbers(self) -> None:
+        names = expression_names("cap.d * 2 + sqrt(base) - 1.5e3 + x1.y2.z")
+        assert names == {"cap.d", "sqrt", "base", "x1.y2.z"}
+
+    def test_no_names_in_number(self) -> None:
+        assert expression_names("1.5e3 + 2.0") == frozenset()
+
+    def test_rename_only_matching_prefix(self) -> None:
+        def rename(name: str) -> str:
+            return "new." + name[4:] if name.startswith("cap.") else name
+
+        assert (
+            rename_in_expression("cap.d + capx.d + 2*cap.r", rename) == "new.d + capx.d + 2*new.r"
+        )
+        assert rename_in_expression("sqrt(cap.d)*1e3", rename) == "sqrt(new.d)*1e3"
+
+    def test_identity_rename(self) -> None:
+        assert rename_in_expression("a.b + f(c) - 1.5e-3", lambda n: n) == "a.b + f(c) - 1.5e-3"

@@ -17,16 +17,64 @@ Examples:
 
 import math
 import re
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 
 import lmfit
 
-__all__ = ["Parameter", "ParameterSet", "ParameterValue", "Range", "free", "resolve"]
+__all__ = [
+    "Parameter",
+    "ParameterSet",
+    "ParameterValue",
+    "Range",
+    "expression_names",
+    "free",
+    "rename_in_expression",
+    "resolve",
+]
 
 _LMFIT_SEP = "__"
-_DOTTED = re.compile(r"\b([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)\b")
+_NAME_TOKEN = re.compile(r"(?<![\w.])[A-Za-z_][\w.]*")
+
+
+def expression_names(expr: str) -> frozenset[str]:
+    """Return the names an expression refers to.
+
+    A name is a maximal run of identifier characters and dots that starts with a letter or
+    underscore and does not directly follow a word character or a dot, so numbers such as
+    ``1.5e3`` are not names. Function names such as ``sqrt`` are included.
+
+    Args:
+        expr: Expression text.
+
+    Returns:
+        The (possibly dotted) names.
+
+    Examples:
+        >>> sorted(expression_names("cap.d * 2 + sqrt(base) - 1.5e3"))
+        ['base', 'cap.d', 'sqrt']
+    """
+    return frozenset(_NAME_TOKEN.findall(expr))
+
+
+def rename_in_expression(expr: str, rename: Callable[[str], str]) -> str:
+    """Replace every name in an expression.
+
+    Args:
+        expr: Expression text.
+        rename: Maps a name (see `expression_names`) to its replacement. Names that should
+            stay unchanged, such as function names, are mapped to themselves.
+
+    Returns:
+        The expression with all names replaced.
+
+    Examples:
+        >>> rename_in_expression("cap.d + capx.d", lambda n: n.replace("cap.", "top.", 1)
+        ...                      if n.startswith("cap.") else n)
+        'top.d + capx.d'
+    """
+    return _NAME_TOKEN.sub(lambda m: rename(m.group(0)), expr)
 
 
 @dataclass(frozen=True)
@@ -276,15 +324,13 @@ class ParameterSet(Mapping[str, Parameter]):
         """
         names = set(self._params)
 
-        def rename(match: re.Match[str]) -> str:
-            word = match.group(0)
+        def rename(word: str) -> str:
             return f"{prefix}.{word}" if word in names else word
 
-        pattern = re.compile(r"(?<![\w.])[A-Za-z_][\w.]*")
         return ParameterSet(
             p.evolve(
                 name=f"{prefix}.{p.name}",
-                expr=pattern.sub(rename, p.expr) if p.expr is not None else None,
+                expr=rename_in_expression(p.expr, rename) if p.expr is not None else None,
             )
             for p in self._params.values()
         )
@@ -331,9 +377,7 @@ class ParameterSet(Mapping[str, Parameter]):
             )
         for p in self._params.values():
             if p.expr is not None:
-                out[_to_lmfit_name(p.name)].expr = _DOTTED.sub(
-                    lambda m: _to_lmfit_name(m.group(0)), p.expr
-                )
+                out[_to_lmfit_name(p.name)].expr = rename_in_expression(p.expr, _to_lmfit_name)
         return out
 
     def update_from_lmfit(self, params: lmfit.Parameters) -> "ParameterSet":

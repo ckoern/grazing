@@ -17,7 +17,6 @@ Examples:
     ('t', 'scan.scale')
 """
 
-import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -29,7 +28,7 @@ from xstack.core.io.models import read_models
 from xstack.core.materials import DEFAULT_PROVIDER, MaterialLibrary, provider_library, providers
 from xstack.core.optim.events import CancellationToken, EventSink
 from xstack.core.optim.optimizers import LmfitOptimizer, Optimizer
-from xstack.core.parameters import ParameterSet
+from xstack.core.parameters import ParameterSet, rename_in_expression
 from xstack.core.physics.models import ParrattModel, ReflectivityModel
 from xstack.core.serialization import register_serializable
 from xstack.core.structure.coating import Coating, Mirror
@@ -449,9 +448,13 @@ def remove_dataset(name: str) -> Command:
 
 
 def _rename_in_expressions(parameters: ParameterSet, old: str, new: str) -> ParameterSet:
-    pattern = re.compile(rf"(?<![\w.]){re.escape(old)}\.")
+    head = old + "."
+
+    def rename(name: str) -> str:
+        return f"{new}.{name[len(head) :]}" if name.startswith(head) else name
+
     return ParameterSet(
-        p.evolve(expr=pattern.sub(f"{new}.", p.expr)) if p.expr is not None else p
+        p.evolve(expr=rename_in_expression(p.expr, rename)) if p.expr is not None else p
         for p in parameters.values()
     )
 

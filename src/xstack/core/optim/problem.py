@@ -71,15 +71,15 @@ class Problem[E: Evaluation](Protocol):
         """
         ...
 
-    def residuals(self, values: Mapping[str, float] | None, size: int) -> NDArray[np.float64]:
-        """Return the residual vector whose sum of squares is the objective.
+    def residuals(self, evaluation: E, size: int) -> NDArray[np.float64]:
+        """Return the residual vector of an evaluation for least-squares optimizers.
 
         Args:
-            values: Parameter values overriding the current ones, by name.
-            size: Length of the vector, used for models that cannot be built.
+            evaluation: An evaluation of this problem.
+            size: Length of the vector for evaluations whose model could not be built.
 
         Returns:
-            Residual vector.
+            Residual vector whose sum of squares is the objective of the evaluation.
         """
         ...
 

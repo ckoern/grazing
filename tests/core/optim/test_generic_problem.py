@@ -29,6 +29,7 @@ class LineEvaluation:
     values: Mapping[str, float]
     objective: float
     merit: float
+    residuals: NDArray[np.float64]
     error: str | None = None
 
 
@@ -47,13 +48,12 @@ class LineProblem:
 
     def evaluate(self, values: Mapping[str, float] | None = None) -> LineEvaluation:
         merged = self._values(values)
-        r = self.residuals(merged, X.size)
+        r = np.asarray(merged["a"] * X + merged["b"] - Y, dtype=np.float64)
         chi2 = float(np.sum(r**2))
-        return LineEvaluation(merged, chi2, chi2)
+        return LineEvaluation(merged, chi2, chi2, r)
 
-    def residuals(self, values: Mapping[str, float] | None, size: int) -> NDArray[np.float64]:
-        v = self._values(values)
-        return np.asarray(v["a"] * X + v["b"] - Y, dtype=np.float64)
+    def residuals(self, evaluation: LineEvaluation, size: int) -> NDArray[np.float64]:
+        return evaluation.residuals
 
     def quantities(self, evaluation: LineEvaluation) -> dict[str, float]:
         return {"chi2": evaluation.objective}
@@ -68,6 +68,18 @@ class HintedLineProblem(LineProblem):
 
     def bounds_hints(self) -> dict[str, tuple[float, float]]:
         return dict(self.hints)
+
+
+@dataclass(frozen=True)
+class CountingLineProblem(LineProblem):
+    calls: list[int] = field(default_factory=lambda: [0])
+
+    def with_parameters(self, parameters: ParameterSet) -> "CountingLineProblem":
+        return replace(self, parameters=parameters)
+
+    def evaluate(self, values: Mapping[str, float] | None = None) -> LineEvaluation:
+        self.calls[0] += 1
+        return super().evaluate(values)
 
 
 def assert_valid_result(result_history: tuple[float, ...], evaluations: int) -> None:
@@ -96,6 +108,13 @@ class TestLmfitOptimizerOnLine:
         assert isinstance(result.best, LineEvaluation)
         assert result.best.objective < problem.evaluate().objective
         assert_valid_result(result.history, result.evaluations)
+
+    @pytest.mark.parametrize("method", ["leastsq", "least_squares", "nelder"])
+    def test_evaluates_once_per_objective_call(self, method: str) -> None:
+        problem = CountingLineProblem()
+        result = LmfitOptimizer(method).run(problem)
+        assert result.evaluations > 1
+        assert problem.calls[0] == result.evaluations
 
     def test_start_parameters(self) -> None:
         start = line_parameters().with_values({"a": 1.9, "b": -0.9})

@@ -496,7 +496,7 @@ class DesignProblem:
     def with_parameters(self, parameters: ParameterSet) -> "DesignProblem": ...
     def bounds_hints(self) -> dict[str, tuple[float, float]]: ...
     def evaluate(self, values: Mapping[str, float] | None = None) -> Evaluation: ...   # full diagnostic result
-    def residuals(self, values: Mapping[str, float] | None, size: int) -> NDArray[np.float64]: ...
+    def residuals(self, evaluation: Evaluation, size: int) -> NDArray[np.float64]: ...  # of an existing evaluation
 
 @dataclass(frozen=True)
 class Evaluation:
@@ -519,6 +519,11 @@ class Optimizer(ABC):
 
 Optimizers are generic core pieces (`xstack.core.optim`) that run on any `Problem`.
 `DesignProblem` satisfies that protocol, and design and fitting use the same optimizers.
+A `Problem` provides `parameters`, `with_parameters`, `evaluate(values)`, `quantities(evaluation)`,
+`bounds_hints()` and `residuals(evaluation, size)`. `residuals` returns the residual vector of an
+existing evaluation, whose sum of squares is its objective; `size` is the length used for evaluations
+whose model could not be built. Least-squares optimizers evaluate each point once and derive the
+residuals from that evaluation.
 `BraggOutline` and `GridScan` accept only a `DesignProblem` and raise `TypeError` otherwise.
 
 - `LmfitOptimizer(method=…)` wraps `lmfit.Minimizer` for `leastsq`, `least_squares`, `nelder`,

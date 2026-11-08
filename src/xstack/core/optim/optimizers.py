@@ -326,7 +326,7 @@ class LmfitOptimizer(Optimizer):
         if use_residuals:
             if first.error is not None:
                 raise ValueError(f"start values cannot be evaluated: {first.error}")
-            size = len(problem.residuals(params.value_dict(), 1))
+            size = len(problem.residuals(first, 1))
         tracker.record(first)
         options = dict(self.options)
         if self.method == "differential_evolution" and "init" not in options:
@@ -339,7 +339,7 @@ class LmfitOptimizer(Optimizer):
             evaluation = problem.evaluate(values)
             tracker.record(evaluation)
             if use_residuals:
-                return problem.residuals(values, size)
+                return problem.residuals(evaluation, size)
             return evaluation.objective
 
         def iteration(*_: Any, **__: Any) -> bool:

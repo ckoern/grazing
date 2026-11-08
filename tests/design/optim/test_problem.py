@@ -1,19 +1,21 @@
 """Tests for the optimization events and the design problem."""
 
 import math
-from typing import ClassVar
+from dataclasses import dataclass
+from typing import Any, ClassVar
 
 import numpy as np
 import pytest
 
 from xstack.core.materials import get
-from xstack.core.optim import CancellationToken, ProgressEvent
+from xstack.core.optim import CancellationToken, LmfitOptimizer, ProgressEvent
 from xstack.core.parameters import free
 from xstack.core.structure import Mirror, Periodic
 from xstack.core.targets import EnergyScan, TargetSet
 from xstack.design.manufacturing.constraints import MaxTotalThickness, MinLayerThickness
 from xstack.design.manufacturing.process import DepositionProcess
 from xstack.design.merit import MeanReflectivity
+from xstack.design.merit.base import EvaluationContext, FigureOfMerit
 from xstack.design.optim import DesignProblem, Evaluation
 
 W = get("W")
@@ -47,6 +49,16 @@ def make_problem(
         )
     )
     return DesignProblem(Mirror(coating, SI), targets, MeanReflectivity(), **kwargs)  # type: ignore[arg-type]
+
+
+@dataclass(frozen=True)
+class ScalarMeanReflectivity(FigureOfMerit):
+    """1 − ⟨R⟩ with the default residual vector, whose sum of squares is the merit."""
+
+    type_name: ClassVar[str] = "test_scalar_mean_reflectivity"
+
+    def scalar(self, ctx: EvaluationContext) -> float:
+        return MeanReflectivity().scalar(ctx)
 
 
 class TestEvents:
@@ -281,19 +293,21 @@ class TestResiduals:
         problem = make_problem()
         ev = problem.evaluate()
         assert ev.stack is not None
-        from xstack.design.merit.base import EvaluationContext
-
         ctx = EvaluationContext(ev.stack, problem.targets, ev.results, ev.coating_time)
         n_merit = len(problem.merit.residuals(ctx))
-        r = problem.residuals(None, n_merit + 2)
+        r = problem.residuals(ev, 1)
         assert r.shape == (n_merit + 2,)
+        np.testing.assert_array_equal(r[:-2], problem.merit.residuals(ctx))
         assert np.all(r[-2:] == 0.0)
 
     def test_unbuildable_design_has_fixed_length(self) -> None:
         problem = make_problem(gamma="d * 0.5")
-        r = problem.residuals({"d": 4.0}, 7)
+        ev = problem.evaluate({"d": 4.0})
+        assert ev.stack is None
+        r = problem.residuals(ev, 7)
         assert r.shape == (7,)
-        assert np.sum(r**2) == pytest.approx(2.0 * problem.hard_penalty)
+        np.testing.assert_array_equal(r, np.full(7, math.sqrt(2.0 * problem.hard_penalty / 7)))
+        assert np.sum(r**2) == pytest.approx(ev.objective)
 
     def test_penalty_entries_squared_equal_penalty_terms(self) -> None:
         problem = make_problem(
@@ -304,12 +318,10 @@ class TestResiduals:
             hard_penalty=5.0,
             soft_penalty=3.0,
         )
-        values = {"d": 3.5, "gamma": 0.2}
-        ev = problem.evaluate(values)
+        ev = problem.evaluate({"d": 3.5, "gamma": 0.2})
         hard = next(r for c, r in ev.constraints if c.severity == "hard")
         soft = next(r for c, r in ev.constraints if c.severity == "soft")
-        n = len(problem.residuals(values, 1))
-        r = problem.residuals(values, n)
+        r = problem.residuals(ev, 1)
         assert r[-2] ** 2 == pytest.approx(3.0 * soft.violation**2)
         assert r[-1] ** 2 == pytest.approx(5.0 * (1.0 + hard.violation))
         merit_part = ev.objective - r[-2] ** 2 - r[-1] ** 2
@@ -320,9 +332,55 @@ class TestResiduals:
         # the weighted mean of (1 - R)^2, which bounds the merit (1 - <R>)^2 from above.
         problem = make_problem()
         ev = problem.evaluate()
-        n = len(problem.residuals(None, 1))
-        r = problem.residuals(None, n)
+        r = problem.residuals(ev, 1)
         assert np.sum(r**2) >= (1.0 - 1e-12) * ev.merit**2
+
+    @pytest.mark.parametrize(
+        ("values", "feasible", "soft_violated"),
+        [
+            ({"d": 3.5, "gamma": 0.4}, True, False),
+            ({"d": 4.5, "gamma": 0.4}, True, True),
+            ({"d": 3.5, "gamma": 0.2}, False, False),
+            ({"d": 4.5, "gamma": 0.2}, False, True),
+        ],
+    )
+    def test_sum_of_squares_is_objective(
+        self, values: dict[str, float], feasible: bool, soft_violated: bool
+    ) -> None:
+        problem = make_problem(
+            constraints=(
+                MinLayerThickness(minimum=1.0),
+                MaxTotalThickness(maximum=80.0, severity="soft"),
+            ),
+            hard_penalty=4.0,
+            soft_penalty=2.0,
+        ).evolve(merit=ScalarMeanReflectivity())
+        ev = problem.evaluate(values)
+        assert ev.feasible is feasible
+        soft = next(r for c, r in ev.constraints if c.severity == "soft")
+        assert (not soft.satisfied) is soft_violated
+        r = problem.residuals(ev, 1)
+        assert float(np.sum(r**2)) == pytest.approx(ev.objective, rel=1e-12)
+
+
+class TestLeastSquaresEvaluations:
+    @pytest.mark.parametrize("method", ["leastsq", "least_squares"])
+    def test_one_model_evaluation_per_objective_call(
+        self, method: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        problem = make_problem(constraints=(MinLayerThickness(minimum=1.0),))
+        calls = 0
+        original = DesignProblem.evaluate_stack
+
+        def counting(self: DesignProblem, *args: Any, **kwargs: Any) -> Evaluation:
+            nonlocal calls
+            calls += 1
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(DesignProblem, "evaluate_stack", counting)
+        result = LmfitOptimizer(method, max_evaluations=30).run(problem)
+        assert result.evaluations > 1
+        assert calls == result.evaluations
 
 
 def test_evaluate_values_outside_bounds_is_unbuildable() -> None:

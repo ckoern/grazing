@@ -278,7 +278,7 @@ def add_commands(parser: argparse.ArgumentParser) -> None:
     new.add_argument(
         "--counts",
         action="store_true",
-        help="the R column holds detector counts; σ defaults to sqrt(N)",
+        help="the R column holds detector counts; σ defaults to sqrt(max(N, 1))",
     )
     new.add_argument(
         "--full-scale",

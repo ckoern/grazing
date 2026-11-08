@@ -174,7 +174,7 @@ def test_counts_normalized_to_maximum(tmp_path: Path) -> None:
     path = write(tmp_path, "0.1,400\n0.2,1600\n0.3,100\n0.4,0\n")
     curve = read_one(path, CsvLayout(counts=True))
     assert curve.reflectivity == pytest.approx((0.25, 1.0, 0.0625, 0.0))
-    assert curve.uncertainty == pytest.approx((20 / 1600, 40 / 1600, 10 / 1600, 0.0))
+    assert curve.uncertainty == pytest.approx((20 / 1600, 40 / 1600, 10 / 1600, 1 / 1600))
 
 
 def test_counts_with_additional_scale(tmp_path: Path) -> None:
@@ -204,11 +204,11 @@ def test_counts_maximum_of_kept_rows(tmp_path: Path) -> None:
     assert curve.reflectivity == pytest.approx((0.5, 1.0))
 
 
-def test_negative_counts_get_zero_uncertainty(tmp_path: Path) -> None:
+def test_negative_counts_get_uncertainty_of_one_count(tmp_path: Path) -> None:
     path = write(tmp_path, "0.1,-4\n0.2,100\n")
     curve = read_one(path, CsvLayout(counts=True))
     assert curve.reflectivity == pytest.approx((-0.04, 1.0))
-    assert curve.uncertainty == pytest.approx((0.0, 0.1))
+    assert curve.uncertainty == pytest.approx((0.01, 0.1))
 
 
 def test_counts_without_positive_value(tmp_path: Path) -> None:

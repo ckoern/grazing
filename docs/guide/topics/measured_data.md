@@ -135,7 +135,9 @@ used, which sets the reflectivity of the plateau of total reflection to `reflect
 difference in the fit.
 
 Without an uncertainty column, the uncertainty of N counts is √N, normalized in the same way.
-An uncertainty column with counts is normalized like the counts.
+Points with zero counts (or fewer, after a background subtraction) get the uncertainty of one
+count, so that they stay in a *χ²* fit with a finite weight instead of being left out. An
+uncertainty column with counts is normalized like the counts.
 
 ```python
 Path("scan_counts.csv").write_text(
@@ -154,9 +156,6 @@ direct_beam = CsvLayout(counts=True, full_scale=1.6e5, energy=8048.0)
 (curve,) = read_curves("scan_counts.csv", direct_beam)
 print([round(r, 4) for r in curve.reflectivity])
 ```
-
-Points with zero counts get the uncertainty zero, which the *χ²* weighting leaves out (see
-[Uncertainties](#uncertainties)).
 
 ### Rows that are skipped
 
@@ -251,7 +250,7 @@ repeated; every curve of every file becomes a dataset named after the file (made
 The layout is set by the options `--quantity` (`angle`, `two_theta`, `q` or `energy`), `--unit`,
 `--columns X,R[,SIGMA]` (0-based indices or header names), `--percent` or `--scale FACTOR`, and
 for detector counts `--counts` with the optional `--full-scale COUNTS` (default: the largest
-count; σ defaults to √N). If none of these is
+count; σ defaults to √N, at least one count). If none of these is
 given, the file layout is detected: an xstack export is recognized, any other file is read with
 the default layout (grazing angle in degrees in the first column, reflectivity in the second, no
 uncertainties). Give `--columns` to use uncertainties. The photon energy of angle scans is

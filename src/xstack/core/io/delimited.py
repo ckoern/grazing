@@ -72,7 +72,7 @@ class CsvLayout:
     With `counts`, the reflectivity column holds detector counts N. They are converted to the
     reflectivity N / N_ref · `reflectivity_scale`, with the full-scale count N_ref given by
     `full_scale` or, if that is ``None``, the largest count of the curve. Without an uncertainty
-    column the uncertainty of the counts is √N (zero for zero counts).
+    column the uncertainty of the counts is √N, and 1 for counts of zero or below.
 
     Attributes:
         x_column: Column of the scanned variable.
@@ -258,7 +258,7 @@ def _curve(
     scale = layout.reflectivity_scale
     if layout.counts:
         if sigma is None:
-            sigma = np.sqrt(np.maximum(values, 0.0))
+            sigma = np.sqrt(np.maximum(values, 1.0))
         full_scale = layout.full_scale if layout.full_scale is not None else float(values.max())
         if not full_scale > 0.0:
             raise ValueError("the counts contain no positive value to normalize to")

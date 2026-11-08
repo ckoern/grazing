@@ -183,8 +183,9 @@ class DesignProblem:
         checked = tuple((c, c.evaluate(made, self.process)) for c in self.constraints)
         ctx = EvaluationContext(stack, self.targets, results, time)
         merit = self.merit.scalar(ctx)
+        soft, hard = self._penalties(checked)
         return Evaluation(
-            dict(values or {}), merit + self._penalty(checked), merit, stack, results, time, checked
+            dict(values or {}), merit + (soft + hard), merit, stack, results, time, checked
         )
 
     def quantities(self, evaluation: Evaluation) -> dict[str, float]:
@@ -204,38 +205,39 @@ class DesignProblem:
         )
         return self.merit.quantities(ctx)
 
-    def _penalty(self, checked: tuple[tuple[Constraint, ConstraintResult], ...]) -> float:
+    def _penalties(
+        self, checked: tuple[tuple[Constraint, ConstraintResult], ...]
+    ) -> tuple[float, float]:
+        """Return the soft and hard penalty terms of checked constraints."""
         soft = sum(r.violation**2 for c, r in checked if c.severity == "soft")
         hard = sum(r.violation for c, r in checked if c.severity == "hard" and not r.satisfied)
         hard_violated = any(not r.satisfied for c, r in checked if c.severity == "hard")
-        return self.soft_penalty * soft + (
-            self.hard_penalty * (1.0 + hard) if hard_violated else 0.0
+        return (
+            self.soft_penalty * soft,
+            self.hard_penalty * (1.0 + hard) if hard_violated else 0.0,
         )
 
-    def residuals(self, values: Mapping[str, float] | None, size: int) -> NDArray[np.float64]:
-        """Return the residual vector of a design for least-squares optimizers.
+    def residuals(self, evaluation: Evaluation, size: int) -> NDArray[np.float64]:
+        """Return the residual vector of an evaluated design for least-squares optimizers.
 
         The vector consists of the residuals of the figure of merit followed by two penalty
-        entries whose squares are the soft and hard penalty terms.
+        entries whose squares are the soft and hard penalty terms, so its sum of squares is the
+        objective of the evaluation. Designs that cannot be built get `size` equal entries whose
+        sum of squares is 2·λ_hard.
 
         Args:
-            values: Parameter values overriding the current ones, by name.
-            size: Expected length of the vector, used for designs that cannot be built.
+            evaluation: An evaluation of this problem.
+            size: Length of the vector for designs that cannot be built.
 
         Returns:
             Residual vector.
         """
-        evaluation = self.evaluate(values)
         if evaluation.stack is None:
             return np.full(size, np.sqrt(2.0 * self.hard_penalty / size))
         ctx = EvaluationContext(
             evaluation.stack, self.targets, evaluation.results, evaluation.coating_time
         )
-        penalty_soft = self.soft_penalty * sum(
-            r.violation**2 for c, r in evaluation.constraints if c.severity == "soft"
-        )
-        penalty_hard = evaluation.objective - evaluation.merit - penalty_soft
-        tail = np.sqrt(np.maximum([penalty_soft, penalty_hard], 0.0))
+        tail = np.sqrt(np.maximum(self._penalties(evaluation.constraints), 0.0))
         return np.concatenate([self.merit.residuals(ctx), tail])
 
 

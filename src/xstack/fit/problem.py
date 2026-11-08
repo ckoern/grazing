@@ -100,7 +100,6 @@ class FitProblem:
     weighting: Weighting = "log"
     library: MaterialLibrary | None = None
     _masks: tuple[NDArray[np.bool_], ...] = field(init=False, repr=False, compare=False)
-    _cache: dict[Any, FitEvaluation] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "datasets", tuple(self.datasets))
@@ -124,7 +123,6 @@ class FitProblem:
         if not any(m.any() for m in masks):
             raise ValueError("no measured point is selected for the fit")
         object.__setattr__(self, "_masks", masks)
-        object.__setattr__(self, "_cache", {})
 
     def fit_mask(self, dataset: Dataset) -> NDArray[np.bool_]:
         """Return which points of a dataset are fitted with this problem's weighting.
@@ -214,16 +212,6 @@ class FitProblem:
             The evaluation. Models that cannot be built get the objective `FAILED_OBJECTIVE`
             and an error message instead of raising.
         """
-        key = None if values is None else tuple(sorted(values.items()))
-        cached = self._cache.get(key)
-        if cached is not None:
-            return cached
-        evaluation = self._evaluate(values)
-        self._cache.clear()
-        self._cache[key] = evaluation
-        return evaluation
-
-    def _evaluate(self, values: Mapping[str, float] | None) -> FitEvaluation:
         try:
             resolved = self.resolve(values)
             stack = self.stack(resolved)
@@ -320,17 +308,17 @@ class FitProblem:
         fixed_angle = fixed if curve.axis == "energy" else None
         return dataset.instrument.apply(x, reflectivity, fixed_angle, instrument)
 
-    def residuals(self, values: Mapping[str, float] | None, size: int) -> NDArray[np.float64]:
-        """Return the residual vector for least-squares optimizers.
+    def residuals(self, evaluation: FitEvaluation, size: int) -> NDArray[np.float64]:
+        """Return the residual vector of an evaluation for least-squares optimizers.
 
         Args:
-            values: Parameter values overriding the current ones, by name.
-            size: Length of the vector, used for models that cannot be built.
+            evaluation: An evaluation of this problem.
+            size: Length of the vector for models that could not be built.
 
         Returns:
-            Residual vector.
+            The residuals of the evaluation, or `size` equal entries whose sum of squares is
+            `FAILED_OBJECTIVE` if the model could not be built.
         """
-        evaluation = self.evaluate(values)
         if evaluation.error is not None:
             return np.full(size, math.sqrt(FAILED_OBJECTIVE / size))
         return evaluation.residuals

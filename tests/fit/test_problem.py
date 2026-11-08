@@ -2,12 +2,14 @@
 
 import math
 from dataclasses import replace
+from typing import Any
 
 import numpy as np
 import pytest
 
 from xstack.core import materials
 from xstack.core.measurement import MeasuredCurve
+from xstack.core.optim import LmfitOptimizer
 from xstack.core.parameters import Parameter, ParameterSet, free
 from xstack.core.physics.models import KinematicModel
 from xstack.core.structure import Mirror, SingleLayer
@@ -418,38 +420,39 @@ class TestFailure:
 
     def test_residual_vector_for_failure(self) -> None:
         problem, _ = make_problem()
-        r = problem.residuals({"t": -1.0}, 7)
+        ev = problem.evaluate({"t": -1.0})
+        r = problem.residuals(ev, 7)
         assert r.shape == (7,)
         assert r @ r == pytest.approx(FAILED_OBJECTIVE)
 
     def test_residual_vector_for_success(self) -> None:
         problem, _ = make_problem("log", scale=2.0)
-        r = problem.residuals(None, 999)
+        ev = problem.evaluate()
+        r = problem.residuals(ev, 999)
         assert r.shape == (ANGLES.size,)
+        np.testing.assert_array_equal(r, ev.residuals)
+        assert r @ r == pytest.approx(ev.objective)
 
 
-class TestCache:
-    def test_same_values_same_object(self) -> None:
-        problem, _ = make_problem()
-        first = problem.evaluate({"t": 31.0})
-        assert problem.evaluate({"t": 31.0}) is first
-        assert problem.evaluate({"t": 31.0}) is first
-
-    def test_current_values(self) -> None:
-        problem, _ = make_problem()
-        assert problem.evaluate() is problem.evaluate()
-
-    def test_different_values_differ(self) -> None:
+class TestLeastSquaresEvaluations:
+    @pytest.mark.parametrize("method", ["leastsq", "least_squares"])
+    def test_one_model_evaluation_per_objective_call(
+        self, method: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         problem, _ = make_problem("linear")
-        a = problem.evaluate({"t": 31.0})
-        b = problem.evaluate({"t": 32.0})
-        assert a is not b
-        assert a.objective != b.objective
-        assert problem.evaluate({"t": 32.0}) is b
+        calls = 0
+        original = FitProblem.simulate
 
-    def test_failures_cached(self) -> None:
-        problem, _ = make_problem()
-        assert problem.evaluate({"t": -1.0}) is problem.evaluate({"t": -1.0})
+        def counting(self: FitProblem, *args: Any, **kwargs: Any) -> np.ndarray:
+            nonlocal calls
+            calls += 1
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(FitProblem, "simulate", counting)
+        start = problem.parameters.with_values({"t": 33.0})
+        result = LmfitOptimizer(method, max_evaluations=30).run(problem, start=start)
+        assert result.evaluations > 1
+        assert calls == result.evaluations
 
 
 class TestQuantities:

@@ -51,6 +51,8 @@ src/xstack/
     serialization.py        # versioned JSON: to_data, from_data, register_serializable,
                             #   register_component_registry
     document.py             # Command[S], History[S], Document[S]: undoable, saveable state
+    commands.py             # rename_project, set_notes, set_optical_constants: commands on the
+                            #   fields shared by the design and fit states
     journal.py              # Journal, JournalEntry
     optim/
       __init__.py           # exports Problem, Evaluation, optimizers and events

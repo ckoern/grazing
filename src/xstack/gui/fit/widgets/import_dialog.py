@@ -214,11 +214,14 @@ class ImportDialog(QDialog):
         for combo in (self.x_combo, self.r_combo, self.sigma_combo):
             combo.currentIndexChanged.connect(self._refresh)
         self.x_combo.setToolTip("Column of the scanned variable.")
-        self.r_combo.setToolTip("Column of the measured reflectivity.")
-        self.sigma_combo.setToolTip("Column of the reflectivity uncertainty, if the file has one.")
+        self.r_label = QLabel("R")
         columns = QHBoxLayout()
-        for text, combo in (("x", self.x_combo), ("R", self.r_combo), ("σ", self.sigma_combo)):
-            columns.addWidget(QLabel(text))
+        for label, combo in (
+            (QLabel("x"), self.x_combo),
+            (self.r_label, self.r_combo),
+            (QLabel("σ"), self.sigma_combo),
+        ):
+            columns.addWidget(label)
             columns.addWidget(combo)
         columns.addStretch()
         form.addRow("Columns", columns)
@@ -259,6 +262,39 @@ class ImportDialog(QDialog):
         self.percent_check = QCheckBox("reflectivity in %")
         self.percent_check.toggled.connect(self._refresh)
         form.addRow("Polarization", _row(self.polarization_combo, self.percent_check))
+
+        self.values_combo = QComboBox()
+        self.values_combo.addItem("reflectivity", False)
+        self.values_combo.addItem("detector counts", True)
+        self.values_combo.currentIndexChanged.connect(self._values_changed)
+        form.addRow("Values", self.values_combo)
+        self.normalize_combo = QComboBox()
+        self.normalize_combo.addItem("largest count", False)
+        self.normalize_combo.addItem("full-scale count", True)
+        self.normalize_combo.setToolTip(
+            "Count that corresponds to reflectivity 1: the largest count of the curve or a "
+            "given count such as the direct-beam count."
+        )
+        self.normalize_combo.currentIndexChanged.connect(self._values_changed)
+        self.full_scale_spin = QDoubleSpinBox()
+        self.full_scale_spin.setDecimals(0)
+        self.full_scale_spin.setRange(1.0, 1e15)
+        self.full_scale_spin.setValue(1e6)
+        self.full_scale_spin.setKeyboardTracking(False)
+        self.full_scale_spin.setToolTip("Count that corresponds to reflectivity 1.")
+        self.full_scale_spin.valueChanged.connect(self._refresh)
+        self.scale_spin = QDoubleSpinBox()
+        self.scale_spin.setDecimals(6)
+        self.scale_spin.setRange(1e-6, 1e6)
+        self.scale_spin.setValue(1.0)
+        self.scale_spin.setPrefix("factor ")
+        self.scale_spin.setKeyboardTracking(False)
+        self.scale_spin.setToolTip("Factor applied to the normalized reflectivity.")
+        self.scale_spin.valueChanged.connect(self._refresh)
+        self.normalize_widget = _row(self.normalize_combo, self.full_scale_spin, self.scale_spin)
+        self.normalize_label = QLabel("Normalize to")
+        form.addRow(self.normalize_label, self.normalize_widget)
+
         self.name_edit = QLineEdit()
         self.name_edit.textEdited.connect(self._name_edited)
         self.name_edit.setToolTip("Identifier of the dataset; also the prefix of its parameters.")
@@ -360,13 +396,23 @@ class ImportDialog(QDialog):
         sigma = self.sigma_combo.currentData()
         energy = kev(self.energy_spin.value()) if quantity != "energy" else None
         angle = deg(self.angle_spin.value()) if quantity == "energy" else None
+        counts = bool(self.values_combo.currentData())
+        if counts:
+            scale = self.scale_spin.value()
+        else:
+            scale = 0.01 if self.percent_check.isChecked() else 1.0
+        full_scale = None
+        if counts and self.normalize_combo.currentData():
+            full_scale = self.full_scale_spin.value()
         return CsvLayout(
             x_column=int(self.x_combo.currentData()),
             reflectivity_column=int(self.r_combo.currentData()),
             uncertainty_column=None if sigma is None else int(sigma),
             quantity=quantity,
             unit=self.unit_combo.currentText() or None,
-            reflectivity_scale=0.01 if self.percent_check.isChecked() else 1.0,
+            reflectivity_scale=scale,
+            counts=counts,
+            full_scale=full_scale,
             energy=energy,
             angle=angle,
             polarization=cast(Polarization, self.polarization_combo.currentText()),
@@ -448,7 +494,28 @@ class ImportDialog(QDialog):
         self._update_visibility()
         self._refresh()
 
+    def _values_changed(self) -> None:
+        if self._loading:
+            return
+        self._update_visibility()
+        self._refresh()
+
     def _update_visibility(self) -> None:
+        counts = bool(self.values_combo.currentData())
+        self.percent_check.setHidden(counts)
+        self.normalize_label.setHidden(not counts)
+        self.normalize_widget.setHidden(not counts)
+        self.full_scale_spin.setHidden(not self.normalize_combo.currentData())
+        self.r_label.setText("N" if counts else "R")
+        self.r_combo.setToolTip(
+            "Column of the detector counts." if counts else "Column of the measured reflectivity."
+        )
+        self.sigma_combo.setToolTip(
+            "Column of the count uncertainty; without one the uncertainty is √N, at least one "
+            "count."
+            if counts
+            else "Column of the reflectivity uncertainty, if the file has one."
+        )
         energy_scan = self.quantity_combo.currentData() == "energy"
         self.energy_label.setHidden(energy_scan)
         self.energy_widget.setHidden(energy_scan)
@@ -513,6 +580,10 @@ class ImportDialog(QDialog):
             self.angle_spin,
             self.polarization_combo,
             self.percent_check,
+            self.values_combo,
+            self.normalize_combo,
+            self.full_scale_spin,
+            self.scale_spin,
         ):
             widget.setEnabled(self._raw is not None and not self._export)
         self.name_edit.setEnabled(self._raw is not None and not self._export)

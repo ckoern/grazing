@@ -1,9 +1,9 @@
-"""Tests of the live behaviour of `xstack.gui.design.main_window`: pages and previews."""
+"""Tests of the live behaviour of `grazing.gui.design.main_window`: pages and previews."""
 
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.gui.design.main_window import WORKFLOW_STEPS, MainWindow
+from grazing.gui.design.main_window import WORKFLOW_STEPS, MainWindow
 
 pytestmark = pytest.mark.gui
 

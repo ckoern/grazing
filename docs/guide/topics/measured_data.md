@@ -1,12 +1,12 @@
 # Measured data
 
-A fit starts from measured reflectivity curves. This page describes which files xstack reads, how
+A fit starts from measured reflectivity curves. This page describes which files grazing reads, how
 a file's layout is described to the reader, what is skipped, and how the same import is done in
-`xstack-fit`, in Python and on the command line.
+`grazing-fit`, in Python and on the command line.
 
 ## What a curve is
 
-A {py:class}`~xstack.core.measurement.MeasuredCurve` is one of two kinds of scans:
+A {py:class}`~grazing.core.measurement.MeasuredCurve` is one of two kinds of scans:
 
 - an **angle scan**: reflectivity against the grazing angle θ at a fixed photon energy, or
 - an **energy scan**: reflectivity against the photon energy at a fixed grazing angle.
@@ -20,7 +20,7 @@ in keV gives the same kind of curve.
 ## Describing a file: `CsvLayout`
 
 Delimited text files (`.csv`, `.tsv`, `.txt`, `.dat`) are read with
-{py:func}`~xstack.core.io.data.read_curves`. A {py:class}`~xstack.core.io.delimited.CsvLayout`
+{py:func}`~grazing.core.io.data.read_curves`. A {py:class}`~grazing.core.io.delimited.CsvLayout`
 describes the layout; without one, the reader assumes the grazing angle in degrees in the first
 column and the reflectivity in the second column, and no uncertainties.
 
@@ -45,7 +45,7 @@ data. Files are read as UTF-8 (a byte-order mark is allowed), or as Latin-1 if t
 
 The energy of an angle scan and the angle of an energy scan must be known when the fit starts. If
 you leave them out when reading, set them later with
-{py:meth}`~xstack.core.measurement.MeasuredCurve.with_fixed`.
+{py:meth}`~grazing.core.measurement.MeasuredCurve.with_fixed`.
 
 ### Examples
 
@@ -57,8 +57,8 @@ percent:
 ```python
 from pathlib import Path
 
-from xstack.core.io import CsvLayout, read_curves
-from xstack.core.units import to_deg
+from grazing.core.io import CsvLayout, read_curves
+from grazing.core.units import to_deg
 
 Path("scan_percent.txt").write_text(
     "# two-theta (deg); reflectivity (%); error (%)\n"
@@ -112,7 +112,7 @@ print(curve.name, [round(float(to_deg(t)), 3) for t in curve.x])
 An energy scan at a fixed grazing angle:
 
 ```python
-from xstack.core.units import deg
+from grazing.core.units import deg
 
 Path("energy_scan.csv").write_text("E_keV,R\n8.0,0.60\n8.5,0.45\n9.0,0.31\n")
 layout = CsvLayout(quantity="energy", unit="keV", angle=deg(0.5))
@@ -167,7 +167,7 @@ print([round(r, 4) for r in curve.reflectivity])
 
 A field that is not a number (for example an empty cell or a unit text) is an error that names the
 line, rather than a skipped row, so that wrong column choices do not go unnoticed. The import
-dialog of `xstack-fit` shows how many rows were read and how many were skipped.
+dialog of `grazing-fit` shows how many rows were read and how many were skipped.
 
 Reflectivity values of zero or below are kept in the data. The fit leaves them out where its
 weighting cannot use them; see [Fit ranges and weighting](fit_ranges_and_weighting.md#weighting).
@@ -183,17 +183,17 @@ divided by the incident counts; with `counts=True` the reader computes it for yo
 [Detector counts](#detector-counts)). Take care with points of zero or very few counts: an uncertainty
 estimated from the observed counts is too small there.
 
-## Files written by xstack
+## Files written by grazing
 
-The reflectivity export of `xstack-design` (and
-{py:func}`~xstack.core.io.reflectivity.write_reflectivity_csv`) has a header row with the columns
+The reflectivity export of `grazing-design` (and
+{py:func}`~grazing.core.io.reflectivity.write_reflectivity_csv`) has a header row with the columns
 `target`, `axis`, `reflections`, `energy_keV`, `angle_deg`, `reflectivity` and `reflectivity^N`.
 Such a file is recognized by its header and read **without a layout**: every target becomes one
 curve, named by the label of the target, with its energy or angle taken from the file. This is the
 quickest way to use a simulated curve as test data. The export carries no uncertainties, so use
 a logarithmic or linear weighting, or add uncertainties yourself.
 
-## The import dialog of xstack-fit
+## The import dialog of grazing-fit
 
 *File > Add data…* (Ctrl+D) or the *Add data…* button of the *Datasets* dock opens the dialog
 *Add measured data*. Choose the file with *Browse…*, by typing the path, or by dropping the file
@@ -232,23 +232,23 @@ no entries for the delimiter, the decimal separator or another comment prefix. F
 decimal comma or other comment characters, read them with `CsvLayout` and save a project (see
 below), or convert the file.
 
-For an xstack export the dialog shows *xstack reflectivity export*, disables the layout entries
+For a grazing export the dialog shows *grazing reflectivity export*, disables the layout entries
 and adds one dataset per target.
 
 A project created in Python (see [Fit a measurement with Python](../quickstart_fit_library.md))
-is saved with `FitProject.save("name.xfit")` and opens in `xstack-fit` with all data and settings.
+is saved with `FitProject.save("name.gfit")` and opens in `grazing-fit` with all data and settings.
 
-## The command line: `xstack fit new`
+## The command line: `grazing fit new`
 
-`xstack fit new` creates a project from a model file and data files:
+`grazing fit new` creates a project from a model file and data files:
 
 ```{code-block} bash
-xstack fit new OUTPUT.xfit --model design.xstack --data scan.csv \
+grazing fit new OUTPUT.gfit --model design.grazing --data scan.csv \
     --energy 8.048 --quantity two_theta --columns 2theta_deg,R,dR \
     --range 0.35:3.0 --weighting chi2 --name "W/Si sample"
 ```
 
-`--model FILE` is required: the file with the start structure, for example an `.xstack` design
+`--model FILE` is required: the file with the start structure, for example a `.grazing` design
 project, with `--candidate NAME` choosing one of its designs (default: the first). `--data FILE` can be
 repeated; every curve of every file becomes a dataset named after the file (made an identifier).
 
@@ -256,7 +256,7 @@ The layout is set by the options `--quantity` (`angle`, `two_theta`, `q` or `ene
 `--columns X,R[,SIGMA]` (0-based indices or header names), `--percent` or `--scale FACTOR`, and
 for detector counts `--counts` with the optional `--full-scale COUNTS` (default: the largest
 count; σ defaults to √N, at least one count). If none of these is
-given, the file layout is detected: an xstack export is recognized, any other file is read with
+given, the file layout is detected: a grazing export is recognized, any other file is read with
 the default layout (grazing angle in degrees in the first column, reflectivity in the second, no
 uncertainties). Give `--columns` to use uncertainties. The photon energy of angle scans is
 `--energy` in keV and the grazing angle of energy scans is `--angle` in degrees. The options
@@ -267,6 +267,6 @@ for angle scans, and in keV for energy scans, whatever the quantity in the file.
 is `log` (default), `linear` or `chi2`.
 
 All instrument parameters of the new datasets start fixed at their defaults (scale 1, no
-background, no offset, no resolution, no footprint). Open the project in `xstack-fit` to vary
-them, or edit it in Python. `xstack fit info`, `xstack fit run` and `xstack fit export` inspect,
+background, no offset, no resolution, no footprint). Open the project in `grazing-fit` to vary
+them, or edit it in Python. `grazing fit info`, `grazing fit run` and `grazing fit export` inspect,
 fit and export a project.

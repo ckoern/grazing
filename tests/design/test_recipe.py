@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from xstack.core import materials
-from xstack.core.structure import Layer, Stack
-from xstack.design.manufacturing.process import DepositionProcess
-from xstack.design.recipe import layer_table, write_recipe_csv, write_recipe_json
+from grazing.core import materials
+from grazing.core.structure import Layer, Stack
+from grazing.design.manufacturing.process import DepositionProcess
+from grazing.design.recipe import layer_table, write_recipe_csv, write_recipe_json
 
 W = materials.get("W")
 SI = materials.get("Si")

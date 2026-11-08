@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xstack.core.materials import Material, delta_beta
+from grazing.core.materials import Material, delta_beta
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "cxro"
 FILES = sorted(DATA_DIR.glob("*.dat"))

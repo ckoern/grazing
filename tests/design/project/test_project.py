@@ -10,16 +10,16 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from xstack.core import materials
-from xstack.core.document import History
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg, kev
-from xstack.design.manufacturing.process import DepositionProcess
-from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import DesignProblem, Pipeline
-from xstack.design.project import SCHEMA_VERSION, Candidate, Command, Project, ProjectState
+from grazing.core import materials
+from grazing.core.document import History
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg, kev
+from grazing.design.manufacturing.process import DepositionProcess
+from grazing.design.merit import MeanReflectivity
+from grazing.design.optim import DesignProblem, Pipeline
+from grazing.design.project import SCHEMA_VERSION, Candidate, Command, Project, ProjectState
 
 W = materials.get("W")
 SI = materials.get("Si")
@@ -313,13 +313,13 @@ class TestPersistence:
 
     def test_to_data_is_strict_json(self) -> None:
         data = self.make_project().to_data()
-        assert data["format"] == "xstack-project"
+        assert data["format"] == "grazing-project"
         assert data["schema_version"] == SCHEMA_VERSION
         json.dumps(data, allow_nan=False)
 
     def test_save_load(self, tmp_path: Path) -> None:
         project = self.make_project()
-        path = tmp_path / "p.xstack"
+        path = tmp_path / "p.grazing"
         project.save(path)
         loaded = Project.load(path)
         assert loaded.state == project.state
@@ -327,9 +327,9 @@ class TestPersistence:
         assert not loaded.history.can_redo
         entries = loaded.journal.entries()
         assert [e.kind for e in entries[:2]] == ["command", "file"]
-        assert entries[1].message == "Saved to p.xstack"
+        assert entries[1].message == "Saved to p.grazing"
         assert entries[-1].kind == "file"
-        assert entries[-1].message == "Loaded p.xstack"
+        assert entries[-1].message == "Loaded p.grazing"
         assert len(entries) == 3
 
     def test_load_in_fresh_interpreter(self, tmp_path: Path) -> None:
@@ -339,11 +339,11 @@ class TestPersistence:
         project = Project(
             state.evolve(pipeline=pipeline, process=DepositionProcess({"W": 0.1, "Si": 0.2}))
         )
-        path = tmp_path / "fresh.xstack"
+        path = tmp_path / "fresh.grazing"
         project.save(path)
         script = (
             "import json, sys\n"
-            "from xstack.design.project import Project\n"
+            "from grazing.design.project import Project\n"
             "print(json.dumps(Project.load(sys.argv[1]).to_data()['state']))\n"
         )
         out = subprocess.run(
@@ -353,14 +353,14 @@ class TestPersistence:
 
     def test_save_accepts_str(self, tmp_path: Path) -> None:
         project = self.make_project()
-        project.save(str(tmp_path / "q.xstack"))
-        assert Project.load(str(tmp_path / "q.xstack")).state == project.state
+        project.save(str(tmp_path / "q.grazing"))
+        assert Project.load(str(tmp_path / "q.grazing")).state == project.state
 
     def test_saved_file_is_json(self, tmp_path: Path) -> None:
-        path = tmp_path / "p.xstack"
+        path = tmp_path / "p.grazing"
         self.make_project().save(path)
         data = json.loads(path.read_text())
-        assert data["format"] == "xstack-project"
+        assert data["format"] == "grazing-project"
 
     def test_display_ranges_round_trip(self) -> None:
         project = self.make_project()
@@ -377,7 +377,7 @@ class TestPersistence:
     def test_wrong_format(self) -> None:
         data = self.make_project().to_data()
         data["format"] = "something-else"
-        with pytest.raises(ValueError, match="not an xstack project"):
+        with pytest.raises(ValueError, match="not a grazing project"):
             Project.from_data(data)
 
     def test_missing_format(self) -> None:

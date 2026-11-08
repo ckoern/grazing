@@ -1,16 +1,16 @@
-"""Tests of the display ranges and candidate overlays in `xstack.gui.design.preview`."""
+"""Tests of the display ranges and candidate overlays in `grazing.gui.design.preview`."""
 
 import numpy as np
 import pytest
 
-import xstack.core.materials
-from xstack.core.parameters import ParameterSet
-from xstack.core.structure.coating import Mirror
-from xstack.core.targets import AngleScan, EnergyScan, TargetSet
-from xstack.design.manufacturing import ErrorModel, ToleranceResult, tolerance_analysis
-from xstack.design.project import Candidate, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.gui.design.preview import (
+import grazing.core.materials
+from grazing.core.parameters import ParameterSet
+from grazing.core.structure.coating import Mirror
+from grazing.core.targets import AngleScan, EnergyScan, TargetSet
+from grazing.design.manufacturing import ErrorModel, ToleranceResult, tolerance_analysis
+from grazing.design.project import Candidate, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.gui.design.preview import (
     compute_curves,
     compute_preview,
     display_targets,
@@ -125,7 +125,7 @@ def test_compute_preview_overlays() -> None:
     assert compute_preview(state).overlays == ()
 
 
-def periodic_media() -> frozenset[xstack.core.materials.Material]:
+def periodic_media() -> frozenset[grazing.core.materials.Material]:
     state = new_state("periodic")
     assert state.mirror is not None
     return frozenset(state.mirror.stack().media)
@@ -138,7 +138,7 @@ def test_lowest_energy_of_periodic_stack() -> None:
 
 
 def test_lowest_energy_of_vacuum_is_zero() -> None:
-    assert lowest_energy(frozenset([xstack.core.materials.VACUUM])) == 0.0
+    assert lowest_energy(frozenset([grazing.core.materials.VACUUM])) == 0.0
 
 
 def test_display_targets_energy_from_zero_starts_at_first_grid_point() -> None:

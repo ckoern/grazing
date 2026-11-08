@@ -1,13 +1,13 @@
-"""Tests for the explanatory texts, tooltips and `xstack.gui.common.style`."""
+"""Tests for the explanatory texts, tooltips and `grazing.gui.common.style`."""
 
 import pyqtgraph as pg
 import pytest
 from PySide6.QtWidgets import QApplication, QPushButton
 from pytestqt.qtbot import QtBot
 
-from xstack.design.manufacturing.constraints import MinLayerThickness
-from xstack.gui.common.forms import DataclassForm
-from xstack.gui.common.style import (
+from grazing.design.manufacturing.constraints import MinLayerThickness
+from grazing.gui.common.forms import DataclassForm
+from grazing.gui.common.style import (
     COLORS,
     THEMES,
     apply_style,
@@ -15,8 +15,8 @@ from xstack.gui.common.style import (
     resolve_theme,
     set_variant,
 )
-from xstack.gui.design.main_window import MainWindow
-from xstack.gui.design.steps import (
+from grazing.gui.design.main_window import MainWindow
+from grazing.gui.design.steps import (
     AnalyzePage,
     ConstraintsPage,
     MaterialsPage,
@@ -45,7 +45,7 @@ def test_scan_help_mentions_start_values() -> None:
 
 def _reset_style(app: QApplication) -> None:
     app.setStyleSheet("")
-    app.setProperty("xstack_theme", None)
+    app.setProperty("grazing_theme", None)
     COLORS.clear()
     COLORS.update(THEMES["light"])
 

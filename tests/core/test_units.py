@@ -3,7 +3,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from xstack.core import units
+from grazing.core import units
 
 positive = st.floats(min_value=1e-6, max_value=1e9, allow_nan=False, allow_infinity=False)
 

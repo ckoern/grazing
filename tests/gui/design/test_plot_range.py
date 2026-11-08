@@ -7,8 +7,8 @@ import pyqtgraph as pg
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.design.manufacturing import ErrorModel, tolerance_analysis
-from xstack.gui.design.main_window import MainWindow
+from grazing.design.manufacturing import ErrorModel, tolerance_analysis
+from grazing.gui.design.main_window import MainWindow
 
 pytestmark = pytest.mark.gui
 
@@ -104,7 +104,7 @@ def test_range_is_saved_and_restored(window: MainWindow, tmp_path: Path) -> None
     set_range(window, "energy", "0.5", "12")
     set_range(window, "angle", "0", "5")
     expected = dict(window.display_ranges)
-    path = tmp_path / "p.xstack"
+    path = tmp_path / "p.grazing"
     assert window.save_project_as(path)
     window.new_project("periodic")
     assert window.display_ranges == {}

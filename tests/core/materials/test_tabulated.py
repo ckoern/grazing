@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from xstack.core import materials
-from xstack.core.materials import (
+from grazing.core import materials
+from grazing.core.materials import (
     CombinedProvider,
     Material,
     TabulatedProvider,

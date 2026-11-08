@@ -4,15 +4,15 @@ import pytest
 from PySide6.QtCore import QPoint, Qt
 from pytestqt.qtbot import QtBot
 
-from xstack.core.materials import get
-from xstack.core.structure import Composite, Mirror, Periodic
-from xstack.core.structure.coatings import DepthGraded, NLayer
-from xstack.design.project import Project, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.fit.project import FitProject
-from xstack.fit.templates import new_state as new_fit_state
-from xstack.gui.design.steps import CoatingPage
-from xstack.gui.fit.steps.structure import StructurePage
+from grazing.core.materials import get
+from grazing.core.structure import Composite, Mirror, Periodic
+from grazing.core.structure.coatings import DepthGraded, NLayer
+from grazing.design.project import Project, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.fit.project import FitProject
+from grazing.fit.templates import new_state as new_fit_state
+from grazing.gui.design.steps import CoatingPage
+from grazing.gui.fit.steps.structure import StructurePage
 
 pytestmark = pytest.mark.gui
 

@@ -1,4 +1,4 @@
-"""Tests for `xstack.fit.instrument`."""
+"""Tests for `grazing.fit.instrument`."""
 
 import math
 
@@ -7,12 +7,12 @@ import pytest
 from numpy.typing import NDArray
 from scipy.special import erf
 
-from xstack.core import materials
-from xstack.core.parameters import Parameter, ParameterSet, free
-from xstack.core.physics.models import ParrattModel
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.units import deg, kev
-from xstack.fit.instrument import INSTRUMENT_PARAMETERS, Instrument, footprint_factor, smear
+from grazing.core import materials
+from grazing.core.parameters import Parameter, ParameterSet, free
+from grazing.core.physics.models import ParrattModel
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.units import deg, kev
+from grazing.fit.instrument import INSTRUMENT_PARAMETERS, Instrument, footprint_factor, smear
 
 FWHM = 2.0 * math.sqrt(2.0 * math.log(2.0))
 

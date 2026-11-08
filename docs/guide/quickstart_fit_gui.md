@@ -1,4 +1,4 @@
-# Fit a measurement in xstack-fit
+# Fit a measurement in grazing-fit
 
 This quick start determines the structure of a coated sample from a measured reflectivity curve.
 The example is a W/Si multilayer with 20 bilayers on a silicon substrate, measured in a θ/2θ scan
@@ -16,7 +16,7 @@ You will
 5. run the fit and
 6. read the results and save the project.
 
-Start the application with `xstack-fit` (see [Installation](installation.md)).
+Start the application with `grazing-fit` (see [Installation](installation.md)).
 The plot tabs on the right follow the workflow step (the reflectivity while you select data and
 parameters, the layer profile for the structure, the correlations for the results, the convergence
 during a fit). *Detach* next to the tabs shows a plot in its own window; closing it puts the tab back.
@@ -39,7 +39,7 @@ number of bilayers N are fixed.
 
 ```{note}
 *File > New from template* offers ready-made fit projects whose roughnesses are already free, and
-*Structure > Start structure* can import the design from an `.xstack` file made with xstack-design.
+*Structure > Start structure* can import the design from a `.grazing` file made with grazing-design.
 The reflectivity model (**Structure > Reflectivity model**) is the exact Parratt calculation with
 Névot–Croce roughness by default; it is the right choice for this example.
 ```
@@ -52,7 +52,7 @@ dialog.
 
 ![Import dialog with the Cu Kα file](images/fit_import_dialog.png)
 
-xstack reads the file whenever an entry changes, and the preview shows the file columns next to
+grazing reads the file whenever an entry changes, and the preview shows the file columns next to
 the values that will be used: the angle converted to the grazing angle θ in degrees, the
 reflectivity and the uncertainty. Check that these are what you expect before you add the data.
 For this file the dialog proposes the right layout:
@@ -61,8 +61,8 @@ For this file the dialog proposes the right layout:
   uncertainty. The header row gives the names; a file without header offers *column 1*, *column 2*,
   … instead. Choose *(none)* for σ if the file has no uncertainties.
 - **x is** *scattering angle 2θ* in *deg*. This is the angle between the incident beam and the
-  detector direction, twice the grazing angle on the sample. xstack always works with the grazing
-  angle θ, so it divides the values by two when it reads them. Entering 2θ as θ would stretch the
+  detector direction, twice the grazing angle on the sample. The program always works with the
+  grazing angle θ, so it divides the values by two when it reads them. Entering 2θ as θ would stretch the
   curve by a factor of two, so the structure found by a fit would be wrong.
 - **Photon energy** 8.0480 keV. The comment lines of the file state the energy
   (`# Photon energy: 8.0480 keV`), and the dialog takes it over; the format line says so. If a file
@@ -257,16 +257,16 @@ the fit that you want to export first.
 
 ## 8. Save the project
 
-*File > Save* (Ctrl+S) writes the project as an `.xfit` file. It contains the measured data, the
+*File > Save* (Ctrl+S) writes the project as an `.gfit` file. It contains the measured data, the
 structure and all settings, the saved fits, and the journal of all changes, so a later session
 continues where you stopped. All edits can be undone (*Edit > Undo*, or the *History* dock).
 
 The command-line tools use the same files:
 
 ```{code-block} bash
-xstack fit info project.xfit                  # data, ranges, parameters, last result
-xstack fit run project.xfit --output fitted.xfit
-xstack fit export project.xfit curves.csv     # measured and modeled curves
+grazing fit info project.gfit                  # data, ranges, parameters, last result
+grazing fit run project.gfit --output fitted.gfit
+grazing fit export project.gfit curves.csv     # measured and modeled curves
 ```
 
 ## Where to go next

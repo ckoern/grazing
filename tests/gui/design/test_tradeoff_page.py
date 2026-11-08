@@ -7,15 +7,15 @@ import pytest
 from PySide6.QtCore import QPointF, Qt
 from pytestqt.qtbot import QtBot
 
+from grazing.core.parameters import Parameter, ParameterSet
+from grazing.design.manufacturing.process import DepositionProcess
+from grazing.design.optim.tradeoff import TradeoffPoint, TradeoffResult
+from grazing.design.project.commands import set_mirror, set_process, store_tradeoff
+from grazing.design.project.templates import new_state
+from grazing.gui.design.main_window import MainWindow
+from grazing.gui.design.plots import MERIT_QUANTITY, ReferenceDesign, TradeoffPlot
+from grazing.gui.design.steps import TradeoffPage
 from tests.gui.design.test_optimization_gui import small_state, wait_job
-from xstack.core.parameters import Parameter, ParameterSet
-from xstack.design.manufacturing.process import DepositionProcess
-from xstack.design.optim.tradeoff import TradeoffPoint, TradeoffResult
-from xstack.design.project.commands import set_mirror, set_process, store_tradeoff
-from xstack.design.project.templates import new_state
-from xstack.gui.design.main_window import MainWindow
-from xstack.gui.design.plots import MERIT_QUANTITY, ReferenceDesign, TradeoffPlot
-from xstack.gui.design.steps import TradeoffPage
 
 pytestmark = pytest.mark.gui
 

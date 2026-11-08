@@ -5,18 +5,18 @@ import dataclasses
 import numpy as np
 import pytest
 
-from xstack.core.materials import delta_beta, get
-from xstack.core.physics import reflectivity
-from xstack.core.physics.bragg import bragg_angle, mean_delta
-from xstack.core.physics.models import (
+from grazing.core.materials import delta_beta, get
+from grazing.core.physics import reflectivity
+from grazing.core.physics.bragg import bragg_angle, mean_delta
+from grazing.core.physics.models import (
     KinematicModel,
     ParrattModel,
     ReflectivityResult,
     models,
 )
-from xstack.core.structure import Mirror, Periodic, Stack
-from xstack.core.targets import AngleScan, EnergyScan
-from xstack.core.units import deg, energy_to_wavelength, kev, mrad
+from grazing.core.structure import Mirror, Periodic, Stack
+from grazing.core.targets import AngleScan, EnergyScan
+from grazing.core.units import deg, energy_to_wavelength, kev, mrad
 
 W = get("W")
 SI = get("Si")

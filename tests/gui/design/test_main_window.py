@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.design.main_window` and `xstack.gui.design.app`."""
+"""Tests for `grazing.gui.design.main_window` and `grazing.gui.design.app`."""
 
 from pathlib import Path
 
@@ -6,9 +6,9 @@ import pytest
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDockWidget
 
-from xstack.design.project import Candidate
-from xstack.design.project.commands import add_candidate, set_parameter
-from xstack.gui.design.main_window import INPUT_DESIGN_LABEL, WORKFLOW_STEPS, MainWindow
+from grazing.design.project import Candidate
+from grazing.design.project.commands import add_candidate, set_parameter
+from grazing.gui.design.main_window import INPUT_DESIGN_LABEL, WORKFLOW_STEPS, MainWindow
 
 pytestmark = pytest.mark.gui
 
@@ -34,10 +34,10 @@ def test_title_unsaved(window: MainWindow) -> None:
 def test_modified_and_save(window: MainWindow, tmp_path: Path) -> None:
     edit_n(window, "55")
     assert window.isWindowModified()
-    path = tmp_path / "design.xstack"
+    path = tmp_path / "design.grazing"
     assert window.save_project_as(path)
     assert not window.isWindowModified()
-    assert "design.xstack" in window.windowTitle()
+    assert "design.grazing" in window.windowTitle()
     assert window.save_project()
 
 
@@ -70,7 +70,7 @@ def test_new_depth_graded(window: MainWindow) -> None:
 
 
 def test_open_adds_recent(window: MainWindow, tmp_path: Path, settings: QSettings) -> None:
-    path = tmp_path / "a.xstack"
+    path = tmp_path / "a.grazing"
     edit_n(window, "55")
     window.save_project_as(path)
     window.new_project("single_layer")
@@ -82,14 +82,14 @@ def test_open_adds_recent(window: MainWindow, tmp_path: Path, settings: QSetting
 
 
 def test_open_invalid_file(window: MainWindow, tmp_path: Path, settings: QSettings) -> None:
-    bad = tmp_path / "bad.xstack"
+    bad = tmp_path / "bad.grazing"
     bad.write_text("garbage")
     assert not window.open_project(bad)
     assert not settings.value("recent_files")
 
 
 def test_recent_entry_opens_file(window: MainWindow, tmp_path: Path) -> None:
-    path = tmp_path / "a.xstack"
+    path = tmp_path / "a.grazing"
     edit_n(window, "55")
     window.save_project_as(path)
     window.new_project("periodic")
@@ -169,6 +169,6 @@ def test_new_actions_per_template(window: MainWindow) -> None:
 
 
 def test_app_main_importable() -> None:
-    from xstack.gui.design import app
+    from grazing.gui.design import app
 
     assert callable(app.main)

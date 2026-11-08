@@ -21,8 +21,8 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication, QWidget
 
 if TYPE_CHECKING:
-    from xstack.gui.design.main_window import MainWindow as DesignWindow
-    from xstack.gui.fit.main_window import MainWindow as FitWindow
+    from grazing.gui.design.main_window import MainWindow as DesignWindow
+    from grazing.gui.fit.main_window import MainWindow as FitWindow
 
 IMAGES = Path(__file__).parents[1] / "images"
 """Directory of the guide's images."""
@@ -41,8 +41,8 @@ def screenshot(function: Callable[[], None]) -> Callable[[], None]:
 
 def app() -> QApplication:
     """Return the application, created with the light theme on first use."""
-    from xstack.gui.common.garbage import GarbageCollector
-    from xstack.gui.common.style import apply_style
+    from grazing.gui.common.garbage import GarbageCollector
+    from grazing.gui.common.style import apply_style
 
     instance = QApplication.instance()
     if not isinstance(instance, QApplication):
@@ -54,7 +54,7 @@ def app() -> QApplication:
 
 def settings() -> QSettings:
     """Return throw-away settings, so screenshots don't depend on the user's settings."""
-    directory = Path(tempfile.mkdtemp(prefix="xstack-guide-"))
+    directory = Path(tempfile.mkdtemp(prefix="grazing-guide-"))
     return QSettings(str(directory / "settings.ini"), QSettings.Format.IniFormat)
 
 
@@ -74,7 +74,7 @@ def pump(
 
 def design_window() -> "DesignWindow":
     """Return a new, shown design main window with throw-away settings and no close prompt."""
-    from xstack.gui.design.main_window import MainWindow as DesignWindow
+    from grazing.gui.design.main_window import MainWindow as DesignWindow
 
     app()
     window = DesignWindow(settings=settings(), confirm_close=False)
@@ -86,7 +86,7 @@ def design_window() -> "DesignWindow":
 
 def fit_window() -> "FitWindow":
     """Return a new, shown fit main window with throw-away settings and no close prompt."""
-    from xstack.gui.fit.main_window import MainWindow as FitWindow
+    from grazing.gui.fit.main_window import MainWindow as FitWindow
 
     app()
     window = FitWindow(settings=settings(), confirm_close=False)

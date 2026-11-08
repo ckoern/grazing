@@ -5,9 +5,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from grazing.core.physics.fresnel import Polarization
+from grazing.core.physics.kernel import parratt
 from tests.reference.matrix_methods import abeles, transfer_matrix, transfer_matrix_mp
-from xstack.core.physics.fresnel import Polarization
-from xstack.core.physics.kernel import parratt
 
 
 @st.composite

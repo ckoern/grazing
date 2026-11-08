@@ -1,4 +1,4 @@
-# Physics background for xstack
+# Physics background for grazing
 
 Reference notes on what the software needs under the hood to design X-ray multilayer (ML) mirrors.
 Conventions: grazing angle θ (measured from the surface), photon energy E, wavelength λ = hc/E
@@ -21,7 +21,7 @@ It comes from the atomic scattering factors f = f1 + i·f2 of the constituent at
   (stoichiometry x_a, molar masses M_a) and the mass density ρ.
 
 Photons that are Compton (incoherently) scattered no longer contribute to the specular beam. By default
-xstack therefore adds the Compton cross section σ_C of each element to the absorption part,
+grazing therefore adds the Compton cross section σ_C of each element to the absorption part,
 f2 → f2 + σ_C/(2 r_e λ), as the CXRO index-of-refraction calculator does. This matters mainly for light
 elements above ~10 keV. The `*_photo` providers leave it out (photoabsorption only).
 
@@ -33,7 +33,7 @@ elements above ~10 keV. The `*_photo` providers leave it out (photoabsorption on
 |---|---|---|
 | Henke / CXRO (`*.nff`) | 10 eV – 30 keV | Standard for soft and tender X-rays. Freely available, so it is bundled. |
 | Chantler / NIST FFAST | 10.7 eV – 433 keV | Alternative for hard X-ray MLs (provider `chantler`). Calculated for isolated atoms, so less reliable than Henke near soft X-ray and EUV edges. Bundled. |
-| xraylib | broad | **Used by xstack for E > 30 keV** (required dependency) |
+| xraylib | broad | **Used by grazing for E > 30 keV** (required dependency) |
 | User-tabulated δ, β | any | For measured or ellipsometry data, or reactive or interdiffused compounds (`TabulatedProvider`) |
 
 - The default provider uses the Henke tables up to 30 keV and xraylib above. A project can choose another provider

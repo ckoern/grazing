@@ -12,6 +12,6 @@ dist/
 .ipynb_checkpoints/
 .vscode/
 .idea/
-*.xstack.autosave
+*.grazing.autosave
 docs/_build/
 docs/api/generated/

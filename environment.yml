@@ -1,4 +1,4 @@
-name: xstack
+name: grazing
 channels:
   - conda-forge
 dependencies:

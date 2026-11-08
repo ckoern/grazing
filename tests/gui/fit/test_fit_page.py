@@ -4,12 +4,12 @@ import pytest
 from PySide6.QtWidgets import QCheckBox
 from pytestqt.qtbot import QtBot
 
+from grazing.core.optim.events import CancellationToken
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.fit.project import FitProject, FitState, set_parameter
+from grazing.gui.common.workers import Job
+from grazing.gui.fit.steps.fit import FitPage
 from tests.gui.fit.helpers import make_state
-from xstack.core.optim.events import CancellationToken
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.fit.project import FitProject, FitState, set_parameter
-from xstack.gui.common.workers import Job
-from xstack.gui.fit.steps.fit import FitPage
 
 
 @pytest.fixture

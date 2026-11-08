@@ -1,15 +1,15 @@
 # Quick reflectivity calculations
 
 To calculate or compare reflectivity curves in a short script, define a mirror and call one of the
-functions of {py:mod}`xstack.core.calc`. They return the reflectivity at the values you scan:
+functions of {py:mod}`grazing.core.calc`. They return the reflectivity at the values you scan:
 
 ```python
 import numpy as np
 
-from xstack.core.calc import reflectivity_vs_angle, reflectivity_vs_energy
-from xstack.core.materials import get
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.units import deg, kev
+from grazing.core.calc import reflectivity_vs_angle, reflectivity_vs_energy
+from grazing.core.materials import get
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.units import deg, kev
 
 W, Si = get("W"), get("Si")
 mirror = Mirror(Periodic.create(W, Si, N=30, d=4.0, gamma=0.4, sigma_H=0.3, sigma_L=0.3), Si)
@@ -30,7 +30,7 @@ Optional arguments choose the polarization (unpolarized by default), the reflect
 (Parratt with Névot–Croce roughness by default) and the optical constants:
 
 ```python
-from xstack.core.physics.models import ParrattModel
+from grazing.core.physics.models import ParrattModel
 
 r_s = reflectivity_vs_angle(mirror, angles, energy=8048.0, polarization="s")
 r_kinematic = reflectivity_vs_angle(mirror, angles, energy=8048.0, model="kinematic")

@@ -1,0 +1,65 @@
+"""Progress reporting and cancellation of long-running calculations."""
+
+import threading
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+
+__all__ = ["CancellationToken", "EventSink", "ProgressEvent"]
+
+
+@dataclass(frozen=True)
+class ProgressEvent:
+    """Progress of an optimization or scan.
+
+    Attributes:
+        task: Name of the running task, e.g. the stage name or the optimizer method.
+        evaluations: Number of objective evaluations so far.
+        total: Expected total number of evaluations, if known.
+        best_objective: Best objective so far, including penalties.
+        current_objective: Objective of the latest evaluation.
+        best_values: Parameter values of the best evaluation so far.
+        elapsed: Elapsed time in s.
+        best_merit: Rating without penalties of the best evaluation so far; ``nan`` if its
+            model could not be built.
+        best_quantities: Named quantities of the best evaluation so far, by label (see
+            `grazing.core.optim.problem.Problem.quantities`).
+    """
+
+    task: str
+    evaluations: int
+    total: int | None
+    best_objective: float
+    current_objective: float
+    best_values: Mapping[str, float]
+    elapsed: float
+    best_merit: float = float("nan")
+    best_quantities: Mapping[str, float] = field(default_factory=dict)
+
+
+type EventSink = Callable[[ProgressEvent], None]
+"""Callable that receives progress events."""
+
+
+class CancellationToken:
+    """Thread-safe flag to request cancellation of a running calculation.
+
+    Examples:
+        >>> token = CancellationToken()
+        >>> token.cancelled
+        False
+        >>> token.cancel()
+        >>> token.cancelled
+        True
+    """
+
+    def __init__(self) -> None:
+        self._event = threading.Event()
+
+    def cancel(self) -> None:
+        """Request cancellation."""
+        self._event.set()
+
+    @property
+    def cancelled(self) -> bool:
+        """Whether cancellation has been requested."""
+        return self._event.is_set()

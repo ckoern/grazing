@@ -4,19 +4,19 @@ import math
 
 import pytest
 
+from grazing.core.materials import default_library, get
+from grazing.core.optim import CancellationToken, ProgressEvent
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.physics import bragg
+from grazing.core.physics.models import KinematicModel, ParrattModel
+from grazing.core.structure import DepthGraded, Mirror, Periodic, SingleLayer
+from grazing.core.targets import AngleScan, EnergyScan, TargetSet
+from grazing.core.units import deg, energy_to_wavelength, kev
+from grazing.design.merit import MeanReflectivity, PeakReflectivity
+from grazing.design.optim import DesignProblem
+from grazing.design.optim.stages import BraggOutline, Stage
 from tests.design.optim.test_problem import ENERGY, make_problem
-from xstack.core.materials import default_library, get
-from xstack.core.optim import CancellationToken, ProgressEvent
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.physics import bragg
-from xstack.core.physics.models import KinematicModel, ParrattModel
-from xstack.core.structure import DepthGraded, Mirror, Periodic, SingleLayer
-from xstack.core.targets import AngleScan, EnergyScan, TargetSet
-from xstack.core.units import deg, energy_to_wavelength, kev
-from xstack.design.merit import MeanReflectivity, PeakReflectivity
-from xstack.design.optim import DesignProblem
-from xstack.design.optim.stages import BraggOutline, Stage
 
 W = get("W")
 SI = get("Si")

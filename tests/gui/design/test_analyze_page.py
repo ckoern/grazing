@@ -2,11 +2,11 @@
 
 from pytestqt.qtbot import QtBot
 
-from xstack.core.optim.events import CancellationToken
-from xstack.design.manufacturing.tolerance import ErrorModel, ToleranceResult
-from xstack.design.project.templates import new_state
-from xstack.gui.common.workers import Job
-from xstack.gui.design.steps import AnalyzePage
+from grazing.core.optim.events import CancellationToken
+from grazing.design.manufacturing.tolerance import ErrorModel, ToleranceResult
+from grazing.design.project.templates import new_state
+from grazing.gui.common.workers import Job
+from grazing.gui.design.steps import AnalyzePage
 
 
 def make_page(qtbot: QtBot) -> AnalyzePage:

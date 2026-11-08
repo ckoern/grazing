@@ -4,17 +4,17 @@ import pytest
 from PySide6.QtWidgets import QCheckBox, QComboBox
 from pytestqt.qtbot import QtBot
 
-from xstack.core.materials import get
-from xstack.core.structure import DepthGraded, Mirror, NLayer, Periodic
-from xstack.core.structure.coating import density_parameter_name
-from xstack.core.structure.coatings.composite import Composite
-from xstack.design.project import Project, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.fit.project import FitProject, FitState
-from xstack.fit.templates import new_state as new_fit_state
-from xstack.gui.common.materials import INTERLAYER_START
-from xstack.gui.design.steps import MaterialsPage
-from xstack.gui.fit.steps.materials import MaterialsPage as FitMaterialsPage
+from grazing.core.materials import get
+from grazing.core.structure import DepthGraded, Mirror, NLayer, Periodic
+from grazing.core.structure.coating import density_parameter_name
+from grazing.core.structure.coatings.composite import Composite
+from grazing.design.project import Project, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.fit.project import FitProject, FitState
+from grazing.fit.templates import new_state as new_fit_state
+from grazing.gui.common.materials import INTERLAYER_START
+from grazing.gui.design.steps import MaterialsPage
+from grazing.gui.fit.steps.materials import MaterialsPage as FitMaterialsPage
 
 pytestmark = pytest.mark.gui
 

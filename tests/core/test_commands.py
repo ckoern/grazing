@@ -2,8 +2,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from xstack.core.commands import rename_project, set_notes, set_optical_constants
-from xstack.core.document import Command, Document
+from grazing.core.commands import rename_project, set_notes, set_optical_constants
+from grazing.core.document import Command, Document
 
 
 @dataclass(frozen=True)

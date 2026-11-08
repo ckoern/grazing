@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
-from xstack.core.materials import Material, delta_beta, get
-from xstack.core.physics import bragg, reflectivity
-from xstack.core.structure import DepthGraded, Mirror, Periodic
-from xstack.core.units import energy_to_wavelength
+from grazing.core.materials import Material, delta_beta, get
+from grazing.core.physics import bragg, reflectivity
+from grazing.core.structure import DepthGraded, Mirror, Periodic
+from grazing.core.units import energy_to_wavelength
 
 W, SI, C = get("W"), get("Si"), get("C")
 ENERGY = 8048.0

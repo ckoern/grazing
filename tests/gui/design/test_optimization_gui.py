@@ -10,15 +10,15 @@ import pytest
 from PySide6.QtCore import Qt
 from pytestqt.qtbot import QtBot
 
-from xstack.core.optim.events import CancellationToken, ProgressEvent
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.design.project.commands import set_mirror
-from xstack.design.project.templates import new_state
-from xstack.gui.common.workers import Job, JobRunner
-from xstack.gui.design.main_window import MainWindow
-from xstack.gui.design.plots import ConvergencePlot, DesignMapPlot
-from xstack.gui.design.steps import AnalyzePage, ScanPage
+from grazing.core.optim.events import CancellationToken, ProgressEvent
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.design.project.commands import set_mirror
+from grazing.design.project.templates import new_state
+from grazing.gui.common.workers import Job, JobRunner
+from grazing.gui.design.main_window import MainWindow
+from grazing.gui.design.plots import ConvergencePlot, DesignMapPlot
+from grazing.gui.design.steps import AnalyzePage, ScanPage
 
 pytestmark = pytest.mark.gui
 

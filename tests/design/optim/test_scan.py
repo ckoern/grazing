@@ -5,13 +5,13 @@ import math
 import numpy as np
 import pytest
 
+from grazing.core.optim import CancellationToken, ProgressEvent
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.design.manufacturing.constraints import MinLayerThickness
+from grazing.design.merit import MeanReflectivity
+from grazing.design.optim import DesignProblem, GridScan, scan
 from tests.design.optim.test_problem import SI, W, make_problem
-from xstack.core.optim import CancellationToken, ProgressEvent
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.design.manufacturing.constraints import MinLayerThickness
-from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import DesignProblem, GridScan, scan
 
 
 class TestScan:

@@ -6,11 +6,11 @@ import math
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.physics.models import ParrattModel
-from xstack.core.structure import Stack
-from xstack.core.targets import AngleScan, EnergyScan, Profile, TargetSet
-from xstack.core.units import deg, kev
+from grazing.core import materials
+from grazing.core.physics.models import ParrattModel
+from grazing.core.structure import Stack
+from grazing.core.targets import AngleScan, EnergyScan, Profile, TargetSet
+from grazing.core.units import deg, kev
 
 
 def energy_scan(**kwargs: object) -> EnergyScan:

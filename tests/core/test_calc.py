@@ -3,13 +3,13 @@
 import numpy as np
 import pytest
 
-from xstack.core.calc import reflectivity_vs_angle, reflectivity_vs_energy
-from xstack.core.materials import get
-from xstack.core.physics.models import KinematicModel, ParrattModel
-from xstack.core.structure import Composite, Mirror, Periodic, SingleLayer
-from xstack.core.structure.coating import CoatingBuildError
-from xstack.core.targets import AngleScan, EnergyScan
-from xstack.core.units import deg, kev
+from grazing.core.calc import reflectivity_vs_angle, reflectivity_vs_energy
+from grazing.core.materials import get
+from grazing.core.physics.models import KinematicModel, ParrattModel
+from grazing.core.structure import Composite, Mirror, Periodic, SingleLayer
+from grazing.core.structure.coating import CoatingBuildError
+from grazing.core.targets import AngleScan, EnergyScan
+from grazing.core.units import deg, kev
 
 MIRROR = Mirror(
     Periodic.create(get("W"), get("Si"), N=30, d=4.0, gamma=0.4, sigma_H=0.3, sigma_L=0.3),

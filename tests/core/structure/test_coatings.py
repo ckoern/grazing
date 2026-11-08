@@ -5,11 +5,11 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from xstack.core import materials
-from xstack.core.materials import VACUUM
-from xstack.core.parameters import Parameter, ParameterSet, free
-from xstack.core.structure.coating import Coating, CoatingBuildError, Mirror, coatings
-from xstack.core.structure.coatings import (
+from grazing.core import materials
+from grazing.core.materials import VACUUM
+from grazing.core.parameters import Parameter, ParameterSet, free
+from grazing.core.structure.coating import Coating, CoatingBuildError, Mirror, coatings
+from grazing.core.structure.coatings import (
     Composite,
     DepthGraded,
     NLayer,
@@ -17,8 +17,8 @@ from xstack.core.structure.coatings import (
     SingleLayer,
     grading_laws,
 )
-from xstack.core.structure.coatings.simple import layer_labels
-from xstack.core.structure.stack import Layer
+from grazing.core.structure.coatings.simple import layer_labels
+from grazing.core.structure.stack import Layer
 
 W = materials.get("W")
 SI = materials.get("Si")
@@ -928,8 +928,8 @@ class TestMirror:
 
 
 def test_expression_outside_bounds_raises_build_error() -> None:
-    from xstack.core.materials import get
-    from xstack.core.structure import CoatingBuildError, Periodic
+    from grazing.core.materials import get
+    from grazing.core.structure import CoatingBuildError, Periodic
 
     coating = Periodic.create(get("W"), get("Si"), gamma="1.5")
     with pytest.raises(CoatingBuildError, match="outside"):

@@ -4,18 +4,18 @@ import pytest
 from PySide6.QtWidgets import QTableWidget
 from pytestqt.qtbot import QtBot
 
-from xstack.core.materials import get
-from xstack.core.structure import DepthGraded, Mirror, NLayer, Periodic
-from xstack.core.structure.coatings.composite import Composite
-from xstack.design.manufacturing.process import DepositionProcess
-from xstack.design.project import ProjectState
-from xstack.design.project.project import Candidate
-from xstack.design.project.templates import new_state
-from xstack.gui.design.main_window import MainWindow
-from xstack.gui.design.materials_summary import coating_title, materials_text
-from xstack.gui.design.steps import ProcessPage
-from xstack.gui.design.steps.estimate import EstimatePage
-from xstack.gui.design.widgets.candidate_dialog import CandidateParametersDialog
+from grazing.core.materials import get
+from grazing.core.structure import DepthGraded, Mirror, NLayer, Periodic
+from grazing.core.structure.coatings.composite import Composite
+from grazing.design.manufacturing.process import DepositionProcess
+from grazing.design.project import ProjectState
+from grazing.design.project.project import Candidate
+from grazing.design.project.templates import new_state
+from grazing.gui.design.main_window import MainWindow
+from grazing.gui.design.materials_summary import coating_title, materials_text
+from grazing.gui.design.steps import ProcessPage
+from grazing.gui.design.steps.estimate import EstimatePage
+from grazing.gui.design.widgets.candidate_dialog import CandidateParametersDialog
 
 pytestmark = pytest.mark.gui
 

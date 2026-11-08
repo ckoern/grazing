@@ -6,12 +6,12 @@ from typing import Any
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.core.optim.events import CancellationToken
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.design.merit import (
+from grazing.core.optim.events import CancellationToken
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.design.merit import (
     Flatness,
     MeanReflectivity,
     PeakReflectivity,
@@ -19,14 +19,14 @@ from xstack.design.merit import (
     TimePenalized,
     WeightedSum,
 )
-from xstack.design.merit.base import CallableMerit
-from xstack.design.optim.scan import GridScan
-from xstack.design.optim.stages import BraggOutline
-from xstack.design.project.commands import set_mirror
-from xstack.design.project.templates import new_state
-from xstack.gui.common.workers import Job
-from xstack.gui.design.steps import OptimizePage
-from xstack.gui.design.steps.optimize import MERIT_DESCRIPTIONS, OPTICAL_MERITS
+from grazing.design.merit.base import CallableMerit
+from grazing.design.optim.scan import GridScan
+from grazing.design.optim.stages import BraggOutline
+from grazing.design.project.commands import set_mirror
+from grazing.design.project.templates import new_state
+from grazing.gui.common.workers import Job
+from grazing.gui.design.steps import OptimizePage
+from grazing.gui.design.steps.optimize import MERIT_DESCRIPTIONS, OPTICAL_MERITS
 
 pytestmark = pytest.mark.gui
 

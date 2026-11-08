@@ -5,9 +5,9 @@ import dataclasses
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.materials import VACUUM, MaterialLibrary
-from xstack.core.structure.stack import Layer, Stack
+from grazing.core import materials
+from grazing.core.materials import VACUUM, MaterialLibrary
+from grazing.core.structure.stack import Layer, Stack
 
 SI = materials.get("Si")
 W = materials.get("W")

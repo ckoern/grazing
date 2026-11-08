@@ -8,15 +8,15 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.io.reflectivity import (
+from grazing.core import materials
+from grazing.core.io.reflectivity import (
     REFLECTIVITY_COLUMNS,
     reflectivity_table,
     write_reflectivity_csv,
 )
-from xstack.core.physics.models import ParrattModel
-from xstack.core.structure import Layer, Stack
-from xstack.core.targets import AngleScan, EnergyScan, Target
+from grazing.core.physics.models import ParrattModel
+from grazing.core.structure import Layer, Stack
+from grazing.core.targets import AngleScan, EnergyScan, Target
 
 W = materials.get("W")
 SI = materials.get("Si")

@@ -1,10 +1,10 @@
-"""Tests for `xstack.gui.common.plot_tabs`."""
+"""Tests for `grazing.gui.common.plot_tabs`."""
 
 import pytest
 from PySide6.QtWidgets import QLabel
 from pytestqt.qtbot import QtBot
 
-from xstack.gui.common.plot_tabs import PlotTabs
+from grazing.gui.common.plot_tabs import PlotTabs
 
 pytestmark = pytest.mark.gui
 

@@ -4,10 +4,10 @@ import pytest
 from PySide6.QtGui import QGuiApplication
 from pytestqt.qtbot import QtBot
 
-from xstack.core.structure.coating import Mirror
-from xstack.design.project.project import Candidate
-from xstack.design.project.templates import new_state
-from xstack.gui.design.widgets.candidate_dialog import CandidateParametersDialog
+from grazing.core.structure.coating import Mirror
+from grazing.design.project.project import Candidate
+from grazing.design.project.templates import new_state
+from grazing.gui.design.widgets.candidate_dialog import CandidateParametersDialog
 
 pytestmark = pytest.mark.gui
 

@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "xstack"
-version = "0.2.0"
+name = "grazing"
+version = "0.3.0"
 description = "Design of X-ray multilayer mirrors with manufacturing constraints and fitting of measured reflectivity"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -16,14 +16,14 @@ dependencies = [
 ]
 
 [project.scripts]
-xstack = "xstack.__main__:main"
+grazing = "grazing.__main__:main"
 
 [project.gui-scripts]
-xstack-design = "xstack.gui.design.app:main"
-xstack-fit = "xstack.gui.fit.app:main"
+grazing-design = "grazing.gui.design.app:main"
+grazing-fit = "grazing.gui.fit.app:main"
 
-[project.entry-points."xstack.plugins"]
-design = "xstack.design.plugin"
+[project.entry-points."grazing.plugins"]
+design = "grazing.design.plugin"
 
 [project.optional-dependencies]
 gui = [
@@ -48,10 +48,10 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/xstack"]
+packages = ["src/grazing"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "src/xstack"]
+testpaths = ["tests", "src/grazing"]
 pythonpath = ["."]
 addopts = ["-ra", "--strict-markers", "--benchmark-skip", "--doctest-modules"]
 markers = [
@@ -74,17 +74,17 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "PT011"]
-"src/xstack/core/structure/coatings/*" = ["N803"]
-"src/xstack/gui/**" = ["N802", "N815"]
+"src/grazing/core/structure/coatings/*" = ["N803"]
+"src/grazing/gui/**" = ["N802", "N815"]
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src/xstack", "tests"]
+files = ["src/grazing", "tests"]
 strict = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["xstack.gui.*"]
+module = ["grazing.gui.*"]
 disallow_subclassing_any = false
 disallow_untyped_calls = false
 warn_return_any = false

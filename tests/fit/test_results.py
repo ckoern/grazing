@@ -1,4 +1,4 @@
-"""Tests for `xstack.fit.results`."""
+"""Tests for `grazing.fit.results`."""
 
 import json
 import math
@@ -6,15 +6,15 @@ import math
 import numpy as np
 import pytest
 
-from xstack.core import materials
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.optim.optimizers import LmfitOptimizer, OptimizationResult
-from xstack.core.parameters import free
-from xstack.core.serialization import from_data, to_data
-from xstack.core.structure import Mirror, SingleLayer
-from xstack.fit.dataset import Dataset
-from xstack.fit.problem import FitProblem, Weighting
-from xstack.fit.results import STRONG_CORRELATION, FitResult, FitStatistics, analyze
+from grazing.core import materials
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.optim.optimizers import LmfitOptimizer, OptimizationResult
+from grazing.core.parameters import free
+from grazing.core.serialization import from_data, to_data
+from grazing.core.structure import Mirror, SingleLayer
+from grazing.fit.dataset import Dataset
+from grazing.fit.problem import FitProblem, Weighting
+from grazing.fit.results import STRONG_CORRELATION, FitResult, FitStatistics, analyze
 
 PT, SI = materials.get("Pt"), materials.get("Si")
 ANGLES = np.linspace(0.002, 0.012, 60)
@@ -132,7 +132,7 @@ class TestAnalyzeErrors:
             analyze(problem)
 
     def test_integer_parameters_excluded(self) -> None:
-        from xstack.core.structure import Periodic
+        from grazing.core.structure import Periodic
 
         w = materials.get("W")
         mirror = Mirror(Periodic.create(w, SI, N=free(10, 5, 20), d=4.0), SI)

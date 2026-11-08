@@ -3,14 +3,14 @@
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.core.materials import get
-from xstack.core.structure import Periodic
-from xstack.design.project import Command, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.fit.templates import new_state as new_fit_state
-from xstack.gui.common.coating import visible_parameters
-from xstack.gui.design.steps import CoatingPage
-from xstack.gui.fit.steps.parameters import ParametersPage
+from grazing.core.materials import get
+from grazing.core.structure import Periodic
+from grazing.design.project import Command, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.fit.templates import new_state as new_fit_state
+from grazing.gui.common.coating import visible_parameters
+from grazing.gui.design.steps import CoatingPage
+from grazing.gui.fit.steps.parameters import ParametersPage
 
 pytestmark = pytest.mark.gui
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-import xstack
+import grazing
 
 SUBPACKAGES = [
     "core",
@@ -21,15 +21,15 @@ SUBPACKAGES = [
     "fit",
 ]
 
-SRC = Path(xstack.__file__).parent
+SRC = Path(grazing.__file__).parent
 
 FORBIDDEN = {
-    "core": ("xstack.design", "xstack.fit", "xstack.gui", "PySide6", "pyqtgraph"),
-    "design": ("xstack.fit", "xstack.gui", "PySide6", "pyqtgraph"),
-    "fit": ("xstack.design", "xstack.gui", "PySide6", "pyqtgraph"),
-    "gui/common": ("xstack.design", "xstack.fit", "xstack.gui.design", "xstack.gui.fit"),
-    "gui/fit": ("xstack.design", "xstack.gui.design"),
-    "gui/design": ("xstack.fit", "xstack.gui.fit"),
+    "core": ("grazing.design", "grazing.fit", "grazing.gui", "PySide6", "pyqtgraph"),
+    "design": ("grazing.fit", "grazing.gui", "PySide6", "pyqtgraph"),
+    "fit": ("grazing.design", "grazing.gui", "PySide6", "pyqtgraph"),
+    "gui/common": ("grazing.design", "grazing.fit", "grazing.gui.design", "grazing.gui.fit"),
+    "gui/fit": ("grazing.design", "grazing.gui.design"),
+    "gui/design": ("grazing.fit", "grazing.gui.fit"),
 }
 """Imports that a subpackage must not use: core ← design, core ← fit, both ← gui; the shared
 GUI components don't depend on an application."""
@@ -47,12 +47,12 @@ def imported_modules(path: Path) -> set[str]:
 
 
 def test_version_is_str() -> None:
-    assert isinstance(xstack.__version__, str)
+    assert isinstance(grazing.__version__, str)
 
 
 @pytest.mark.parametrize("name", SUBPACKAGES)
 def test_subpackage_imports(name: str) -> None:
-    assert importlib.import_module(f"xstack.{name}") is not None
+    assert importlib.import_module(f"grazing.{name}") is not None
 
 
 @pytest.mark.parametrize("package", sorted(FORBIDDEN))

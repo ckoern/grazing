@@ -1,11 +1,11 @@
-"""Tests for `xstack.core.structure.presets`."""
+"""Tests for `grazing.core.structure.presets`."""
 
 import pytest
 
-from xstack.core.structure.coatings.graded import DepthGraded
-from xstack.core.structure.coatings.periodic import Periodic
-from xstack.core.structure.coatings.simple import NLayer, SingleLayer
-from xstack.core.structure.presets import (
+from grazing.core.structure.coatings.graded import DepthGraded
+from grazing.core.structure.coatings.periodic import Periodic
+from grazing.core.structure.coatings.simple import NLayer, SingleLayer
+from grazing.core.structure.presets import (
     COATING_KINDS,
     MATERIAL_PAIRS,
     StructureChoice,

@@ -1,2 +1,2 @@
-```{include} ../../xstack_concept.md
+```{include} ../../grazing_concept.md
 ```

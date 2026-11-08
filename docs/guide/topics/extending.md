@@ -1,18 +1,18 @@
-# Extending xstack
+# Extending grazing
 
-Every extension axis of xstack is a registry: data formats, structure-model readers, coatings,
+Every extension axis of grazing is a registry: data formats, structure-model readers, coatings,
 figures of merit, constraints, optimizers, reflectivity and roughness models. A new component
 becomes available everywhere — in the library, in project files and in the GUI's choices — by
-registering it. Nothing in xstack has to be edited.
+registering it. Nothing in grazing has to be edited.
 
 This page shows two examples: a reader for another data format and a new figure of merit. The
-last section explains how to ship them as a plugin package that xstack loads automatically.
+last section explains how to ship them as a plugin package that grazing loads automatically.
 
 ## A data format
 
 Say your reflectometer writes two-column files with the suffix `.xy`: the grazing angle in
 degrees and the reflectivity, with the photon energy in the first line. A parser implements
-{py:class}`~xstack.core.io.data.DataParser`: a description, the suffixes it handles, the type of
+{py:class}`~grazing.core.io.data.DataParser`: a description, the suffixes it handles, the type of
 its options (here none) and `read`, which returns measured curves.
 
 ```python
@@ -20,9 +20,9 @@ from pathlib import Path
 
 import numpy as np
 
-from xstack.core.io import data_parsers, read_curves
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.units import deg, kev
+from grazing.core.io import data_parsers, read_curves
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.units import deg, kev
 
 
 class XyParser:
@@ -45,8 +45,8 @@ class XyParser:
 data_parsers.register("xy", XyParser())
 ```
 
-Parsers are chosen by the file suffix, so {py:func}`~xstack.core.io.data.read_curves` — and with
-it the `xstack fit new` command and the import dialog of xstack-fit — now reads `.xy` files:
+Parsers are chosen by the file suffix, so {py:func}`~grazing.core.io.data.read_curves` — and with
+it the `grazing fit new` command and the import dialog of grazing-fit — now reads `.xy` files:
 
 ```python
 Path("scan.xy").write_text("energy_keV = 8.048\n0.2 0.95\n0.4 0.31\n0.6 0.02\n")
@@ -58,7 +58,7 @@ print(curve.name, curve.size, curve.energy)
 
 Figures of merit of the design tool rate the reflectivity curves of a design; the optimizer
 minimizes them. Most rate each target's curve separately and derive from
-{py:class}`~xstack.design.merit.base.CurveMerit`: `curve_value` returns the value to minimize
+{py:class}`~grazing.design.merit.base.CurveMerit`: `curve_value` returns the value to minimize
 for one curve and `curve_residuals` the residual vector used by least-squares optimizers (its sum
 of squares should behave like the value). This one maximizes the lowest reflectivity in a band,
 smoothed with a soft minimum so that gradient-based optimizers can follow it:
@@ -67,7 +67,7 @@ smoothed with a soft minimum so that gradient-based optimizers can follow it:
 from dataclasses import dataclass
 from typing import ClassVar
 
-from xstack.design.merit.base import Curve, CurveMerit, register_merit
+from grazing.design.merit.base import Curve, CurveMerit, register_merit
 
 
 @register_merit
@@ -95,20 +95,20 @@ class SoftMinimumReflectivity(CurveMerit):
 ```
 
 ```{note}
-xstack already contains a soft-minimum figure of merit; the class above only demonstrates the
+grazing already contains a soft-minimum figure of merit; the class above only demonstrates the
 mechanism.
 ```
 
 The decorator registers the class under its `type_name`. It can now be used in a design problem,
-is stored in and read from `.xstack` project files, and appears in the figure-of-merit choice of
-xstack-design:
+is stored in and read from `.grazing` project files, and appears in the figure-of-merit choice of
+grazing-design:
 
 ```python
-from xstack.core.materials import get
-from xstack.core.structure import Mirror, Periodic
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import deg
-from xstack.design.optim.problem import DesignProblem
+from grazing.core.materials import get
+from grazing.core.structure import Mirror, Periodic
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import deg
+from grazing.design.optim.problem import DesignProblem
 
 mirror = Mirror(Periodic.create(get("W"), get("Si"), N=30, d=3.0, gamma=0.4), get("Si"))
 band = EnergyScan(angle=deg(1.5), energy_min=7900.0, energy_max=8200.0, points=50)
@@ -117,38 +117,38 @@ print(problem.quantities(problem.evaluate()))
 ```
 
 Other components follow the same pattern: coatings derive from
-{py:class}`~xstack.core.structure.coating.Coating` and use `register_coating`, constraints
-`register_constraint`, optimizers {py:class}`~xstack.core.optim.optimizers.Optimizer` and
+{py:class}`~grazing.core.structure.coating.Coating` and use `register_coating`, constraints
+`register_constraint`, optimizers {py:class}`~grazing.core.optim.optimizers.Optimizer` and
 `register_optimizer`; structure-model readers implement
-{py:class}`~xstack.core.io.models.ModelReader` and register in `model_readers`. The registries
+{py:class}`~grazing.core.io.models.ModelReader` and register in `model_readers`. The registries
 and their protocols are listed in [the architecture](../../architecture_core.md).
 
 ## Shipping a plugin
 
 Components defined in your own scripts are available as soon as the module is imported. To make
-them available to the xstack applications and command line without importing anything, put them
-in a package and declare its module in the entry point group `xstack.plugins`:
+them available to the grazing applications and command line without importing anything, put them
+in a package and declare its module in the entry point group `grazing.plugins`:
 
 ```{code-block} toml
 [project]
-name = "xstack-mylab"
-dependencies = ["xstack>=0.2"]
+name = "grazing-mylab"
+dependencies = ["grazing>=0.3"]
 
-[project.entry-points."xstack.plugins"]
-mylab = "xstack_mylab.plugin"
+[project.entry-points."grazing.plugins"]
+mylab = "grazing_mylab.plugin"
 ```
 
-`xstack_mylab/plugin.py` imports or defines the components; registering happens at import:
+`grazing_mylab/plugin.py` imports or defines the components; registering happens at import:
 
 ```{code-block} python
-from xstack.core.io import data_parsers
+from grazing.core.io import data_parsers
 
-from xstack_mylab.formats import XyParser
+from grazing_mylab.formats import XyParser
 
 data_parsers.register("xy", XyParser())
 ```
 
-After `pip install xstack-mylab`, xstack loads the plugin on the first lookup in a registry that
+After `pip install grazing-mylab`, grazing loads the plugin on the first lookup in a registry that
 plugins contribute to (for example when reading a data file). A plugin that fails to import is
 skipped with a `PluginWarning`, so a broken plugin never stops the applications. The design tool
-itself uses this mechanism: it contributes the reader of `.xstack` files to the fitting tool.
+itself uses this mechanism: it contributes the reader of `.grazing` files to the fitting tool.

@@ -1,24 +1,24 @@
-"""Density parameters of `xstack.core.structure.coating.Mirror`."""
+"""Density parameters of `grazing.core.structure.coating.Mirror`."""
 
 import math
 
 import numpy as np
 import pytest
 
-from xstack.core.materials import get
-from xstack.core.parameters import ParameterSet
-from xstack.core.physics.models import ParrattModel
-from xstack.core.serialization import from_data, to_data
-from xstack.core.structure import Mirror, Periodic, SingleLayer
-from xstack.core.structure.coating import (
+from grazing.core.materials import get
+from grazing.core.parameters import ParameterSet
+from grazing.core.physics.models import ParrattModel
+from grazing.core.serialization import from_data, to_data
+from grazing.core.structure import Mirror, Periodic, SingleLayer
+from grazing.core.structure.coating import (
     DENSITY_RANGE,
     SUBSTRATE,
     CoatingBuildError,
     density_parameter_name,
 )
-from xstack.core.structure.coatings.composite import Composite
-from xstack.core.targets import AngleScan
-from xstack.core.units import deg
+from grazing.core.structure.coatings.composite import Composite
+from grazing.core.targets import AngleScan
+from grazing.core.units import deg
 
 W, SI, PT, C = get("W"), get("Si"), get("Pt"), get("C")
 

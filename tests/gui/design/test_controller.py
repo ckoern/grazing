@@ -1,14 +1,14 @@
-"""Tests for `xstack.gui.design.controller`."""
+"""Tests for `grazing.gui.design.controller`."""
 
 from pathlib import Path
 
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.core.structure.coatings.periodic import Periodic
-from xstack.design.project import Project
-from xstack.design.project.commands import rename_project, set_parameter
-from xstack.gui.design.controller import ProjectController
+from grazing.core.structure.coatings.periodic import Periodic
+from grazing.design.project import Project
+from grazing.design.project.commands import rename_project, set_parameter
+from grazing.gui.design.controller import ProjectController
 
 pytestmark = pytest.mark.gui
 
@@ -114,7 +114,7 @@ def test_dirty_tracking(controller: ProjectController, tmp_path: Path) -> None:
     assert not dirty(controller)
     controller.execute(set_parameter("N", value=50))
     assert dirty(controller)
-    controller.save_project(tmp_path / "p.xstack")
+    controller.save_project(tmp_path / "p.grazing")
     assert not dirty(controller)
     controller.undo()
     assert dirty(controller)
@@ -135,7 +135,7 @@ def test_new_project(controller: ProjectController, qtbot: QtBot) -> None:
 
 
 def test_save_project(controller: ProjectController, tmp_path: Path, qtbot: QtBot) -> None:
-    path = tmp_path / "p.xstack"
+    path = tmp_path / "p.grazing"
     controller.execute(set_parameter("N", value=50))
     with qtbot.waitSignal(controller.fileChanged) as blocker:
         assert controller.save_project(path)
@@ -152,11 +152,11 @@ def test_save_without_path(controller: ProjectController) -> None:
 
 def test_save_failure(controller: ProjectController, tmp_path: Path, qtbot: QtBot) -> None:
     with qtbot.waitSignal(controller.errorOccurred):
-        assert not controller.save_project(tmp_path / "missing_dir" / "p.xstack")
+        assert not controller.save_project(tmp_path / "missing_dir" / "p.grazing")
 
 
 def test_open_project(controller: ProjectController, tmp_path: Path) -> None:
-    path = tmp_path / "p.xstack"
+    path = tmp_path / "p.grazing"
     controller.execute(set_parameter("N", value=50))
     controller.save_project(path)
     other = ProjectController()
@@ -168,11 +168,11 @@ def test_open_project(controller: ProjectController, tmp_path: Path) -> None:
 
 
 def test_open_invalid(controller: ProjectController, tmp_path: Path, qtbot: QtBot) -> None:
-    bad = tmp_path / "bad.xstack"
+    bad = tmp_path / "bad.grazing"
     bad.write_text("not a project")
     before = controller.project
     with qtbot.waitSignal(controller.errorOccurred):
         assert not controller.open_project(bad)
     assert controller.project is before
     with qtbot.waitSignal(controller.errorOccurred):
-        assert not controller.open_project(tmp_path / "absent.xstack")
+        assert not controller.open_project(tmp_path / "absent.grazing")

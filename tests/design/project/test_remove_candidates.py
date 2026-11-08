@@ -2,9 +2,9 @@
 
 import pytest
 
+from grazing.core.structure import Mirror, Periodic
+from grazing.design.project import Candidate, Project, commands
 from tests.design.project.test_commands import SI, W, make_project
-from xstack.core.structure import Mirror, Periodic
-from xstack.design.project import Candidate, Project, commands
 
 
 def make_candidate_project(*names: str) -> Project:

@@ -3,14 +3,14 @@
 import pytest
 from pytestqt.qtbot import QtBot
 
+from grazing.core.materials import DEFAULT_PROVIDER, TabulatedProvider, providers
+from grazing.design.project import Project, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.fit.project import FitProject
+from grazing.gui.common.materials import PROVIDER_LABELS, provider_choices
+from grazing.gui.design.steps import MaterialsPage
+from grazing.gui.fit.steps.materials import MaterialsPage as FitMaterialsPage
 from tests.gui.fit.helpers import make_state
-from xstack.core.materials import DEFAULT_PROVIDER, TabulatedProvider, providers
-from xstack.design.project import Project, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.fit.project import FitProject
-from xstack.gui.common.materials import PROVIDER_LABELS, provider_choices
-from xstack.gui.design.steps import MaterialsPage
-from xstack.gui.fit.steps.materials import MaterialsPage as FitMaterialsPage
 
 pytestmark = pytest.mark.gui
 

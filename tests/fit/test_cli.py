@@ -1,20 +1,20 @@
-"""Tests for `xstack.fit.cli`."""
+"""Tests for `grazing.fit.cli`."""
 
 import csv
 from pathlib import Path
 
 import pytest
 
-from xstack.__main__ import main
-from xstack.core import materials
-from xstack.core.io.reflectivity import write_reflectivity_csv
-from xstack.core.physics.models import ParrattModel
-from xstack.core.structure import Layer, Stack
-from xstack.core.targets import AngleScan, EnergyScan
-from xstack.core.units import deg, kev
-from xstack.design.project import Project
-from xstack.design.project.templates import new_state
-from xstack.fit.project import FitProject, set_parameter
+from grazing.__main__ import main
+from grazing.core import materials
+from grazing.core.io.reflectivity import write_reflectivity_csv
+from grazing.core.physics.models import ParrattModel
+from grazing.core.structure import Layer, Stack
+from grazing.core.targets import AngleScan, EnergyScan
+from grazing.core.units import deg, kev
+from grazing.design.project import Project
+from grazing.design.project.templates import new_state
+from grazing.fit.project import FitProject, set_parameter
 
 PT = materials.get("Pt")
 SIO2 = materials.get("SiO2")
@@ -22,7 +22,7 @@ SIO2 = materials.get("SiO2")
 
 @pytest.fixture
 def model_file(tmp_path: Path) -> Path:
-    path = tmp_path / "mirror.xstack"
+    path = tmp_path / "mirror.grazing"
     Project(new_state("single_layer")).save(path)
     return path
 
@@ -53,7 +53,7 @@ def plain_file(tmp_path: Path) -> Path:
 
 
 def new(tmp_path: Path, model: Path, *extra: str) -> Path:
-    out = tmp_path / "fit.xfit"
+    out = tmp_path / "fit.gfit"
     assert main(["fit", "new", str(out), "--model", str(model), *extra]) == 0
     return out
 
@@ -148,7 +148,7 @@ def test_new_invalid_count_options(
     options: tuple[str, ...],
     message: str,
 ) -> None:
-    args = ["fit", "new", str(tmp_path / "f.xfit"), "--model", str(model_file)]
+    args = ["fit", "new", str(tmp_path / "f.gfit"), "--model", str(model_file)]
     code = main([*args, "--data", str(counts_file), "--energy", "8", *options])
     assert code == 1
     assert message in capsys.readouterr().err
@@ -210,7 +210,7 @@ def test_new_dedups_names(tmp_path: Path, model_file: Path, plain_file: Path) ->
 def test_new_unknown_candidate(
     tmp_path: Path, model_file: Path, plain_file: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    out = tmp_path / "fit.xfit"
+    out = tmp_path / "fit.gfit"
     code = main(
         [
             "fit",
@@ -238,7 +238,7 @@ def test_new_bad_range(
         [
             "fit",
             "new",
-            str(tmp_path / "f.xfit"),
+            str(tmp_path / "f.gfit"),
             "--model",
             str(model_file),
             "--data",
@@ -260,7 +260,7 @@ def test_new_missing_data_file(
         [
             "fit",
             "new",
-            str(tmp_path / "f.xfit"),
+            str(tmp_path / "f.gfit"),
             "--model",
             str(model_file),
             "--data",
@@ -281,7 +281,7 @@ def project_file(tmp_path: Path, model_file: Path, export_file: Path) -> Path:
 
 
 def test_run(project_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    out = tmp_path / "fitted.xfit"
+    out = tmp_path / "fitted.gfit"
     before = FitProject.load(project_file).state
     code = main(
         [
@@ -328,7 +328,7 @@ def test_run_nothing_free(
 def test_info(project_file: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["fit", "info", str(project_file)]) == 0
     text = capsys.readouterr().out
-    assert "mirror.xstack" in text
+    assert "mirror.grazing" in text
     assert "weighting: log" in text
     assert "d_1st_scan: angle scan, 9 points" in text
     assert "d_1st_scan: angle scan, 9 points, 5 fitted" in text

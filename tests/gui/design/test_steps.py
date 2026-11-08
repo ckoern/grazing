@@ -1,4 +1,4 @@
-"""Tests for the workflow pages in `xstack.gui.design.steps`."""
+"""Tests for the workflow pages in `grazing.gui.design.steps`."""
 
 import math
 from collections.abc import Callable
@@ -7,19 +7,19 @@ import pytest
 from PySide6.QtWidgets import QComboBox, QLineEdit
 from pytestqt.qtbot import QtBot
 
-from xstack.core.materials import get
-from xstack.core.structure.coatings.graded import DepthGraded
-from xstack.core.structure.coatings.simple import NLayer, SingleLayer
-from xstack.design.manufacturing.constraints import (
+from grazing.core.materials import get
+from grazing.core.structure.coatings.graded import DepthGraded
+from grazing.core.structure.coatings.simple import NLayer, SingleLayer
+from grazing.design.manufacturing.constraints import (
     MaxTotalThickness,
     MinLayerThickness,
     constraints,
 )
-from xstack.design.manufacturing.process import DepositionProcess
-from xstack.design.project import Command, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.gui.design.preview import compute_preview
-from xstack.gui.design.steps import (
+from grazing.design.manufacturing.process import DepositionProcess
+from grazing.design.project import Command, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.gui.design.preview import compute_preview
+from grazing.gui.design.steps import (
     CoatingPage,
     ConstraintsPage,
     MaterialsPage,

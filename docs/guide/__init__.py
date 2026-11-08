@@ -1,1 +1,1 @@
-"""The user guide of the xstack documentation."""
+"""The user guide of the grazing documentation."""

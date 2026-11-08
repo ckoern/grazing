@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from xstack.core.optim.events import CancellationToken, ProgressEvent
-from xstack.core.optim.optimizers import LmfitOptimizer, prepare_parameters
-from xstack.core.parameters import Parameter, ParameterSet
+from grazing.core.optim.events import CancellationToken, ProgressEvent
+from grazing.core.optim.optimizers import LmfitOptimizer, prepare_parameters
+from grazing.core.parameters import Parameter, ParameterSet
 
 TRUE_A = 2.0
 TRUE_B = -1.0
@@ -189,7 +189,7 @@ class TestPrepareParameters:
 
 class TestDesignOnlyOptimizers:
     def test_reject_generic_problem(self) -> None:
-        from xstack.design.optim import BraggOutline, GridScan
+        from grazing.design.optim import BraggOutline, GridScan
 
         with pytest.raises(TypeError, match="DesignProblem"):
             BraggOutline().run(LineProblem())

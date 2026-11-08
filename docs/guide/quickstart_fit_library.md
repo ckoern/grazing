@@ -11,28 +11,28 @@ Every snippet on this page runs in order in one Python session, in a few seconds
 
 A fit compares one structure model with one or more measured curves. Its parts are
 
-- a {py:class}`~xstack.core.measurement.MeasuredCurve`, the data, read from a file;
-- a {py:class}`~xstack.core.structure.coating.Mirror` whose *free* parameters are fitted;
-- a {py:class}`~xstack.fit.dataset.Dataset` per curve, which adds the
-  {py:class}`~xstack.fit.instrument.Instrument` (scale, background, angle offset, resolution,
+- a {py:class}`~grazing.core.measurement.MeasuredCurve`, the data, read from a file;
+- a {py:class}`~grazing.core.structure.coating.Mirror` whose *free* parameters are fitted;
+- a {py:class}`~grazing.fit.dataset.Dataset` per curve, which adds the
+  {py:class}`~grazing.fit.instrument.Instrument` (scale, background, angle offset, resolution,
   footprint) and the selection of the fitted points;
 - a weighting of the residuals, and
 - optimizer stages that search the free parameters.
 
 Parameters are given as plain numbers (fixed) or as
-{py:func}`~xstack.core.parameters.free` `(value, min, max)` (varied). The optimizer never changes a
+{py:func}`~grazing.core.parameters.free` `(value, min, max)` (varied). The optimizer never changes a
 fixed parameter. Internal units are nm for lengths, radians for angles and eV for energies; convert
-with {py:func}`~xstack.core.units.deg` and {py:func}`~xstack.core.units.to_deg`.
+with {py:func}`~grazing.core.units.deg` and {py:func}`~grazing.core.units.to_deg`.
 
 ## Read the measured curve
 
-A {py:class}`~xstack.core.io.delimited.CsvLayout` describes the file: which columns hold the scanned
+A {py:class}`~grazing.core.io.delimited.CsvLayout` describes the file: which columns hold the scanned
 variable, the reflectivity and its uncertainty, and what the scanned variable is. The comment
 lines of the file are skipped, and the first row that is not numeric is the header.
 
 ```python
-from xstack.core.io import CsvLayout, read_curves
-from xstack.core.units import deg, to_deg
+from grazing.core.io import CsvLayout, read_curves
+from grazing.core.units import deg, to_deg
 
 layout = CsvLayout(
     x_column="2theta_deg",  # by header name; 0-based indices work as well
@@ -59,13 +59,13 @@ negative angle are skipped. Other layouts (percent, q, energy scans, decimal com
 The start structure is a periodic W/Si multilayer on silicon. The number of bilayers is known and
 fixed, and the period, the absorber fraction Γ (`gamma`) and the two interface roughnesses
 (`sigma_H` and `sigma_L`) are free within bounds. (A structure from the project wizard of
-`xstack-fit` is prepared the same way by {py:func}`~xstack.fit.templates.for_fit`: integer
+`grazing-fit` is prepared the same way by {py:func}`~grazing.fit.templates.for_fit`: integer
 parameters are fixed and roughnesses are freed between 0 and 3 nm.)
 
 ```python
-from xstack.core.materials import get
-from xstack.core.parameters import free
-from xstack.core.structure import Mirror, Periodic
+from grazing.core.materials import get
+from grazing.core.parameters import free
+from grazing.core.structure import Mirror, Periodic
 
 mirror = Mirror(
     Periodic.create(
@@ -88,7 +88,7 @@ Which instrument parameters to free is discussed in
 [Fit ranges and weighting](topics/fit_ranges_and_weighting.md#the-instrument-model).
 
 ```python
-from xstack.fit.dataset import Dataset
+from grazing.fit.dataset import Dataset
 
 dataset = Dataset.create(
     "cu_ka",  # prefix of the instrument parameters: cu_ka.scale, ...
@@ -119,7 +119,7 @@ print(dataset.mask().sum(), "of", curve.size, "points are fitted")
 
 ## The fit problem
 
-A {py:class}`~xstack.fit.problem.FitProblem` combines the mirror with the datasets and a weighting
+A {py:class}`~grazing.fit.problem.FitProblem` combines the mirror with the datasets and a weighting
 of the residuals:
 
 `"chi2"`
@@ -133,7 +133,7 @@ of the residuals:
 : R_model − R_meas, dominated by the high reflectivities.
 
 ```python
-from xstack.fit.problem import FitProblem
+from grazing.fit.problem import FitProblem
 
 problem = FitProblem(mirror, (dataset,), weighting="chi2")
 print(problem.parameters.free_names())
@@ -148,16 +148,16 @@ the modeled measurement including the instrument at all points of the dataset.
 
 ## Run the fit with a project
 
-Changes to a fit go through a {py:class}`~xstack.fit.project.FitProject`, which records them in a
-journal and allows undo, and which is saved as an `.xfit` file that `xstack-fit` opens. Commands
-such as {py:func}`~xstack.fit.project.set_mirror` and
-{py:func}`~xstack.fit.project.add_dataset` change the state;
-{py:func}`~xstack.fit.project.run_fit` runs the optimizer stages of a state and returns a
-{py:class}`~xstack.fit.results.FitResult`, and
-{py:func}`~xstack.fit.project.store_result` saves it in the project and applies its values.
+Changes to a fit go through a {py:class}`~grazing.fit.project.FitProject`, which records them in a
+journal and allows undo, and which is saved as an `.gfit` file that `grazing-fit` opens. Commands
+such as {py:func}`~grazing.fit.project.set_mirror` and
+{py:func}`~grazing.fit.project.add_dataset` change the state;
+{py:func}`~grazing.fit.project.run_fit` runs the optimizer stages of a state and returns a
+{py:class}`~grazing.fit.results.FitResult`, and
+{py:func}`~grazing.fit.project.store_result` saves it in the project and applies its values.
 
 ```python
-from xstack.fit.project import (
+from grazing.fit.project import (
     FitProject,
     add_dataset,
     run_fit,
@@ -183,11 +183,11 @@ are close to the minimum. If they are not, use a global stage first; see
 
 ## Read the result
 
-{py:func}`~xstack.fit.report.format_result` formats the summary of a result: the method, the
+{py:func}`~grazing.fit.report.format_result` formats the summary of a result: the method, the
 reduced χ², the parameters with standard uncertainties and the strongly correlated pairs.
 
 ```python
-from xstack.fit.report import format_result
+from grazing.fit.report import format_result
 
 print(format_result(result))
 ```
@@ -199,7 +199,7 @@ correlation of the period and the angle offset in the report is expected; see
 [Uncertainties](topics/uncertainties.md).
 
 The numbers are also available programmatically. `result.statistics` is a
-{py:class}`~xstack.fit.results.FitStatistics`.
+{py:class}`~grazing.fit.results.FitStatistics`.
 
 ```python
 stats = result.statistics
@@ -213,9 +213,9 @@ d = result.parameters["d"].value  # best value of any parameter, in internal uni
 print(f"period {d:.4f} nm")
 ```
 
-Values of angles are in radians here; {py:func}`~xstack.fit.report.display_value` converts a
+Values of angles are in radians here; {py:func}`~grazing.fit.report.display_value` converts a
 parameter to degrees or millimetres as the reports do. To analyse a fit without the project
-machinery, {py:func}`~xstack.fit.results.analyze` computes the statistics of a problem at its current
+machinery, {py:func}`~grazing.fit.results.analyze` computes the statistics of a problem at its current
 values.
 
 ## Check the fit
@@ -236,7 +236,7 @@ print(f"normalized residuals: mean {residual.mean():+.3f}, rms {np.sqrt(np.mean(
 ```
 
 The figure below shows the measured and the fitted curves with the residuals. It needs
-`matplotlib`, which `xstack-fit` also uses; the `Agg` backend writes the file without a display.
+`matplotlib`, which `grazing-fit` also uses; the `Agg` backend writes the file without a display.
 
 ```python
 import matplotlib
@@ -266,16 +266,16 @@ plt.close(fig)
 
 When the start values are not close to the truth, a local method ends in a local minimum with a
 large χ² (see [Uncertainties](topics/uncertainties.md#local-minima-and-global-search)). Stages of
-a fit are {py:class}`~xstack.core.optim.optimizers.LmfitOptimizer` objects. A global stage
+a fit are {py:class}`~grazing.core.optim.optimizers.LmfitOptimizer` objects. A global stage
 (differential evolution, `dual_annealing`) explores the whole box between the bounds and needs
 finite bounds on all free parameters; a following local stage refines its best point.
 The stages run in order, each from the best values of the previous one, and
-{py:func}`~xstack.fit.project.set_optimizers` sets them for a project. The stage below takes a
+{py:func}`~grazing.fit.project.set_optimizers` sets them for a project. The stage below takes a
 minute or more with the budget shown, so the snippet is not run here.
 
 ```{code-block} python
-from xstack.core.optim import LmfitOptimizer
-from xstack.fit.project import set_optimizers
+from grazing.core.optim import LmfitOptimizer
+from grazing.fit.project import set_optimizers
 
 stages = [
     LmfitOptimizer(
@@ -294,15 +294,15 @@ The seed makes the search reproducible, and `popsize` is the population per free
 larger values search more thoroughly and cost more evaluations. The start point is part of the
 initial population, and the result is never worse than the start values. To follow a running fit,
 pass a callback as `events` to `run_fit`; it receives
-{py:class}`~xstack.core.optim.events.ProgressEvent` objects, and a
-{py:class}`~xstack.core.optim.events.CancellationToken` as `cancel` stops it with the best
+{py:class}`~grazing.core.optim.events.ProgressEvent` objects, and a
+{py:class}`~grazing.core.optim.events.CancellationToken` as `cancel` stops it with the best
 values so far.
 
 An optimizer can also be used without a project:
 
 ```python
-from xstack.core.optim import LmfitOptimizer
-from xstack.fit.results import FitResult
+from grazing.core.optim import LmfitOptimizer
+from grazing.fit.results import FitResult
 
 outcome = LmfitOptimizer("least_squares").run(project.state.problem())
 again = FitResult.from_optimization(project.state.problem(), outcome)
@@ -314,16 +314,16 @@ print(f"restarted from the best values: chi2_red {again.statistics.reduced_objec
 The project file contains the data, the structure, the settings, all saved fits and the journal.
 
 ```python
-project.save("fit.xfit")
+project.save("fit.gfit")
 
-reloaded = FitProject.load("fit.xfit")
+reloaded = FitProject.load("fit.gfit")
 print(len(reloaded.state.results), "saved fit(s):", reloaded.state.results[-1].name)
 ```
 
-`xstack fit info fit.xfit` summarizes the file, `xstack fit run` repeats the fit, and
-`xstack fit export fit.xfit curves.csv` writes the measured and the modeled curves. The project
-opens in `xstack-fit` for further work, see [the GUI quick start](quickstart_fit_gui.md).
-Saved fits are restored with {py:func}`~xstack.fit.project.apply_fit`.
+`grazing fit info fit.gfit` summarizes the file, `grazing fit run` repeats the fit, and
+`grazing fit export fit.gfit curves.csv` writes the measured and the modeled curves. The project
+opens in `grazing-fit` for further work, see [the GUI quick start](quickstart_fit_gui.md).
+Saved fits are restored with {py:func}`~grazing.fit.project.apply_fit`.
 
 ## Next steps
 

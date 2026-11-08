@@ -4,21 +4,21 @@ import math
 
 import pytest
 
-from tests.design.optim.test_stages import periodic_problem
-from xstack.core.optim import CancellationToken, ProgressEvent
-from xstack.core.parameters import ParameterSet
-from xstack.core.serialization import from_data, to_data
-from xstack.design.manufacturing.constraints import MaxCoatingTime
-from xstack.design.manufacturing.process import DepositionProcess
-from xstack.design.optim import DesignProblem, Pipeline
-from xstack.design.optim.tradeoff import (
+from grazing.core.optim import CancellationToken, ProgressEvent
+from grazing.core.parameters import ParameterSet
+from grazing.core.serialization import from_data, to_data
+from grazing.design.manufacturing.constraints import MaxCoatingTime
+from grazing.design.manufacturing.process import DepositionProcess
+from grazing.design.optim import DesignProblem, Pipeline
+from grazing.design.optim.tradeoff import (
     TradeoffPoint,
     TradeoffResult,
     default_limits,
     time_tradeoff,
 )
-from xstack.design.project import Project
-from xstack.design.project.commands import store_tradeoff
+from grazing.design.project import Project
+from grazing.design.project.commands import store_tradeoff
+from tests.design.optim.test_stages import periodic_problem
 
 PROCESS = DepositionProcess({"W": 0.05, "Si": 0.1}, overhead_per_layer=20.0)
 FAST = {"global_iterations": 2, "population": 4, "coarse_points": 4, "scan_points": 3, "seed": 0}
@@ -176,7 +176,7 @@ class TestRun:
 
 class TestDominance:
     def test_better_design_from_shorter_limit_replaces_point(self) -> None:
-        from xstack.design.optim.tradeoff import _dominance_filtered
+        from grazing.design.optim.tradeoff import _dominance_filtered
 
         short = point(1000, 900, 0.2)
         long = point(2000, 1800, 0.3)
@@ -204,7 +204,7 @@ class TestPersistence:
 
         project = Project()
         project.execute(store_tradeoff(sweep))
-        path = Path(str(tmp_path)) / "tradeoff.xstack"
+        path = Path(str(tmp_path)) / "tradeoff.grazing"
         project.save(path)
         loaded = Project.load(path).state.tradeoff
         assert loaded is not None

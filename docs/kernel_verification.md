@@ -1,6 +1,6 @@
 # Verification strategy for the reflectivity kernel
 
-Goal: high confidence that `xstack.core.physics.kernel.parratt` (and the optical constants feeding it)
+Goal: high confidence that `grazing.core.physics.kernel.parratt` (and the optical constants feeding it)
 are correct, and that they stay correct as the code evolves. All checks run as automated pytest tests
 under `tests/core/physics/` and `tests/core/materials/`. Tiers 1–4 need no external data. Tiers 5–6 use
 stored reference datasets. Run them with `pytest tests/core`.

@@ -1,15 +1,15 @@
-"""Tests for `xstack.core.io.models`."""
+"""Tests for `grazing.core.io.models`."""
 
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
-from xstack.core.io import files
-from xstack.core.io.models import ImportedModel, model_readers, read_models, reader_for
-from xstack.core.materials import get
-from xstack.core.structure.coating import Mirror
-from xstack.core.structure.coatings import SingleLayer
+from grazing.core.io import files
+from grazing.core.io.models import ImportedModel, model_readers, read_models, reader_for
+from grazing.core.materials import get
+from grazing.core.structure.coating import Mirror
+from grazing.core.structure.coatings import SingleLayer
 
 MIRROR = Mirror(SingleLayer.create(get("Pt"), t=30.0), get("Si"))
 

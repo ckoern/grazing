@@ -1,4 +1,4 @@
-"""Tests for `xstack.core.measurement`."""
+"""Tests for `grazing.core.measurement`."""
 
 import math
 from typing import Any
@@ -8,9 +8,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from xstack.core.measurement import MeasuredCurve
-from xstack.core.serialization import from_data, to_data
-from xstack.core.units import deg, kev
+from grazing.core.measurement import MeasuredCurve
+from grazing.core.serialization import from_data, to_data
+from grazing.core.units import deg, kev
 
 
 def angle_curve(**kwargs: Any) -> MeasuredCurve:

@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.fit.widgets.import_dialog`."""
+"""Tests for `grazing.gui.fit.widgets.import_dialog`."""
 
 import math
 from pathlib import Path
@@ -8,16 +8,16 @@ import pytest
 from PySide6.QtWidgets import QFileDialog
 from pytestqt.qtbot import QtBot
 
-from xstack.core import materials
-from xstack.core.io import files
-from xstack.core.io.delimited import CsvLayout
-from xstack.core.io.reflectivity import write_reflectivity_csv
-from xstack.core.physics.models import ParrattModel
-from xstack.core.structure import Layer, Stack
-from xstack.core.targets import AngleScan, EnergyScan
-from xstack.core.units import deg, kev
-from xstack.gui.fit.widgets import ImportDialog
-from xstack.gui.fit.widgets.import_dialog import energy_hint, unique_identifier
+from grazing.core import materials
+from grazing.core.io import files
+from grazing.core.io.delimited import CsvLayout
+from grazing.core.io.reflectivity import write_reflectivity_csv
+from grazing.core.physics.models import ParrattModel
+from grazing.core.structure import Layer, Stack
+from grazing.core.targets import AngleScan, EnergyScan
+from grazing.core.units import deg, kev
+from grazing.gui.fit.widgets import ImportDialog
+from grazing.gui.fit.widgets.import_dialog import energy_hint, unique_identifier
 
 
 @pytest.fixture(autouse=True)

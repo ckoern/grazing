@@ -6,12 +6,12 @@ import itertools
 import numpy as np
 import pytest
 
-from xstack.core.materials import get
-from xstack.core.physics.models import ReflectivityResult
-from xstack.core.structure import Stack
-from xstack.core.targets import EnergyScan, Profile, Target, TargetSet
-from xstack.core.units import deg, kev
-from xstack.design.merit import (
+from grazing.core.materials import get
+from grazing.core.physics.models import ReflectivityResult
+from grazing.core.structure import Stack
+from grazing.core.targets import EnergyScan, Profile, Target, TargetSet
+from grazing.core.units import deg, kev
+from grazing.design.merit import (
     CallableMerit,
     EvaluationContext,
     Flatness,

@@ -1,11 +1,11 @@
-# Design a mirror in xstack-design
+# Design a mirror in grazing-design
 
 This walkthrough designs a periodic W/B4C multilayer that reflects the Cu Kα line (8048 eV) at a
 fixed grazing angle of 1.0°, for example as a monochromator in a laboratory diffractometer. The
 target is a narrow band of ±1 % around the line. The same task is done with Python in
 [Design a mirror with Python](quickstart_design_library.md).
 
-Start the application with `xstack-design` (see [Installation](installation.md)). The window has
+Start the application with `grazing-design` (see [Installation](installation.md)). The window has
 three areas:
 
 - the **Candidates** dock on the left lists the input design and the designs that you store,
@@ -29,7 +29,7 @@ choices can be changed afterwards.
 ![First page of the project wizard](images/design_wizard_project.png)
 
 On the *Project* page, enter a name. Tick *Save the project now* and choose a file if you want the
-project saved as a `.xstack` file immediately; otherwise it stays unsaved until you use
+project saved as a `.grazing` file immediately; otherwise it stays unsaved until you use
 **File > Save**.
 
 ![Coating page of the wizard with a W/B4C multilayer](images/design_wizard_coating.png)
@@ -120,7 +120,7 @@ For this task, vary `N`, `d` and `gamma` and set the values as in the figure: `N
 `d` 4.4 nm (2 to 8 nm), `gamma` 0.4 (0.1 to 0.8). Fix the roughness `sigma_H` and `sigma_L` at
 0.3 nm (unchecked *Vary*): the optimizer cannot improve the roughness of your deposition process, so
 it has to be an input, taken from a measurement of a real coating, for example with
-[xstack-fit](quickstart_fit_gui.md).
+[grazing-fit](quickstart_fit_gui.md).
 
 Implications:
 
@@ -333,10 +333,10 @@ The *Deposition recipe* box on the Analyze page writes the layer table of the an
 The recipe uses the *nominal* thicknesses and the rates of your process definition. Calibrate your
 deposition system against a witness sample before you rely on it.
 
-Save the project with **File > Save**. The `.xstack` file contains the input design, the
+Save the project with **File > Save**. The `.grazing` file contains the input design, the
 candidates, the targets, the figure of merit, the constraints, the process and the journal, and
-opens again in `xstack-design` or from the library with
-`Project.load("monochromator.xstack")` (see
+opens again in `grazing-design` or from the library with
+`Project.load("monochromator.grazing")` (see
 [Design a mirror with Python](quickstart_design_library.md)).
 
 ## Where to go next

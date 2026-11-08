@@ -12,15 +12,15 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QPushButton
 from pytestqt.qtbot import QtBot
 
-from xstack.core.optim.events import CancellationToken, ProgressEvent
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.design.optim.pipeline import Pipeline
-from xstack.design.optim.stages import Stage
-from xstack.design.project.templates import new_state
-from xstack.gui.common.workers import Job
-from xstack.gui.design.main_window import WORKFLOW_STEPS, MainWindow
-from xstack.gui.design.plots import ConvergencePlot, Curve, DesignMapPlot, ReflectivityPlot
-from xstack.gui.design.preview import compute_curves
+from grazing.core.optim.events import CancellationToken, ProgressEvent
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.design.optim.pipeline import Pipeline
+from grazing.design.optim.stages import Stage
+from grazing.design.project.templates import new_state
+from grazing.gui.common.workers import Job
+from grazing.gui.design.main_window import WORKFLOW_STEPS, MainWindow
+from grazing.gui.design.plots import ConvergencePlot, Curve, DesignMapPlot, ReflectivityPlot
+from grazing.gui.design.preview import compute_curves
 
 pytestmark = pytest.mark.gui
 
@@ -247,12 +247,12 @@ def test_store_button_uses_dialog_name(
     qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        "xstack.gui.design.main_window.QInputDialog.getText", lambda *a, **k: ("given", True)
+        "grazing.gui.design.main_window.QInputDialog.getText", lambda *a, **k: ("given", True)
     )
     window.store_button.click()
     assert [c.name for c in window.controller.state.candidates] == ["given"]
     monkeypatch.setattr(
-        "xstack.gui.design.main_window.QInputDialog.getText", lambda *a, **k: ("other", False)
+        "grazing.gui.design.main_window.QInputDialog.getText", lambda *a, **k: ("other", False)
     )
     window.store_button.click()
     assert len(window.controller.state.candidates) == 1

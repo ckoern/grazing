@@ -1,11 +1,11 @@
-"""Tests for `xstack.core.plugins`."""
+"""Tests for `grazing.core.plugins`."""
 
 from importlib.metadata import entry_points
 
 import pytest
 
-from xstack.core import plugins
-from xstack.core.plugins import Registry
+from grazing.core import plugins
+from grazing.core.plugins import Registry
 
 
 def make_registry() -> Registry[int]:
@@ -164,4 +164,4 @@ def test_broken_plugin_warns_and_is_retried(fake_plugins: list[FakeEntryPoint]) 
 
 def test_design_plugin_is_installed() -> None:
     names = {ep.name: ep.value for ep in entry_points(group=plugins.PLUGIN_GROUP)}
-    assert names.get("design") == "xstack.design.plugin"
+    assert names.get("design") == "grazing.design.plugin"

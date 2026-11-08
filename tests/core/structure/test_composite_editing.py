@@ -4,10 +4,10 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from xstack.core.materials import get
-from xstack.core.serialization import from_data, to_data
-from xstack.core.structure import Composite, Mirror, Periodic, SingleLayer
-from xstack.core.structure.coatings import DepthGraded, NLayer
+from grazing.core.materials import get
+from grazing.core.serialization import from_data, to_data
+from grazing.core.structure import Composite, Mirror, Periodic, SingleLayer
+from grazing.core.structure.coatings import DepthGraded, NLayer
 
 PT, C, W, SI, B4C, MO, RU = (get(n) for n in ("Pt", "C", "W", "Si", "B4C", "Mo", "Ru"))
 

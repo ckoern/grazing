@@ -1,4 +1,4 @@
-"""Tests for `xstack.gui.design.steps.estimate.EstimatePage`."""
+"""Tests for `grazing.gui.design.steps.estimate.EstimatePage`."""
 
 import dataclasses
 import math
@@ -6,11 +6,11 @@ import math
 import pytest
 from pytestqt.qtbot import QtBot
 
-from xstack.core.targets import EnergyScan, TargetSet
-from xstack.core.units import energy_to_wavelength
-from xstack.design.project import Command, ProjectState
-from xstack.design.project.templates import new_state
-from xstack.gui.design.steps.estimate import EstimatePage
+from grazing.core.targets import EnergyScan, TargetSet
+from grazing.core.units import energy_to_wavelength
+from grazing.design.project import Command, ProjectState
+from grazing.design.project.templates import new_state
+from grazing.gui.design.steps.estimate import EstimatePage
 
 pytestmark = pytest.mark.gui
 

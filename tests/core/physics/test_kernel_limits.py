@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from xstack.core.physics.fresnel import Polarization
-from xstack.core.physics.kernel import parratt, reflectance
+from grazing.core.physics.fresnel import Polarization
+from grazing.core.physics.kernel import parratt, reflectance
 
 TOL = 1e-12
 LAM = 0.1  # nm

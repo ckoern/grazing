@@ -16,17 +16,17 @@ Run it with ``python examples/coupled_angles.py``. ``--plot`` shows the reflecti
 
 import argparse
 
-from xstack.core.materials import get
-from xstack.core.optim.optimizers import LmfitOptimizer
-from xstack.core.parameters import free
-from xstack.core.structure import DepthGraded, Mirror
-from xstack.core.targets import EnergyScan, Target, TargetSet
-from xstack.core.units import deg, kev, to_deg, to_kev
-from xstack.design.manufacturing import MinLayerThickness
-from xstack.design.merit import MeanReflectivity
-from xstack.design.optim import DesignProblem, Pipeline
-from xstack.design.optim.pipeline import PipelineResult, StageResult
-from xstack.design.optim.stages import Stage
+from grazing.core.materials import get
+from grazing.core.optim.optimizers import LmfitOptimizer
+from grazing.core.parameters import free
+from grazing.core.structure import DepthGraded, Mirror
+from grazing.core.targets import EnergyScan, Target, TargetSet
+from grazing.core.units import deg, kev, to_deg, to_kev
+from grazing.design.manufacturing import MinLayerThickness
+from grazing.design.merit import MeanReflectivity
+from grazing.design.optim import DesignProblem, Pipeline
+from grazing.design.optim.pipeline import PipelineResult, StageResult
+from grazing.design.optim.stages import Stage
 
 ANGLES_DEG = (0.15, 0.18, 0.21, 0.24, 0.27)
 WEIGHTS = (1.0, 2.0, 3.0, 2.0, 1.0)

@@ -69,15 +69,21 @@ class CsvLayout:
     Columns are given by 0-based index or by name from the header row. A header row is a first
     non-comment row that is not entirely numeric.
 
+    With `counts`, the reflectivity column holds detector counts N. They are converted to the
+    reflectivity N / N_ref · `reflectivity_scale`, with the full-scale count N_ref given by
+    `full_scale` or, if that is ``None``, the largest count of the curve. Without an uncertainty
+    column the uncertainty of the counts is √N (zero for zero counts).
+
     Attributes:
         x_column: Column of the scanned variable.
-        reflectivity_column: Column of the reflectivity.
-        uncertainty_column: Column of the reflectivity uncertainty, or ``None``.
+        reflectivity_column: Column of the reflectivity, or of the counts with `counts`.
+        uncertainty_column: Column of the uncertainty of the values in `reflectivity_column`,
+            or ``None``.
         quantity: Quantity in `x_column`. ``"q"`` requires `energy`.
         unit: Unit of `x_column`, one of `UNITS` for `quantity`, or ``None`` for the default
             (deg, 1/A or eV).
         reflectivity_scale: Factor applied to reflectivity and uncertainty, e.g. 0.01 for
-            values in percent.
+            values in percent. With `counts`, it is applied after the normalization.
         energy: Photon energy in eV of an angle scan, or ``None`` to set it later.
         angle: Grazing angle in rad of an energy scan, or ``None`` to set it later.
         polarization: ``"s"``, ``"p"`` or ``"unpolarized"``.
@@ -85,10 +91,14 @@ class CsvLayout:
         decimal: Decimal separator, ``"."`` or ``","``.
         comment: Prefix of comment lines.
         name: Name of the curve, or empty to use the file name without suffix.
+        counts: Whether `reflectivity_column` holds detector counts instead of reflectivity.
+        full_scale: Count that corresponds to a reflectivity of 1 (e.g. the direct-beam count),
+            or ``None`` to normalize to the largest count. Only allowed with `counts`.
 
     Raises:
-        ValueError: If the unit is unknown for the quantity, the scale is not positive or the
-            decimal separator equals the delimiter.
+        ValueError: If the unit is unknown for the quantity, the scale or full-scale count is
+            not positive, a full-scale count is given without `counts`, or the decimal
+            separator equals the delimiter.
     """
 
     x_column: int | str = 0
@@ -104,6 +114,8 @@ class CsvLayout:
     decimal: Literal[".", ","] = "."
     comment: str = "#"
     name: str = ""
+    counts: bool = False
+    full_scale: float | None = None
 
     def __post_init__(self) -> None:
         if self.quantity not in UNITS:
@@ -113,6 +125,11 @@ class CsvLayout:
             raise ValueError(f"unknown unit {self.unit!r} for {self.quantity} (known: {known})")
         if not self.reflectivity_scale > 0.0:
             raise ValueError("reflectivity scale must be positive")
+        if self.full_scale is not None:
+            if not self.counts:
+                raise ValueError("a full-scale count requires counts in the data column")
+            if not self.full_scale > 0.0:
+                raise ValueError("full-scale count must be positive")
         if self.decimal not in (".", ","):
             raise ValueError("decimal separator must be '.' or ','")
         if self.decimal == self.delimiter:
@@ -236,12 +253,21 @@ def _curve(
     x = layout.to_internal(x[keep])
     if np.any(np.isnan(x)):
         raise ValueError("q values exceed 4π/λ at the given photon energy")
+    values = reflectivity[keep]
+    sigma = None if uncertainty is None else uncertainty[keep]
     scale = layout.reflectivity_scale
+    if layout.counts:
+        if sigma is None:
+            sigma = np.sqrt(np.maximum(values, 0.0))
+        full_scale = layout.full_scale if layout.full_scale is not None else float(values.max())
+        if not full_scale > 0.0:
+            raise ValueError("the counts contain no positive value to normalize to")
+        scale /= full_scale
     return MeasuredCurve(
         layout.axis,
         x,
-        reflectivity[keep] * scale,
-        None if uncertainty is None else uncertainty[keep] * scale,
+        values * scale,
+        None if sigma is None else sigma * scale,
         energy=layout.energy,
         angle=layout.angle,
         polarization=layout.polarization,

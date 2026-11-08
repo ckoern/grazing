@@ -71,6 +71,129 @@ class TestHistory:
         assert not history.can_redo
 
 
+def save_point(history: History[Any]) -> int | None:
+    return history.save_point
+
+
+class TestSavePoint:
+    def test_initial_save_point(self) -> None:
+        history: History[int] = History()
+        assert save_point(history) == 0
+        assert history.is_at_save_point
+
+    def test_merge_without_save(self) -> None:
+        history: History[int] = History()
+        history.push("a", 0, 1, "k")
+        history.push("b", 1, 2, "k")
+        assert history.undo_descriptions() == ("b",)
+        assert history.undo() == ("b", 0)
+
+    def test_no_merge_at_save_point(self) -> None:
+        history: History[int] = History()
+        history.push("a", 0, 1, "k")
+        history.mark_saved()
+        assert save_point(history) == 1
+        history.push("b", 1, 2, "k")
+        assert history.undo_descriptions() == ("a", "b")
+        assert not history.is_at_save_point
+        assert history.undo() == ("b", 1)
+        assert len(history.undo_descriptions()) == save_point(history)
+        assert history.undo() == ("a", 0)
+
+    def test_merge_after_leaving_save_point(self) -> None:
+        history: History[int] = History()
+        history.push("a", 0, 1, "k")
+        history.mark_saved()
+        history.push("b", 1, 2, "k")
+        history.push("c", 2, 3, "k")
+        assert history.undo_descriptions() == ("a", "c")
+        assert history.undo() == ("c", 1)
+
+    def test_save_undo_edit(self) -> None:
+        history: History[int] = History()
+        history.push("a", 0, 1, "k")
+        history.push("b", 1, 2, "k")
+        history.mark_saved()
+        history.undo()
+        assert save_point(history) == 1
+        history.push("c", 0, 3, "k")
+        assert save_point(history) is None
+        assert not history.is_at_save_point
+        assert history.undo_descriptions() == ("c",)
+        history.push("d", 3, 4, "k")
+        assert history.undo_descriptions() == ("d",)
+        assert history.undo() == ("d", 0)
+
+    def test_save_undo_edit_without_merge(self) -> None:
+        history: History[int] = History()
+        history.push("a", 0, 1, "k")
+        history.push("b", 1, 2, "x")
+        history.mark_saved()
+        history.undo()
+        history.push("c", 1, 3, "k")
+        assert save_point(history) is None
+        assert history.undo_descriptions() == ("c",)
+        assert history.undo() == ("c", 0)
+
+    def test_save_point_below_kept_steps(self) -> None:
+        history: History[int] = History()
+        history.push("a", 0, 1)
+        history.mark_saved()
+        history.push("b", 1, 2, "k")
+        history.undo()
+        assert history.is_at_save_point
+        history.push("c", 1, 3, "k")
+        assert save_point(history) == 1
+        assert history.undo_descriptions() == ("a", "c")
+
+    def test_save_point_unreachable_then_merge(self) -> None:
+        history: History[int] = History()
+        history.push("a", 0, 1, "k")
+        history.mark_saved()
+        history.undo()
+        assert save_point(history) == 1
+        history.push("b", 0, 2, "k")
+        assert save_point(history) is None
+        history.push("c", 2, 3, "k")
+        assert history.undo_descriptions() == ("c",)
+
+    def test_clear_resets_save_point(self) -> None:
+        history: History[int] = History()
+        history.push("a", 0, 1)
+        history.undo()
+        history.push("b", 0, 2)
+        assert save_point(history) == 0
+        history.push("c", 2, 3)
+        history.mark_saved()
+        history.undo()
+        history.undo()
+        history.push("d", 0, 4)
+        assert save_point(history) is None
+        history.clear()
+        assert save_point(history) == 0
+        assert history.is_at_save_point
+
+    def test_document_save_marks_save_point(self, tmp_path: Path) -> None:
+        doc = NoteDocument()
+        doc.execute(set_text("a", "text"))
+        doc.save(tmp_path / "doc.json")
+        doc.execute(set_text("b", "text"))
+        doc.execute(set_text("c", "text"))
+        assert doc.history.undo_descriptions() == ("Set text a", "Set text c")
+        doc.undo()
+        assert doc.state == Note("a", 0)
+        assert doc.history.is_at_save_point
+
+    def test_loaded_document_starts_at_save_point(self, tmp_path: Path) -> None:
+        path = tmp_path / "doc.json"
+        NoteDocument(Note("x", 1)).save(path)
+        loaded = NoteDocument.load(path)
+        assert save_point(loaded.history) == 0
+        loaded.execute(set_text("a", "text"))
+        loaded.execute(set_text("b", "text"))
+        assert loaded.history.undo_descriptions() == ("Set text b",)
+
+
 class TestDocument:
     def test_default_state(self) -> None:
         assert NoteDocument().state == Note()

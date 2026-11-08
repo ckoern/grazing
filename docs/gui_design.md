@@ -258,8 +258,9 @@ design map of a scan). A plot that is detached is not switched; its window stays
   redrawn while the run is active. *Stop* (Run menu, toolbar) cancels the job. The result of a finished run
   is stored as candidates.
 - **Undo**: each edit is an undoable step with a description. Consecutive edits of the same parameter, the
-  same notes, or the same candidate selection are merged into one step. Undo and redo are in the Edit menu,
-  the toolbar, and the History dock.
+  same notes, or the same candidate selection are merged into one step, unless the project was saved in
+  between, so that undo always returns to the saved state. Undo and redo are in the Edit menu, the toolbar,
+  and the History dock.
 
 ### 2.6 Design language
 

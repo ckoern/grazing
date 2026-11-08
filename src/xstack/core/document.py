@@ -43,7 +43,8 @@ class Command[S]:
         description: Human-readable description, shown in the journal and undo history.
         transform: Function computing the new state from the current one.
         merge_key: Consecutive commands with the same non-empty key are merged into one undo
-            step (e.g. repeated edits of the same parameter).
+            step (e.g. repeated edits of the same parameter), unless the document was saved
+            between them (see `History.push`).
     """
 
     description: str
@@ -60,11 +61,20 @@ class _Step[S]:
 
 
 class History[S]:
-    """Undo and redo stacks of document states."""
+    """Undo and redo stacks of document states with a save point.
+
+    The save point is the number of undoable steps when the document was last saved (0 for a
+    new or loaded document). A step is merged into the previous one only if both have the same
+    non-empty merge key and the history is not at its save point, so that undo can always
+    return to the saved state. If the steps being discarded by a push contain the save point,
+    the saved state can no longer be reached and the save point is lost. These rules match
+    Qt's ``QUndoStack`` and its clean index.
+    """
 
     def __init__(self) -> None:
         self._undo: list[_Step[S]] = []
         self._redo: list[_Step[S]] = []
+        self._save_point: int | None = 0
 
     @property
     def can_undo(self) -> bool:
@@ -75,6 +85,20 @@ class History[S]:
     def can_redo(self) -> bool:
         """Whether there is a step to redo."""
         return bool(self._redo)
+
+    @property
+    def save_point(self) -> int | None:
+        """Number of undoable steps at the last save, or ``None`` if that state is unreachable."""
+        return self._save_point
+
+    @property
+    def is_at_save_point(self) -> bool:
+        """Whether the current state is the saved state."""
+        return self._save_point == len(self._undo)
+
+    def mark_saved(self) -> None:
+        """Set the save point to the current state."""
+        self._save_point = len(self._undo)
 
     def undo_descriptions(self) -> tuple[str, ...]:
         """Return the descriptions of the undoable steps, oldest first."""
@@ -87,14 +111,25 @@ class History[S]:
     def push(self, description: str, before: S, after: S, merge_key: str = "") -> None:
         """Record a step and clear the redo stack.
 
+        The step is merged into the previous one if that has the same non-empty merge key and
+        the history is not at its save point. If the cleared redo steps contain the save point,
+        the save point becomes unreachable (``None``).
+
         Args:
             description: Description of the step.
             before: State before the step.
             after: State after the step.
-            merge_key: Merge with the previous step if it has the same non-empty key.
+            merge_key: Key for merging with the previous step; empty for no merging.
         """
+        if self._redo and self._save_point is not None and self._save_point > len(self._undo):
+            self._save_point = None
         self._redo.clear()
-        if merge_key and self._undo and self._undo[-1].merge_key == merge_key:
+        if (
+            merge_key
+            and self._undo
+            and self._undo[-1].merge_key == merge_key
+            and not self.is_at_save_point
+        ):
             previous = self._undo.pop()
             before = previous.before
         self._undo.append(_Step(description, before, after, merge_key))
@@ -130,9 +165,10 @@ class History[S]:
         return step.description, step.after
 
     def clear(self) -> None:
-        """Forget all steps."""
+        """Forget all steps and set the save point to the empty history."""
         self._undo.clear()
         self._redo.clear()
+        self._save_point = 0
 
 
 class Document[S]:
@@ -256,13 +292,17 @@ class Document[S]:
         return cls(cast(S, state), Journal.from_data(data.get("journal", [])))
 
     def save(self, path: Path | str) -> None:
-        """Save the document to a JSON file.
+        """Save the document to a JSON file and mark the save point of the history.
+
+        The next command is not merged into the last undo step, even if it has the same merge
+        key, so that undo can return to the saved state.
 
         Args:
             path: Output file.
         """
         self.journal.add("file", f"Saved to {Path(path).name}")
         Path(path).write_text(json.dumps(self.to_data(), indent=1))
+        self.history.mark_saved()
 
     @classmethod
     def load(cls, path: Path | str) -> Self:

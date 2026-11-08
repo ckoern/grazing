@@ -97,6 +97,63 @@ def test_new_explicit_layout(tmp_path: Path, model_file: Path, plain_file: Path)
     assert state.weighting == "chi2"
 
 
+@pytest.fixture
+def counts_file(tmp_path: Path) -> Path:
+    path = tmp_path / "counts.csv"
+    path.write_text("angle,N\n0.2,1600\n0.3,400\n0.4,100\n")
+    return path
+
+
+def test_new_counts_normalized_to_maximum(
+    tmp_path: Path, model_file: Path, counts_file: Path
+) -> None:
+    out = new(tmp_path, model_file, "--data", str(counts_file), "--counts", "--energy", "8.048")
+    (d,) = FitProject.load(out).state.datasets
+    assert d.curve.reflectivity == pytest.approx((1.0, 0.25, 0.0625))
+    assert d.curve.uncertainty == pytest.approx((40 / 1600, 20 / 1600, 10 / 1600))
+
+
+def test_new_counts_full_scale_and_factor(
+    tmp_path: Path, model_file: Path, counts_file: Path
+) -> None:
+    out = new(
+        tmp_path,
+        model_file,
+        "--data",
+        str(counts_file),
+        "--counts",
+        "--full-scale",
+        "3200",
+        "--scale",
+        "2",
+        "--energy",
+        "8.048",
+    )
+    (d,) = FitProject.load(out).state.datasets
+    assert d.curve.reflectivity == pytest.approx((1.0, 0.25, 0.0625))
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        (("--full-scale", "100"), "requires --counts"),
+        (("--percent", "--scale", "2"), "cannot be combined"),
+    ],
+)
+def test_new_invalid_count_options(
+    tmp_path: Path,
+    model_file: Path,
+    counts_file: Path,
+    capsys: pytest.CaptureFixture[str],
+    options: tuple[str, ...],
+    message: str,
+) -> None:
+    args = ["fit", "new", str(tmp_path / "f.xfit"), "--model", str(model_file)]
+    code = main([*args, "--data", str(counts_file), "--energy", "8", *options])
+    assert code == 1
+    assert message in capsys.readouterr().err
+
+
 def test_new_two_theta_unit(tmp_path: Path, model_file: Path, plain_file: Path) -> None:
     out = new(
         tmp_path,

@@ -26,10 +26,12 @@ column and the reflectivity in the second column, and no uncertainties.
 
 | Option | Meaning |
 |---|---|
-| `x_column`, `reflectivity_column`, `uncertainty_column` | Columns of the scanned variable, the reflectivity and its uncertainty (`None`: no uncertainties). Give a 0-based index or the name from the header row, which is compared ignoring case. |
+| `x_column`, `reflectivity_column`, `uncertainty_column` | Columns of the scanned variable, the reflectivity (or the counts, see `counts`) and its uncertainty (`None`: no uncertainties). Give a 0-based index or the name from the header row, which is compared ignoring case. |
 | `quantity` | What the x column holds: `"angle"` (grazing angle θ), `"two_theta"` (scattering angle 2θ), `"q"` (momentum transfer q = 4π sin θ/λ) or `"energy"`. |
 | `unit` | Unit of the x column. Angles: `"deg"` (default), `"mrad"`, `"rad"`. q: `"1/A"` (default), `"1/nm"`. Energy: `"eV"` (default), `"keV"`. |
-| `reflectivity_scale` | Factor applied to the reflectivity and the uncertainty, `0.01` for values in percent. |
+| `reflectivity_scale` | Factor applied to the reflectivity and the uncertainty, `0.01` for values in percent. With `counts`, it is applied after the normalization. |
+| `counts` | `True` if the reflectivity column holds detector counts; see [Detector counts](#detector-counts). |
+| `full_scale` | With `counts`: the count that corresponds to a reflectivity of 1, for example the direct-beam count. `None` (default) normalizes to the largest count of the curve. |
 | `energy` | Photon energy in eV of an angle scan. Required for `quantity="q"`. |
 | `angle` | Grazing angle in rad of an energy scan. |
 | `polarization` | `"unpolarized"` (default), `"s"` or `"p"`. |
@@ -118,6 +120,43 @@ layout = CsvLayout(quantity="energy", unit="keV", angle=deg(0.5))
 print(curve.axis, curve.x, "at", round(float(to_deg(curve.angle)), 3), "deg")
 ```
 
+### Detector counts
+
+Raw data of a reflectometer often holds the detector counts N per angle rather than a
+reflectivity. With `counts=True` the reflectivity column holds these counts, and the reader
+converts them to the reflectivity
+
+R = N / N_ref · `reflectivity_scale`
+
+with the full-scale count N_ref. Give N_ref as `full_scale` if you know the count of the direct
+beam (with the same counting time and attenuation). Otherwise the largest count of the curve is
+used, which sets the reflectivity of the plateau of total reflection to `reflectivity_scale`
+(1 by default). The instrument parameter *scale* of the dataset can take up the remaining
+difference in the fit.
+
+Without an uncertainty column, the uncertainty of N counts is √N, normalized in the same way.
+Points with zero counts (or fewer, after a background subtraction) get the uncertainty of one
+count, so that they stay in a *χ²* fit with a finite weight instead of being left out. An
+uncertainty column with counts is normalized like the counts.
+
+```python
+Path("scan_counts.csv").write_text(
+    "theta_deg,counts\n"
+    "0.2,152000\n"
+    "0.4,148000\n"
+    "0.6,9100\n"
+    "0.8,720\n"
+)
+layout = CsvLayout(counts=True, energy=8048.0)
+(curve,) = read_curves("scan_counts.csv", layout)
+print([round(r, 4) for r in curve.reflectivity])
+print("uncertainties:", [f"{u:.1e}" for u in curve.uncertainty])
+
+direct_beam = CsvLayout(counts=True, full_scale=1.6e5, energy=8048.0)
+(curve,) = read_curves("scan_counts.csv", direct_beam)
+print([round(r, 4) for r in curve.reflectivity])
+```
+
 ### Rows that are skipped
 
 - Rows with a non-finite value (`nan`, `inf`) in a used column are skipped. When an uncertainty
@@ -140,7 +179,8 @@ of the reflectivity column. With uncertainties you can use the statistical *χ²
 fit reports an absolute *χ²_red*, and the uncertainties of the parameters are meaningful in an
 absolute sense; see [Uncertainties](uncertainties.md). Without them only the logarithmic and
 the linear weighting are available. For counting experiments the uncertainty of N counts is √N,
-divided by the incident counts. Take care with points of zero or very few counts: an uncertainty
+divided by the incident counts; with `counts=True` the reader computes it for you (see
+[Detector counts](#detector-counts)). Take care with points of zero or very few counts: an uncertainty
 estimated from the observed counts is too small there.
 
 ## Files written by xstack
@@ -175,6 +215,11 @@ on the dialog.
   *Cu Kα* (8.048 keV); the presets *Mo Kα* (17.479 keV) and *Ag Kα* (22.163 keV) and *custom*
   values are available. Check the value: it determines the optical constants of the materials.
 - **Polarization** and **reflectivity in %**, as for the layout options.
+- **Values**: *reflectivity*, or *detector counts* if the R column (then labelled *N*) holds
+  counts. For counts, **Normalize to** chooses the *largest count* of the curve or a
+  *full-scale count* such as the direct-beam count, and a *factor* applied after the
+  normalization (1 by default); see [Detector counts](#detector-counts). Without a σ column the
+  uncertainty is √N, at least one count.
 - **Dataset name**: an identifier (letters, digits, underscore) that is not used yet; it is the
   prefix of the instrument parameters. The dialog derives it from the file name.
 - The **preview** shows the first rows of the file next to the converted values (θ in degrees or the
@@ -208,7 +253,9 @@ project, with `--candidate NAME` choosing one of its designs (default: the first
 repeated; every curve of every file becomes a dataset named after the file (made an identifier).
 
 The layout is set by the options `--quantity` (`angle`, `two_theta`, `q` or `energy`), `--unit`,
-`--columns X,R[,SIGMA]` (0-based indices or header names) and `--percent`. If none of these is
+`--columns X,R[,SIGMA]` (0-based indices or header names), `--percent` or `--scale FACTOR`, and
+for detector counts `--counts` with the optional `--full-scale COUNTS` (default: the largest
+count; σ defaults to √N, at least one count). If none of these is
 given, the file layout is detected: an xstack export is recognized, any other file is read with
 the default layout (grazing angle in degrees in the first column, reflectivity in the second, no
 uncertainties). Give `--columns` to use uncertainties. The photon energy of angle scans is

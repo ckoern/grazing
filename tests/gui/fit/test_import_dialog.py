@@ -224,6 +224,101 @@ def test_percent_and_polarization(qtbot: QtBot, tmp_path: Path) -> None:
     assert layout.reflectivity_scale == 0.01
 
 
+COUNTS_FILE = "t,N\n0.1,100\n0.2,400\n0.3,25\n"
+
+
+def counts_dialog(qtbot: QtBot, tmp_path: Path, text: str = COUNTS_FILE) -> ImportDialog:
+    dialog = make(qtbot)
+    dialog.set_path(write(tmp_path, text))
+    dialog.values_combo.setCurrentIndex(dialog.values_combo.findData(True))
+    return dialog
+
+
+def test_reflectivity_mode_is_default(qtbot: QtBot, tmp_path: Path) -> None:
+    dialog = make(qtbot)
+    dialog.set_path(write(tmp_path, HEADER_FILE))
+    assert dialog.values_combo.currentData() is False
+    assert not dialog.percent_check.isHidden()
+    assert dialog.normalize_widget.isHidden()
+    assert dialog.r_label.text() == "R"
+    layout = dialog.layout_options()
+    assert layout is not None
+    assert not layout.counts
+    assert layout.full_scale is None
+
+
+def test_counts_largest_normalization_and_sqrt_uncertainty(qtbot: QtBot, tmp_path: Path) -> None:
+    dialog = counts_dialog(qtbot, tmp_path)
+    assert dialog.error_label.text() == ""
+    (dataset,) = dialog.datasets()
+    assert dataset.curve.reflectivity == pytest.approx((0.25, 1.0, 0.0625))
+    assert dataset.curve.uncertainty == pytest.approx((10 / 400, 20 / 400, 5 / 400))
+    layout = dialog.layout_options()
+    assert layout is not None
+    assert layout.counts
+    assert layout.full_scale is None
+    assert float(cell(dialog, 1, 3)) == pytest.approx(1.0)
+
+
+def test_counts_full_scale_normalization(qtbot: QtBot, tmp_path: Path) -> None:
+    dialog = counts_dialog(qtbot, tmp_path)
+    dialog.normalize_combo.setCurrentIndex(dialog.normalize_combo.findData(True))
+    dialog.full_scale_spin.setValue(1000)
+    (dataset,) = dialog.datasets()
+    assert dataset.curve.reflectivity == pytest.approx((0.1, 0.4, 0.025))
+    assert dataset.curve.uncertainty == pytest.approx((0.01, 0.02, 0.005))
+    layout = dialog.layout_options()
+    assert layout is not None
+    assert layout.full_scale == 1000.0
+
+
+def test_counts_factor(qtbot: QtBot, tmp_path: Path) -> None:
+    dialog = counts_dialog(qtbot, tmp_path)
+    dialog.scale_spin.setValue(0.5)
+    (dataset,) = dialog.datasets()
+    assert dataset.curve.reflectivity == pytest.approx((0.125, 0.5, 0.03125))
+    layout = dialog.layout_options()
+    assert layout is not None
+    assert layout.reflectivity_scale == 0.5
+
+
+def test_counts_with_uncertainty_column(qtbot: QtBot, tmp_path: Path) -> None:
+    dialog = counts_dialog(qtbot, tmp_path, "t,N,dN\n0.1,100,5\n0.2,400,8\n")
+    (dataset,) = dialog.datasets()
+    assert dataset.curve.uncertainty == pytest.approx((5 / 400, 8 / 400))
+
+
+def test_counts_zero_count_has_one_count_uncertainty(qtbot: QtBot, tmp_path: Path) -> None:
+    dialog = counts_dialog(qtbot, tmp_path, "t,N\n0.1,0\n0.2,400\n")
+    (dataset,) = dialog.datasets()
+    assert dataset.curve.uncertainty == pytest.approx((1 / 400, 20 / 400))
+
+
+def test_counts_visibility(qtbot: QtBot, tmp_path: Path) -> None:
+    dialog = counts_dialog(qtbot, tmp_path)
+    assert dialog.percent_check.isHidden()
+    assert not dialog.normalize_widget.isHidden()
+    assert dialog.full_scale_spin.isHidden()
+    assert not dialog.scale_spin.isHidden()
+    assert dialog.r_label.text() == "N"
+    dialog.normalize_combo.setCurrentIndex(dialog.normalize_combo.findData(True))
+    assert not dialog.full_scale_spin.isHidden()
+    dialog.normalize_combo.setCurrentIndex(dialog.normalize_combo.findData(False))
+    assert dialog.full_scale_spin.isHidden()
+    dialog.values_combo.setCurrentIndex(dialog.values_combo.findData(False))
+    assert not dialog.percent_check.isHidden()
+    assert dialog.normalize_widget.isHidden()
+    assert dialog.r_label.text() == "R"
+
+
+def test_count_widgets_disabled_for_export(qtbot: QtBot, tmp_path: Path) -> None:
+    dialog = make(qtbot)
+    dialog.set_path(write_export(tmp_path))
+    assert not dialog.values_combo.isEnabled()
+    assert not dialog.normalize_combo.isEnabled()
+    assert not dialog.scale_spin.isEnabled()
+
+
 def test_broken_file_shows_error(qtbot: QtBot, tmp_path: Path) -> None:
     dialog = make(qtbot)
     dialog.set_path(write(tmp_path, "0.1,0.9\n0.2,abc\n"))

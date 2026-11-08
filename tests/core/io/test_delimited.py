@@ -170,6 +170,65 @@ def test_reflectivity_scale(tmp_path: Path) -> None:
     assert curve.uncertainty == pytest.approx((0.09, 0.05))
 
 
+def test_counts_normalized_to_maximum(tmp_path: Path) -> None:
+    path = write(tmp_path, "0.1,400\n0.2,1600\n0.3,100\n0.4,0\n")
+    curve = read_one(path, CsvLayout(counts=True))
+    assert curve.reflectivity == pytest.approx((0.25, 1.0, 0.0625, 0.0))
+    assert curve.uncertainty == pytest.approx((20 / 1600, 40 / 1600, 10 / 1600, 1 / 1600))
+
+
+def test_counts_with_additional_scale(tmp_path: Path) -> None:
+    path = write(tmp_path, "0.1,400\n0.2,1600\n")
+    curve = read_one(path, CsvLayout(counts=True, reflectivity_scale=0.8))
+    assert curve.reflectivity == pytest.approx((0.2, 0.8))
+    assert curve.uncertainty == pytest.approx((0.8 * 20 / 1600, 0.8 * 40 / 1600))
+
+
+def test_counts_normalized_to_full_scale(tmp_path: Path) -> None:
+    path = write(tmp_path, "0.1,400\n0.2,1600\n")
+    curve = read_one(path, CsvLayout(counts=True, full_scale=2000.0))
+    assert curve.reflectivity == pytest.approx((0.2, 0.8))
+    assert curve.uncertainty == pytest.approx((0.01, 0.02))
+
+
+def test_counts_with_uncertainty_column(tmp_path: Path) -> None:
+    path = write(tmp_path, "0.1,400,30\n0.2,1600,50\n")
+    curve = read_one(path, CsvLayout(uncertainty_column=2, counts=True))
+    assert curve.reflectivity == pytest.approx((0.25, 1.0))
+    assert curve.uncertainty == pytest.approx((30 / 1600, 50 / 1600))
+
+
+def test_counts_maximum_of_kept_rows(tmp_path: Path) -> None:
+    path = write(tmp_path, "0.0,5000\n0.1,400\n0.2,800\n")
+    curve = read_one(path, CsvLayout(counts=True))
+    assert curve.reflectivity == pytest.approx((0.5, 1.0))
+
+
+def test_negative_counts_get_uncertainty_of_one_count(tmp_path: Path) -> None:
+    path = write(tmp_path, "0.1,-4\n0.2,100\n")
+    curve = read_one(path, CsvLayout(counts=True))
+    assert curve.reflectivity == pytest.approx((-0.04, 1.0))
+    assert curve.uncertainty == pytest.approx((0.01, 0.1))
+
+
+def test_counts_without_positive_value(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="no positive value"):
+        read_one(write(tmp_path, "0.1,0\n0.2,0\n"), CsvLayout(counts=True))
+
+
+@pytest.mark.parametrize(
+    ("options", "match"),
+    [
+        ({"full_scale": 100.0}, "requires counts"),
+        ({"counts": True, "full_scale": 0.0}, "must be positive"),
+        ({"counts": True, "full_scale": -5.0}, "must be positive"),
+    ],
+)
+def test_invalid_full_scale(options: dict[str, object], match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        CsvLayout(**options)  # type: ignore[arg-type]
+
+
 def test_polarization_and_fixed_values(tmp_path: Path) -> None:
     layout = CsvLayout(energy=8000.0, polarization="s")
     curve = read_one(write(tmp_path, "0.1,0.9\n"), layout)

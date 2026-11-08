@@ -4,7 +4,8 @@ Usage::
 
     xstack fit new OUTPUT.xfit --model MODEL_FILE --data DATA_FILE [--data DATA_FILE ...]
         [--candidate NAME] [--energy KEV] [--angle DEG] [--quantity angle|two_theta|q|energy]
-        [--unit UNIT] [--columns X,R[,SIGMA]] [--percent] [--range LO:HI ...]
+        [--unit UNIT] [--columns X,R[,SIGMA]] [--percent | --scale FACTOR]
+        [--counts [--full-scale COUNTS]] [--range LO:HI ...]
         [--weighting log|linear|chi2] [--name NAME]
     xstack fit run PROJECT.xfit [--output OUT.xfit] [--method METHOD] [--max-evaluations N]
     xstack fit info PROJECT.xfit
@@ -69,20 +70,28 @@ def _column(text: str) -> int | str:
 
 def _layout(args: argparse.Namespace) -> CsvLayout | None:
     """Build the file layout from the command line, or ``None`` to detect it."""
-    if not (args.quantity or args.unit or args.columns or args.percent):
+    options = (args.quantity, args.unit, args.columns, args.percent, args.scale, args.counts)
+    if not any(options) and args.full_scale is None:
         return None
     columns = [_column(c) for c in args.columns.split(",")] if args.columns else [0, 1]
     if not 2 <= len(columns) <= 3:
         raise ValueError("--columns takes two or three columns: X,R[,SIGMA]")
+    if args.percent and args.scale is not None:
+        raise ValueError("--percent and --scale cannot be combined")
+    if args.full_scale is not None and not args.counts:
+        raise ValueError("--full-scale requires --counts")
+    scale = 0.01 if args.percent else 1.0 if args.scale is None else args.scale
     return CsvLayout(
         x_column=columns[0],
         reflectivity_column=columns[1],
         uncertainty_column=columns[2] if len(columns) == 3 else None,
         quantity=cast(Quantity, args.quantity or "angle"),
         unit=args.unit,
-        reflectivity_scale=0.01 if args.percent else 1.0,
+        reflectivity_scale=scale,
         energy=None if args.energy is None else kev(args.energy),
         angle=None if args.angle is None else deg(args.angle),
+        counts=args.counts,
+        full_scale=args.full_scale,
     )
 
 
@@ -260,6 +269,23 @@ def add_commands(parser: argparse.ArgumentParser) -> None:
     new.add_argument("--unit", help=f"unit of the x column ({', '.join(units)})")
     new.add_argument("--columns", help="columns X,R[,SIGMA] as 0-based indices or header names")
     new.add_argument("--percent", action="store_true", help="reflectivity is given in percent")
+    new.add_argument(
+        "--scale",
+        type=float,
+        metavar="FACTOR",
+        help="factor applied to the reflectivity (with --counts: after the normalization)",
+    )
+    new.add_argument(
+        "--counts",
+        action="store_true",
+        help="the R column holds detector counts; σ defaults to sqrt(max(N, 1))",
+    )
+    new.add_argument(
+        "--full-scale",
+        type=float,
+        metavar="COUNTS",
+        help="counts for reflectivity 1 with --counts (default: the largest count)",
+    )
     new.add_argument(
         "--range",
         action="append",
